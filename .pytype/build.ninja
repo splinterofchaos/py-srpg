@@ -1,0 +1,9 @@
+rule infer
+  command = c:\users\splin\appdata\local\programs\python\python37\python.exe -m pytype.single --imports_info $imports --module-name $module -V 3.7 -o $out --no-report-errors --nofail --quick $in
+  description = infer $module
+rule check
+  command = c:\users\splin\appdata\local\programs\python\python37\python.exe -m pytype.single --imports_info $imports --module-name $module -V 3.7 -o $out --analyze-annotated --nofail --quick $in
+  description = check $module
+build C:\Users\splin\src\py-srpg\.pytype\pyi\main.pyi: check C:\Users\splin\src\py-srpg\main.py
+  imports = C:\Users\splin\src\py-srpg\.pytype\imports\main.imports
+  module = main
