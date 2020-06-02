@@ -16,9 +16,7 @@ class IntegerStat(Stat):
     self.value = value
     self.multiplier = multiplier
 
-  def result(self): return self.value * self.multiplier
-
-  def __repr__(self): return f'{self.name}: {self.value}'
+  def __repr__(self): return f'{self.name}: {self.value * self.multiplier}'
 
 
 # Stats like HP, MP, etc..
@@ -28,7 +26,6 @@ class FractionStat(Stat):
     self.n = numerator
     self.d = denominator
 
-  def result(self): return self.n
   def __repr__(self): return f'{self.name}: {self.n}/{self.d}'
 
 
@@ -165,7 +162,6 @@ class TemperatureModifier(Modifier):
     # We pass the value as the name. Both are the same.
     super(TemperatureModifier, self).__init__(reason)
     self.value = value
-
     
     def ModifyIncomingDamage(amount):
       if self.value == TemperatureModifier.Value.COLD:
@@ -283,7 +279,7 @@ class RegenModifier(Modifier):
     self.actions[REGEN] = Regen
 
   def EffectRepr(self):
-    return f'{self.name} regen'
+    return f'{self.name} regen x{self.amount}'
 
   def ModifyStatSheet(self, sheet):
     for a in sheet.attributes:
