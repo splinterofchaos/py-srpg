@@ -1,10 +1,10 @@
 from enum import Enum, auto
 
-import entity
+import stats
 
 
 def Hp(have, total, reason=None):
-  return entity.FractionalAdditionModifier('HP', have, total, reason)
+  return stats.FractionalAdditionModifier('HP', have, total, reason)
 
 class Entity:
   def __init__(self, id):
@@ -18,7 +18,7 @@ class Entity:
      return self.components[key] if key in self.components else default
 
   def Stats(self):
-    sheet = entity.StatSheet()
+    sheet = stats.StatSheet()
     for c in self.children:
       for m in c[Properties.MODIFIERS]:
         m.ModifyStatSheet(sheet)
@@ -96,20 +96,20 @@ def Actor(id, name):
 def DealDamage(actor, amount):
   sheet = actor.Stats()
   for a in sheet.attributes:
-    if a.HasAction(entity.MODIFY_INCOMING_DAMAGE):
-      amount = a.OnAction(entity.MODIFY_INCOMING_DAMAGE, amount)
+    if a.HasAction(stats.MODIFY_INCOMING_DAMAGE):
+      amount = a.OnAction(stats.MODIFY_INCOMING_DAMAGE, amount)
   amount = int(amount)
 
   for i in actor.children:
     for m in i[Properties.MODIFIERS]:
-      if m.HasAction(entity.CONSUME):
-        amount = m.OnAction(entity.CONSUME, 'HP', amount)
+      if m.HasAction(stats.CONSUME):
+        amount = m.OnAction(stats.CONSUME, 'HP', amount)
 
 
 # TODO: This class needs to know about the Properties enum, but is this the best
 # place for it?
 REGEN = 'regen'
-class RegenModifier(entity.Modifier):
+class RegenModifier(stats.Modifier):
   def __init__(self, name, amount=1, reason=None):
     super().__init__(reason)
     self.name = name
@@ -120,8 +120,8 @@ class RegenModifier(entity.Modifier):
 
       def RegenItem(item, amount):
         for m in item[Properties.MODIFIERS]:
-          if m.HasAction(entity.REFUND):
-            amount = m.OnAction(entity.REFUND, self.name, acc=amount)
+          if m.HasAction(stats.REFUND):
+            amount = m.OnAction(stats.REFUND, self.name, acc=amount)
         return amount
 
       item = self.parent
@@ -145,50 +145,51 @@ class RegenModifier(entity.Modifier):
     sheet.attributes.append(copy)
 
 
-_Test_id = 0
+if __name__ == '__main__':
+  _Test_id = 0
 
-def Test_MakeItem(name, modifiers):
-  global _Test_id
-  _Test_id += 1
-  i = Item(_Test_id, name)
-  for m in modifiers: AddModifier(i, m)
-  print('created item:\n%s\n' % i)
-  return i
+  def Test_MakeItem(name, modifiers):
+    global _Test_id
+    _Test_id += 1
+    i = Item(_Test_id, name)
+    for m in modifiers: AddModifier(i, m)
+    print('created item:\n%s\n' % i)
+    return i
 
-def Test_MakeActor(name, inventory):
-  global _Test_id
-  _Test_id += 1
-  a = Actor(_Test_id, name)
-  for i in inventory: a.PickUp(i)
-  print('created actor:\n%s\n' % a)
-  return a
+  def Test_MakeActor(name, inventory):
+    global _Test_id
+    _Test_id += 1
+    a = Actor(_Test_id, name)
+    for i in inventory: a.PickUp(i)
+    print('created actor:\n%s\n' % a)
+    return a
 
-def Test_Pickup(actor, item):
-  actor.PickUp(item)
-  print(f'{actor[Properties.NAME]} picked up {item}')
-  print()
+  def Test_Pickup(actor, item):
+    actor.PickUp(item)
+    print(f'{actor[Properties.NAME]} picked up {item}')
+    print()
 
-def Test_ActorTakesDamage(actor, d):
-  DealDamage(a, d)
-  print('%s took %s damage\n%s\n' % (actor[Properties.NAME], d, actor))
+  def Test_ActorTakesDamage(actor, d):
+    DealDamage(a, d)
+    print('%s took %s damage\n%s\n' % (actor[Properties.NAME], d, actor))
 
-potion1 = Test_MakeItem('health potion', [Hp(5, 5)])
-potion2 = Test_MakeItem('donut', [Hp(5, 5, 'tasty')])
-a = Test_MakeActor('foo', [potion1, potion2])
-Test_ActorTakesDamage(a, 5)
+  potion1 = Test_MakeItem('health potion', [Hp(5, 5)])
+  potion2 = Test_MakeItem('donut', [Hp(5, 5, 'tasty')])
+  a = Test_MakeActor('foo', [potion1, potion2])
+  Test_ActorTakesDamage(a, 5)
 
-ice = Test_MakeItem('ice cube', [entity.TemperatureModifier(entity.TemperatureModifier.Value.COLD)])
-Test_Pickup(a, ice)
-Test_ActorTakesDamage(a, 5)
+  ice = Test_MakeItem('ice cube', [stats.TemperatureModifier(stats.TemperatureModifier.Value.COLD)])
+  Test_Pickup(a, ice)
+  Test_ActorTakesDamage(a, 5)
 
-coffee = Test_MakeItem('coffee', [entity.TemperatureModifier(entity.TemperatureModifier.Value.HOT, 'steamy')])
-Test_Pickup(a, coffee)
-Test_ActorTakesDamage(a, 1)
-coffee2 = Test_MakeItem('coffee', [entity.TemperatureModifier(entity.TemperatureModifier.Value.HOT, 'steamy')])
-Test_Pickup(a, coffee2)
-Test_ActorTakesDamage(a, 1)
+  coffee = Test_MakeItem('coffee', [stats.TemperatureModifier(stats.TemperatureModifier.Value.HOT, 'steamy')])
+  Test_Pickup(a, coffee)
+  Test_ActorTakesDamage(a, 1)
+  coffee2 = Test_MakeItem('coffee', [stats.TemperatureModifier(stats.TemperatureModifier.Value.HOT, 'steamy')])
+  Test_Pickup(a, coffee2)
+  Test_ActorTakesDamage(a, 1)
 
-hand_lotion = Test_MakeItem('hand lotion', [RegenModifier('HP', 1)])
-Test_Pickup(a, hand_lotion)
-OnAction(a, REGEN)
-print(a)
+  hand_lotion = Test_MakeItem('hand lotion', [RegenModifier('HP', 1)])
+  Test_Pickup(a, hand_lotion)
+  OnAction(a, REGEN)
+  print(a)

@@ -1,6 +1,8 @@
 import pygame
 import typing
 
+import actor
+
 BACKGROUND_COLOR = [0,0,0]
 WHITE = [255,255,255]
 
@@ -109,19 +111,6 @@ def tile_grid_from_string(tile_types, string_map):
       grid.set(col, row, tile_types[c])
   return grid
 
-
-class Entity:
-  def __init__(self, id):
-    self.id_ = id
-    self.components_ = dict()
-
-  def set(self, key, data): self.components_[key] = data
-  def get(self, key, default=None):
-     return self.components_[key] if key in self.components_ else default
-
-  def set_many(self, key_datas):
-    for key, data in key_datas: self.set(key, data)
-
 # Some standard components
 POS = "pos"
 IMAGE = "image"
@@ -137,26 +126,34 @@ SPACE_LEN = SPACING * 2
 def blit_text(surfaces, dest, font, text):
   x, y = 0, 0
 
-  def new_line_if_needed(surface_len, x=x, y=y):
+  def Newline(x, y):
+    y += TILE_SIZE
+    x = 0
+    return x, y
+
+  def NewlineIfNeeded(surface_len, x=x, y=y):
     if x + surface_len >= dest.get_width():
-      y += TILE_SIZE
-      x = 0
+      x, y = Newline(x, y)
     return x, y
 
   # Blit a word at a time.
+  lines = text.split('\n')
   words = text.split(' ')
-  for i, word in enumerate(words):
-    glyphs = [surfaces.get_char(font, c) for c in word]
-    graphical_len = (sum([g.get_width() for g in glyphs]) +
-                     (len(glyphs) - 1) * SPACE_LEN)
-    if x: x, y = new_line_if_needed(graphical_len, x, y)
+  for line in lines:
+    for i, word in enumerate(line.split('\n')):
+      glyphs = [surfaces.get_char(font, c) for c in word]
+      graphical_len = (sum([g.get_width() for g in glyphs]) +
+                       (len(glyphs) - 1) * SPACE_LEN)
+      if x: x, y = NewlineIfNeeded(graphical_len, x, y)
 
-    for g in glyphs:
-      x, y = new_line_if_needed(g.get_width(), x, y)
-      dest.blit(g, (x,y))
-      x += g.get_width() + 1
+      for g in glyphs:
+        x, y = NewlineIfNeeded(g.get_width(), x, y)
+        dest.blit(g, (x,y))
+        x += g.get_width() + 1
 
-    if i != len(words) - 1: x += SPACE_LEN
+      if i != len(words) - 1: x += SPACE_LEN
+
+    x, y = Newline(x, y)
 
 def graphical_pos(camera_offset, grid_pos):
   return ((grid_pos[0] - camera_offset[0]) * TILE_SIZE,
@@ -187,11 +184,17 @@ def main():
   }
   tile_grid = tile_grid_from_string(tile_types, SILLY_STARTING_MAP_FOR_TESTING)
 
+  # TODO: Might use a dict in the future. Otherwise, entities don't really need
+  # an ID.
   entities = []
-  player = Entity(0)
-  player.set_many(((POS, (5,5)),
-                   (IMAGE, surfaces.register_text_from_font(font, '@')),
-                   (DESC, "A very simple dood, but with too many words.")))
+
+  PLAYER = 0
+  player = actor.Actor(PLAYER, 'player')
+  player.UpdatePairs((
+    (actor.Properties.POS, (5,5)),
+    (actor.Properties.IMAGE, surfaces.register_text_from_font(font, '@')),
+    (actor.Properties.DESC, "A very simple dood.")),
+  )
   entities.append(player)
 
   screen = pygame.display.set_mode((TILE_SIZE*52, TILE_SIZE*45))
@@ -219,8 +222,8 @@ def main():
                        graphical_pos(camera_offset, (x, y)))
 
     for e in entities:
-      image = e.get(IMAGE)
-      pos = e.get(POS)
+      image = e.Get(actor.Properties.IMAGE)
+      pos = e.Get(actor.Properties.POS)
       if not (image and pos): continue
       map_surface.blit(surfaces[image], graphical_pos(camera_offset, pos))
 
@@ -230,13 +233,13 @@ def main():
 
     if (previous_mouse_grid_pos is not None and
         previous_mouse_grid_pos != mouse_pos):
-      if not tile_grid.has_tile(mouse_pos)):
+      if not tile_grid.has_tile(mouse_pos):
         desc = None
       else:
-        desc = tile_grid.get(mouse_pos).desc()
+        desc = f'{mouse_pos}:\n{tile_grid.get(mouse_pos).desc()}'
         for e in entities:
-          if e.get(POS) == mouse_pos:
-            desc = e.get(DESC)
+          if e.Get(actor.Properties.POS) == mouse_pos:
+            desc = f'{mouse_pos}:\n{str(e)}'
             break
 
     previous_mouse_grid_pos = mouse_pos
