@@ -15,23 +15,23 @@ class SurfaceRegistry:
     self.registry_ = dict()
     self.char_registry_ = dict()
 
-  def register_surface(self, surface):
+  def RegisterSurface(self, surface):
     self.registry_[self.next_id_] = surface
     id = self.next_id_
     self.next_id_ += 1
     return id
 
-  def unregister_surface(self, id):
+  def UnregisterSurface(self, id):
     if id in self.registry_:
       del self.registry_[id]
 
-  def register_text_from_font(self, font, text, color=WHITE,
-                              background=BACKGROUND_COLOR):
-    return self.register_surface(font.render(text, True, color, background))
+  def RegisterTextFromFont(self, font, text, color=WHITE,
+                           background=BACKGROUND_COLOR):
+    return self.RegisterSurface(font.render(text, True, color, background))
 
-  def get_char(self, font, c):
+  def GetChar(self, font, c):
     if c not in self.char_registry_:
-      id = self.register_text_from_font(font, c)
+      id = self.RegisterTextFromFont(font, c)
       self.char_registry_[c] = id
     return self[self.char_registry_[c]]
 
@@ -61,29 +61,26 @@ class TileGrid:
     self.min_y_ = None
     self.max_y_ = None
 
-  def get(self, xy, y=None):
+  def Get(self, xy, y=None):
     return self.grid_[xy if y is None else (xy, y)]
 
-  def iterate(self):
+  def Iterate(self):
     for (x, y), type in self.grid_.items():
       yield (x, y), type
 
-  def set(self, x, y, tile_type):
+  def Set(self, x, y, tile_type):
     self.min_x_ = x if self.min_x_ is None else min(self.min_x_, x)
     self.min_y_ = y if self.min_y_ is None else min(self.min_y_, y)
     self.max_x_ = x if self.max_x_ is None else max(self.max_x_, x)
     self.max_y_ = y if self.max_y_ is None else max(self.max_y_, y)
     self.grid_[(x, y)] = tile_type
 
-  def register_tile_type(self, handle, type):
+  def RegisterTileType(self, handle, type):
     # TODO: make sure an entry doesn't already exist
     self.tile_types_[handle] = type
 
-  def has_tile(self, xy, y=None):
+  def HasTile(self, xy, y=None):
     return (xy if y is None else (x,y)) in self.grid_
-
-  def min_x_y(self): return (self.min_x_, self.min_y_)
-  def max_x_y(self): return (self.max_x_, self.max_y_)
 
 SILLY_STARTING_MAP_FOR_TESTING = """
   ##############
@@ -103,12 +100,12 @@ SILLY_STARTING_MAP_FOR_TESTING = """
        ##############
   """
 
-def tile_grid_from_string(tile_types, string_map):
+def TileGridFromString(tile_types, string_map):
   grid = TileGrid()
   for row, line in enumerate(string_map.split('\n')):
     for col, c in enumerate(line):
       if c == ' ': continue
-      grid.set(col, row, tile_types[c])
+      grid.Set(col, row, tile_types[c])
   return grid
 
 # Some standard components
@@ -141,7 +138,7 @@ def blit_text(surfaces, dest, font, text):
   words = text.split(' ')
   for line in lines:
     for i, word in enumerate(line.split('\n')):
-      glyphs = [surfaces.get_char(font, c) for c in word]
+      glyphs = [surfaces.GetChar(font, c) for c in word]
       graphical_len = (sum([g.get_width() for g in glyphs]) +
                        (len(glyphs) - 1) * SPACE_LEN)
       if x: x, y = NewlineIfNeeded(graphical_len, x, y)
@@ -155,11 +152,11 @@ def blit_text(surfaces, dest, font, text):
 
     x, y = Newline(x, y)
 
-def graphical_pos(camera_offset, grid_pos):
+def GraphicalPos(camera_offset, grid_pos):
   return ((grid_pos[0] - camera_offset[0]) * TILE_SIZE,
           (grid_pos[1] - camera_offset[1]) * TILE_SIZE)
 
-def grid_pos(camera_offset, graphical_pos):
+def GridPos(camera_offset, graphical_pos):
   from math import floor
   return (floor((graphical_pos[0] / TILE_SIZE) + camera_offset[0]),
           floor((graphical_pos[1] / TILE_SIZE) + camera_offset[1]))
@@ -177,12 +174,12 @@ def main():
   surfaces = SurfaceRegistry()
 
   tile_types = {
-      '#': TileType(False, surfaces.register_text_from_font(font, '#'),
+      '#': TileType(False, surfaces.RegisterTextFromFont(font, '#'),
                     'A hard stone wall.'),
-      '.': TileType(True, surfaces.register_text_from_font(font, '.'),
+      '.': TileType(True, surfaces.RegisterTextFromFont(font, '.'),
                     'A simple stone floor.'),
   }
-  tile_grid = tile_grid_from_string(tile_types, SILLY_STARTING_MAP_FOR_TESTING)
+  tile_grid = TileGridFromString(tile_types, SILLY_STARTING_MAP_FOR_TESTING)
 
   # TODO: Might use a dict in the future. Otherwise, entities don't really need
   # an ID.
@@ -192,7 +189,7 @@ def main():
   player = actor.Actor(PLAYER, 'player')
   player.UpdatePairs((
     (actor.Properties.POS, (5,5)),
-    (actor.Properties.IMAGE, surfaces.register_text_from_font(font, '@')),
+    (actor.Properties.IMAGE, surfaces.RegisterTextFromFont(font, '@')),
     (actor.Properties.DESC, "A very simple dood.")),
   )
   entities.append(player)
@@ -217,26 +214,26 @@ def main():
       if event.type == pygame.QUIT:
         running = False
 
-    for (x,y), type in tile_grid.iterate():
-      map_surface.blit(surfaces[tile_grid.get(x, y).surface_handle()],
-                       graphical_pos(camera_offset, (x, y)))
+    for (x,y), type in tile_grid.Iterate():
+      map_surface.blit(surfaces[tile_grid.Get(x, y).surface_handle()],
+                       GraphicalPos(camera_offset, (x, y)))
 
     for e in entities:
       image = e.Get(actor.Properties.IMAGE)
       pos = e.Get(actor.Properties.POS)
       if not (image and pos): continue
-      map_surface.blit(surfaces[image], graphical_pos(camera_offset, pos))
+      map_surface.blit(surfaces[image], GraphicalPos(camera_offset, pos))
 
-    mouse_pos = grid_pos(camera_offset, pygame.mouse.get_pos())
-    map_surface.blit(selector_surface, graphical_pos(camera_offset, mouse_pos),
+    mouse_pos = GridPos(camera_offset, pygame.mouse.get_pos())
+    map_surface.blit(selector_surface, GraphicalPos(camera_offset, mouse_pos),
                      special_flags=pygame.BLEND_RGBA_ADD)
 
     if (previous_mouse_grid_pos is not None and
         previous_mouse_grid_pos != mouse_pos):
-      if not tile_grid.has_tile(mouse_pos):
+      if not tile_grid.HasTile(mouse_pos):
         desc = None
       else:
-        desc = f'{mouse_pos}:\n{tile_grid.get(mouse_pos).desc()}'
+        desc = f'{mouse_pos}:\n{tile_grid.Get(mouse_pos).desc()}'
         for e in entities:
           if e.Get(actor.Properties.POS) == mouse_pos:
             desc = f'{mouse_pos}:\n{str(e)}'
