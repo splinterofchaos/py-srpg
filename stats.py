@@ -72,12 +72,12 @@ def ModifierPrefix(x): return '+' if x >= 0 else '-'
 
 # Adds to a stat or its multiplier.
 class AdditionModifier(Modifier):
-  def __init__(self, name, value=0, multiplier=1, reason=None):
+  def __init__(self, name, value=0, multiplier=None, reason=None):
     super(AdditionModifier, self).__init__(reason)
     self.name = name
     assert bool(value) ^ bool(multiplier)
     self.value = value
-    self.multiplier = multiplier
+    self.multiplier = multiplier or 1
 
   def EffectRepr(self):
     pre = '+' if self.value > 0 and self.multiplier > 0 else '-'

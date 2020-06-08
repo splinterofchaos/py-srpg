@@ -6,6 +6,8 @@ import stats
 def Hp(have, total, reason=None):
   return stats.FractionalAdditionModifier('HP', have, total, reason)
 
+NOT_AN_ID = -1
+
 class Entity:
   def __init__(self, id):
     self.id = id

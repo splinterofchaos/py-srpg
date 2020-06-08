@@ -1,7 +1,11 @@
 import pygame
 import typing
+import random
+import copy
 
 import actor
+
+from item_compendium import item_compendium
 
 BACKGROUND_COLOR = [0,0,0]
 WHITE = [255,255,255]
@@ -108,6 +112,25 @@ def TileGridFromString(tile_types, string_map):
       grid.Set(col, row, tile_types[c])
   return grid
 
+def ValidTiles(tile_grid, entities):
+  taken_positions = {e[actor.Properties.POS] for e in entities}
+  res = []
+  for pos, type in tile_grid.Iterate():
+    if type.walkable() and pos not in taken_positions: res.append(pos)
+
+  return res
+
+# TODO: The image should be assigned by the compendium, but we need to move
+# graphics handling to an importable library, first.
+def Spawn(entity_template, id, position, image):
+  # TODO: Not all things are safe to copy like this. Consider making a Copy()
+  # function within Modifier.
+  e = copy.deepcopy(entity_template)
+  e.id = id
+  e[actor.Properties.POS] = position
+  e[actor.Properties.IMAGE] = image
+  return e
+
 # Some standard components
 POS = "pos"
 IMAGE = "image"
@@ -135,9 +158,9 @@ def blit_text(surfaces, dest, font, text):
 
   # Blit a word at a time.
   lines = text.split('\n')
-  words = text.split(' ')
   for line in lines:
-    for i, word in enumerate(line.split('\n')):
+    words = line.split(' ')
+    for i, word in enumerate(words):
       glyphs = [surfaces.GetChar(font, c) for c in word]
       graphical_len = (sum([g.get_width() for g in glyphs]) +
                        (len(glyphs) - 1) * SPACE_LEN)
@@ -165,6 +188,7 @@ WINDOW_SIZE = (1000, 1000)
 LOOK_DESCRIPTION_START = (600, 100)
 
 def main():
+  random.seed()
   pygame.init()
   pygame.display.set_caption("hello world")
   pygame.font.init()
@@ -193,6 +217,13 @@ def main():
     (actor.Properties.DESC, "A very simple dood.")),
   )
   entities.append(player)
+
+  # Spawn a random item to play with.
+  valid_tiles = ValidTiles(tile_grid, entities)
+  valid_pos = random.choice(valid_tiles)
+  random_item = random.choice(item_compendium)
+  entities.append(Spawn(random_item, 1, valid_pos,
+                        surfaces.RegisterTextFromFont(font, 'I')))
 
   screen = pygame.display.set_mode((TILE_SIZE*52, TILE_SIZE*45))
 
