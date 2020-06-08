@@ -29,12 +29,6 @@ class FractionStat(Stat):
   def __repr__(self): return f'{self.name}: {self.n}/{self.d}'
 
 
-# These are special attributes which always exist.
-HP = 'HP'  # If not present or zero, the actor is dead.
-SPEED = 'SPD'  # Determines move order
-HIT = 'HIT'  # The chance to land a blow out of 100.
-
-
 # A collection of stats and attributes. The sum of modifiers on an item or
 # actor.
 class StatSheet:
@@ -115,20 +109,20 @@ class FractionalAdditionModifier(Modifier):
     self.n = n
     self.d = d
 
-    def Consume(stat, amount):
-      if stat != self.name: return amount
-      left = max(0, self.n - amount)
-      amount -= min(self.n, amount)
+    def Consume(stat, acc=None):
+      if stat != self.name: return acc
+      left = max(0, self.n - acc)
+      acc -= min(self.n, acc)
       self.n = left
-      return amount
+      return acc
     self.actions[CONSUME] = Consume
 
-    def Refund(stat, amount):
-      if stat != self.name: return amount
-      have = min(self.d, self.n + amount)
-      amount -= min(amount, self.d - self.n)
+    def Refund(stat, acc=None):
+      if stat != self.name: return acc
+      have = min(self.d, self.n + acc)
+      acc -= min(acc, self.d - self.n)
       self.n = have
-      return amount
+      return acc
     self.actions[REFUND] = Refund
 
   def EffectRepr(self):
@@ -145,10 +139,6 @@ class FractionalAdditionModifier(Modifier):
       stat.d += self.d
 
 
-def Hp(have, total, reason=None):
-  return FractionalAdditionModifier(HP, have, total, reason)
-
-
 MODIFY_INCOMING_DAMAGE = 'modify incomming damage'
 
 
@@ -163,12 +153,12 @@ class TemperatureModifier(Modifier):
     super(TemperatureModifier, self).__init__(reason)
     self.value = value
     
-    def ModifyIncomingDamage(amount):
+    def ModifyIncomingDamage(acc=None):
       if self.value == TemperatureModifier.Value.COLD:
-        amount /= 2
+        acc /= 2
       elif self.value == TemperatureModifier.Value.HOT:
-        amount *= 2
-      return amount
+        acc *= 2
+      return acc
     self.actions[MODIFY_INCOMING_DAMAGE] = ModifyIncomingDamage
 
   # When we want to copy ourselves, but forget the reason (such as when copying
@@ -197,40 +187,3 @@ class TemperatureModifier(Modifier):
         return
 
     sheet.attributes.append(self.CopyNoReason())
-
-
-REGEN = 'regen'
-class RegenModifier(Modifier):
-  def __init__(self, name, amount=1, reason=None):
-    super().__init__(reason)
-    self.name = name
-    self.amount = amount
-
-    def Regen():
-      amount = self.amount
-
-      def RegenItem(item, amount):
-        for m in i.modifiers:
-          if m.HasAction(REFUND):
-            amount = m.OnAction(REFUND, self.name, amount)
-        return amount
-
-      item = self.parent
-      if item.parent:
-        for i in item.parent.inventory:
-          amount = RegenItem(i, amount)
-      else:
-        amount = RegenItem(item, amount)
-    self.actions[REGEN] = Regen
-
-  def EffectRepr(self):
-    return f'{self.name} regen x{self.amount}'
-
-  def ModifyStatSheet(self, sheet):
-    for a in sheet.attributes:
-      if isinstance(a, RegenModifier) and a.name == self.name:
-        a.amount += self.amount
-        return
-    sheet.attributes.append(copy.deepcopy(self))
-
-
