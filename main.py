@@ -5,7 +5,6 @@ import copy
 
 import actor
 import graphics
-
 from item_compendium import item_compendium
 
 
@@ -105,6 +104,17 @@ DESC = "description"
 WINDOW_SIZE = (1000, 1000)
 LOOK_DESCRIPTION_START = (600, 100)
 
+# Represents all state held by the game like the list of entities, the map,
+# etc.. Useful for passing around to functions that may want to modify the
+# state of the world.
+class Game:
+  def __init__(self):
+    self.tile_grid = None
+    # TODO: Might use a dict in the future.
+    self.entities = []
+
+    # State such as whose turn it currently is will eventually go here, too.
+
 def main():
   random.seed()
   pygame.init()
@@ -113,15 +123,14 @@ def main():
 
   surface_reg = graphics.SurfaceRegistry()
 
+  game = Game()
+
   tile_types = {
       '#': TileType(False, '#', 'A hard stone wall.'),
       '.': TileType(True, '.', 'A simple stone floor.'),
   }
-  tile_grid = TileGridFromString(tile_types, SILLY_STARTING_MAP_FOR_TESTING)
-
-  # TODO: Might use a dict in the future. Otherwise, entities don't really need
-  # an ID.
-  entities = []
+  game.tile_grid = TileGridFromString(
+      tile_types, SILLY_STARTING_MAP_FOR_TESTING)
 
   PLAYER = 0
   player = actor.Actor(PLAYER, 'player')
@@ -130,13 +139,13 @@ def main():
     (actor.Properties.IMAGE, '@'),
     (actor.Properties.DESC, "A very simple dood.")),
   )
-  entities.append(player)
+  game.entities.append(player)
 
   # Spawn a random item to play with.
-  valid_tiles = ValidTiles(tile_grid, entities)
+  valid_tiles = ValidTiles(game.tile_grid, game.entities)
   valid_pos = random.choice(valid_tiles)
   random_item = random.choice(item_compendium)
-  entities.append(SpawnItem(random_item, 1, valid_pos))
+  game.entities.append(SpawnItem(random_item, 1, valid_pos))
 
   screen = pygame.display.set_mode((graphics.TILE_SIZE*52, graphics.TILE_SIZE*45))
 
@@ -161,11 +170,11 @@ def main():
       if event.type == pygame.QUIT:
         running = False
 
-    for (x,y), type in tile_grid.Iterate():
-      graphics.GridBlit(surface_reg[tile_grid.Get(x, y).surface_handle()],
+    for (x,y), type in game.tile_grid.Iterate():
+      graphics.GridBlit(surface_reg[game.tile_grid.Get(x, y).surface_handle()],
                         map_surface, camera_offset, (x, y))
 
-    for e in entities:
+    for e in game.entities:
       image = e.Get(actor.Properties.IMAGE)
       pos = e.Get(actor.Properties.POS)
       if not (image and pos): continue
@@ -177,11 +186,11 @@ def main():
 
     if (previous_mouse_grid_pos is not None and
         previous_mouse_grid_pos != mouse_pos):
-      if not tile_grid.HasTile(mouse_pos):
+      if not game.tile_grid.HasTile(mouse_pos):
         desc = None
       else:
-        desc = f'{mouse_pos}:\n{tile_grid.Get(mouse_pos).desc()}'
-        for e in entities:
+        desc = f'{mouse_pos}:\n{game.tile_grid.Get(mouse_pos).desc()}'
+        for e in game.entities:
           if e.Get(actor.Properties.POS) == mouse_pos:
             desc = f'{mouse_pos}:\n{str(e)}'
             break
