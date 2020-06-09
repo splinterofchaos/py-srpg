@@ -112,8 +112,6 @@ def main():
   pygame.display.set_caption("hello world")
   pygame.font.init()
 
-  font = pygame.font.SysFont(pygame.font.get_default_font(), 20)
-
   surface_reg = graphics.SurfaceRegistry()
 
   tile_types = {
@@ -165,18 +163,18 @@ def main():
         running = False
 
     for (x,y), type in tile_grid.Iterate():
-      surface_reg.GridBlit(tile_grid.Get(x, y).surface_handle(), map_surface,
-                           camera_offset, (x, y))
+      graphics.GridBlit(surface_reg[tile_grid.Get(x, y).surface_handle()],
+                        map_surface, camera_offset, (x, y))
 
     for e in entities:
       image = e.Get(actor.Properties.IMAGE)
       pos = e.Get(actor.Properties.POS)
       if not (image and pos): continue
-      surface_reg.GridBlit(image, map_surface, camera_offset, pos)
+      graphics.GridBlit(surface_reg[image], map_surface, camera_offset, pos)
 
     mouse_pos = graphics.GridPos(camera_offset, pygame.mouse.get_pos())
-    surface_reg.GridBlit(selector, map_surface, camera_offset, mouse_pos,
-                         special_flags=pygame.BLEND_RGBA_ADD)
+    graphics.GridBlit(surface_reg[selector], map_surface, camera_offset,
+                      mouse_pos, special_flags=pygame.BLEND_RGBA_ADD)
 
     if (previous_mouse_grid_pos is not None and
         previous_mouse_grid_pos != mouse_pos):

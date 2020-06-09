@@ -57,14 +57,14 @@ class SurfaceRegistry:
       idx = self.GetChar(idx)
     return self.registry[idx]
 
-  def Blit(self, id, dest, pos, **kwargs):
-    dest.blit(self[id], pos, **kwargs)
+def Blit(surface, dest, pos, **kwargs):
+  dest.blit(surface, pos, **kwargs)
 
-  def GridBlit(self, id, dest, camera_offset, grid_pos, **kwargs):
-    self.Blit(id, dest, GraphicalPos(camera_offset, grid_pos), **kwargs)
+def GridBlit(surface, dest, camera_offset, grid_pos, **kwargs):
+  Blit(surface, dest, GraphicalPos(camera_offset, grid_pos), **kwargs)
 
 # Blit `text` one char at a time to `dest` starting at (0, 0). Handles wrapping.
-def BlitText(surfaces, dest, text):
+def BlitText(surface_reg, dest, text):
   x, y = 0, 0
 
   def Newline(x, y):
@@ -82,14 +82,14 @@ def BlitText(surfaces, dest, text):
   for line in lines:
     words = line.split(' ')
     for i, word in enumerate(words):
-      glyphs = [surfaces[c] for c in word]
+      glyphs = [surface_reg[c] for c in word]
       graphical_len = (sum([g.get_width() for g in glyphs]) +
                        (len(glyphs) - 1) * SPACE_LEN)
       if x: x, y = NewlineIfNeeded(graphical_len, x, y)
 
       for g in glyphs:
         x, y = NewlineIfNeeded(g.get_width(), x, y)
-        dest.blit(g, (x,y))
+        Blit(g, dest, (x,y))
         x += g.get_width() + 1
 
       if i != len(words) - 1: x += SPACE_LEN
