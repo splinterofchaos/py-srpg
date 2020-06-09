@@ -117,10 +117,8 @@ def main():
   surface_reg = graphics.SurfaceRegistry()
 
   tile_types = {
-      '#': TileType(False, surface_reg.RegisterTextFromFont(font, '#'),
-                    'A hard stone wall.'),
-      '.': TileType(True, surface_reg.RegisterTextFromFont(font, '.'),
-                    'A simple stone floor.'),
+      '#': TileType(False, '#', 'A hard stone wall.'),
+      '.': TileType(True, '.', 'A simple stone floor.'),
   }
   tile_grid = TileGridFromString(tile_types, SILLY_STARTING_MAP_FOR_TESTING)
 
@@ -132,7 +130,7 @@ def main():
   player = actor.Actor(PLAYER, 'player')
   player.UpdatePairs((
     (actor.Properties.POS, (5,5)),
-    (actor.Properties.IMAGE, surface_reg.RegisterTextFromFont(font, '@')),
+    (actor.Properties.IMAGE, '@'),
     (actor.Properties.DESC, "A very simple dood.")),
   )
   entities.append(player)
@@ -141,8 +139,7 @@ def main():
   valid_tiles = ValidTiles(tile_grid, entities)
   valid_pos = random.choice(valid_tiles)
   random_item = random.choice(item_compendium)
-  entities.append(SpawnItem(random_item, 1, valid_pos,
-                            surface_reg.RegisterTextFromFont(font, 'I')))
+  entities.append(SpawnItem(random_item, 1, valid_pos, 'I'))
 
   screen = pygame.display.set_mode((graphics.TILE_SIZE*52, graphics.TILE_SIZE*45))
 
@@ -158,6 +155,7 @@ def main():
 
   selector_surface = pygame.Surface((graphics.TILE_SIZE, graphics.TILE_SIZE))
   selector_surface.fill([0,100,100,10])
+  selector = surface_reg.RegisterSurface(selector_surface)
 
   previous_mouse_grid_pos = None
   desc = None
@@ -167,20 +165,18 @@ def main():
         running = False
 
     for (x,y), type in tile_grid.Iterate():
-      map_surface.blit(surface_reg[tile_grid.Get(x, y).surface_handle()],
-                       graphics.GraphicalPos(camera_offset, (x, y)))
+      surface_reg.GridBlit(tile_grid.Get(x, y).surface_handle(), map_surface,
+                           camera_offset, (x, y))
 
     for e in entities:
       image = e.Get(actor.Properties.IMAGE)
       pos = e.Get(actor.Properties.POS)
       if not (image and pos): continue
-      map_surface.blit(surface_reg[image],
-                       graphics.GraphicalPos(camera_offset, pos))
+      surface_reg.GridBlit(image, map_surface, camera_offset, pos)
 
     mouse_pos = graphics.GridPos(camera_offset, pygame.mouse.get_pos())
-    map_surface.blit(selector_surface,
-                     graphics.GraphicalPos(camera_offset, mouse_pos),
-                     special_flags=pygame.BLEND_RGBA_ADD)
+    surface_reg.GridBlit(selector, map_surface, camera_offset, mouse_pos,
+                         special_flags=pygame.BLEND_RGBA_ADD)
 
     if (previous_mouse_grid_pos is not None and
         previous_mouse_grid_pos != mouse_pos):
@@ -196,7 +192,7 @@ def main():
     previous_mouse_grid_pos = mouse_pos
 
     if desc:
-      graphics.BlitText(surface_reg, info_surface, font, desc)
+      graphics.BlitText(surface_reg, info_surface, desc)
 
     pygame.display.flip()
     screen.fill((0,0,0))

@@ -28,6 +28,8 @@ class SurfaceRegistry:
     self.next_id = 1
     self.registry = dict()
     self.char_registry = dict()
+    self.default_font = pygame.font.SysFont(
+        pygame.font.get_default_font(), TILE_SIZE)
 
   def RegisterSurface(self, surface):
     self.registry[self.next_id] = surface
@@ -39,21 +41,30 @@ class SurfaceRegistry:
     if id in self.registry:
       del self.registry[id]
 
-  def RegisterTextFromFont(self, font, text, color=WHITE,
+  def RegisterTextFromFont(self, text, font=None, color=WHITE,
                            background=BACKGROUND_COLOR):
+    font = font or self.default_font
     return self.RegisterSurface(font.render(text, True, color, background))
 
-  def GetChar(self, font, c):
+  def GetChar(self, c):
     if c not in self.char_registry:
-      id = self.RegisterTextFromFont(font, c)
+      id = self.RegisterTextFromFont(c)
       self.char_registry[c] = id
-    return self[self.char_registry[c]]
+    return self.char_registry[c]
 
   def __getitem__(self, idx):
+    if isinstance(idx, str) and len(idx) == 1:
+      idx = self.GetChar(idx)
     return self.registry[idx]
 
+  def Blit(self, id, dest, pos, **kwargs):
+    dest.blit(self[id], pos, **kwargs)
+
+  def GridBlit(self, id, dest, camera_offset, grid_pos, **kwargs):
+    self.Blit(id, dest, GraphicalPos(camera_offset, grid_pos), **kwargs)
+
 # Blit `text` one char at a time to `dest` starting at (0, 0). Handles wrapping.
-def BlitText(surfaces, dest, font, text):
+def BlitText(surfaces, dest, text):
   x, y = 0, 0
 
   def Newline(x, y):
@@ -71,7 +82,7 @@ def BlitText(surfaces, dest, font, text):
   for line in lines:
     words = line.split(' ')
     for i, word in enumerate(words):
-      glyphs = [surfaces.GetChar(font, c) for c in word]
+      glyphs = [surfaces[c] for c in word]
       graphical_len = (sum([g.get_width() for g in glyphs]) +
                        (len(glyphs) - 1) * SPACE_LEN)
       if x: x, y = NewlineIfNeeded(graphical_len, x, y)
