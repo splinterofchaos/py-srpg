@@ -89,13 +89,12 @@ def ValidTiles(tile_grid, entities):
 
 # TODO: The image should be assigned by the compendium, but we need to move
 # graphics handling to an importable library, first.
-def SpawnItem(entity_template, id, position, image):
+def SpawnItem(entity_template, id, position):
   # TODO: Not all things are safe to copy like this. Consider making a Copy()
   # function within Modifier.
   e = copy.deepcopy(entity_template)
   e.id = id
   e[actor.Properties.POS] = position
-  e[actor.Properties.IMAGE] = image
   return e
 
 # Some standard components
@@ -137,7 +136,7 @@ def main():
   valid_tiles = ValidTiles(tile_grid, entities)
   valid_pos = random.choice(valid_tiles)
   random_item = random.choice(item_compendium)
-  entities.append(SpawnItem(random_item, 1, valid_pos, 'I'))
+  entities.append(SpawnItem(random_item, 1, valid_pos))
 
   screen = pygame.display.set_mode((graphics.TILE_SIZE*52, graphics.TILE_SIZE*45))
 
