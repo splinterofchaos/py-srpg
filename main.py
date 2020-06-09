@@ -112,6 +112,14 @@ class Game:
     self.tile_grid = None
     # TODO: Might use a dict in the future.
     self.entities = []
+    self.keyboard = {}  # Maps key names to True if pressed else False.
+
+    # TODO: What this should really do is track the position of when the left
+    # mouse button was pressed so that actions are committed when it's unpressed
+    # IFF its position hasn't moved much.
+    self.left_mouse = False  # True when the left mouse button is down.
+
+    self.mouse_pos = None  # The position of the mouse in pixels.
 
     # State such as whose turn it currently is will eventually go here, too.
 
@@ -169,6 +177,8 @@ def main():
     for event in pygame.event.get():
       if event.type == pygame.QUIT:
         running = False
+      elif event.type == pygame.MOUSEMOTION:
+        game.mouse_pos = pygame.mouse.get_pos()
 
     for (x,y), type in game.tile_grid.Iterate():
       graphics.GridBlit(surface_reg[game.tile_grid.Get(x, y).surface_handle()],
@@ -180,22 +190,22 @@ def main():
       if not (image and pos): continue
       graphics.GridBlit(surface_reg[image], map_surface, camera_offset, pos)
 
-    mouse_pos = graphics.GridPos(camera_offset, pygame.mouse.get_pos())
+    grid_mouse_pos = graphics.GridPos(camera_offset, game.mouse_pos)
     graphics.GridBlit(surface_reg[selector], map_surface, camera_offset,
-                      mouse_pos, special_flags=pygame.BLEND_RGBA_ADD)
+                      grid_mouse_pos, special_flags=pygame.BLEND_RGBA_ADD)
 
     if (previous_mouse_grid_pos is not None and
-        previous_mouse_grid_pos != mouse_pos):
-      if not game.tile_grid.HasTile(mouse_pos):
+        previous_mouse_grid_pos != grid_mouse_pos):
+      if not game.tile_grid.HasTile(grid_mouse_pos):
         desc = None
       else:
-        desc = f'{mouse_pos}:\n{game.tile_grid.Get(mouse_pos).desc()}'
+        desc = f'{grid_mouse_pos}:\n{game.tile_grid.Get(grid_mouse_pos).desc()}'
         for e in game.entities:
-          if e.Get(actor.Properties.POS) == mouse_pos:
-            desc = f'{mouse_pos}:\n{str(e)}'
+          if e.Get(actor.Properties.POS) == grid_mouse_pos:
+            desc = f'{grid_mouse_pos}:\n{str(e)}'
             break
 
-    previous_mouse_grid_pos = mouse_pos
+    previous_mouse_grid_pos = grid_mouse_pos
 
     if desc:
       graphics.BlitText(surface_reg, info_surface, desc)
