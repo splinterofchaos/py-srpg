@@ -128,6 +128,10 @@ class Game:
             self.tile_grid.Get(pos).walkable() and
             not pos in {e[actor.Properties.POS] for e in self.entities})
 
+  def EntityAt(self, pos):
+    for e in self.entities:
+      if e[actor.Properties.POS] == pos: return e
+
 
 # Represents the existence and execution of any valid action. This allows us to
 # abstract player/AI decision making as well as get data on all possible
@@ -148,6 +152,21 @@ class MoveAction:
   def Marker(self): return self.to_pos
 
 
+class GetAction:
+  def __init__(self, item): self.item = item
+
+  def Run(self, game, a):
+    a.PickUp(self.item)
+    del self.item[actor.Properties.POS]
+
+  def Marker(self): return self.item[actor.Properties.POS]
+
+
+def OrthogonalPositions(pos):
+  for step_x, step_y in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+    yield pos[0] + step_x, pos[1] + step_y
+
+
 # A depth-first search expanding all nodes that can be walked on from `pos`.
 # `visited` is the set of tiles explored and also the return value for
 # convenience.
@@ -155,24 +174,29 @@ def ExpandWalkable(game, pos, steps_left, visited):
   visited.add(pos)
   if steps_left <= 0: return visited
 
-  for step_x, step_y in ((-1, 0), (1, 0), (0, -1), (0, 1)):
-    new_pos = (pos[0] + step_x, pos[1] + step_y)
+  for new_pos in OrthogonalPositions(pos):
     if not game.Walkable(new_pos): continue
     ExpandWalkable(game, new_pos, steps_left - 1, visited)
 
   return visited
 
+# Returns all items "get"able from `pos`.
+def ExpandGet(game, pos):
+  for new_pos in OrthogonalPositions(pos):
+    e = game.EntityAt(new_pos)
+    if e: yield e
+
 # Lists out all the VALID actions `a` can take.
 def GenerateActions(game, a):
   actions = []
   stats = a.Stats()
-
-  # Add movement options.
   start = a[actor.Properties.POS]
+
   actions.extend(MoveAction(pos) for pos in
                  ExpandWalkable(game, start, stats.stats['MOV'].value,
                                 set())
                  if pos != start)
+  actions.extend(GetAction(i) for i in ExpandGet(game, start))
 
   return actions
 
@@ -282,16 +306,14 @@ def main():
       graphics.GridBlit(surface_reg[possible_move], map_surface, camera_offset,
                         a.Marker(), special_flags=pygame.BLEND_RGBA_ADD)
 
-    if (previous_mouse_grid_pos is not None and
-        previous_mouse_grid_pos != grid_mouse_pos):
-      if not game.tile_grid.HasTile(grid_mouse_pos):
-        desc = None
-      else:
-        desc = f'{grid_mouse_pos}:\n{game.tile_grid.Get(grid_mouse_pos).desc()}'
-        for e in game.entities:
-          if e.Get(actor.Properties.POS) == grid_mouse_pos:
-            desc = f'{grid_mouse_pos}:\n{str(e)}'
-            break
+    if not game.tile_grid.HasTile(grid_mouse_pos):
+      desc = None
+    else:
+      desc = f'{grid_mouse_pos}:\n{game.tile_grid.Get(grid_mouse_pos).desc()}'
+      for e in game.entities:
+        if e.Get(actor.Properties.POS) == grid_mouse_pos:
+          desc = f'{grid_mouse_pos}:\n{str(e)}'
+          break
 
     previous_mouse_grid_pos = grid_mouse_pos
 
