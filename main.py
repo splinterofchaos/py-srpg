@@ -5,7 +5,7 @@ import copy
 
 import actor
 import graphics
-from item_compendium import item_compendium
+from item_compendium import *
 
 
 class TileType:
@@ -123,6 +123,59 @@ class Game:
 
     # State such as whose turn it currently is will eventually go here, too.
 
+  def Walkable(self, pos):
+    return (self.tile_grid.HasTile(pos) and
+            self.tile_grid.Get(pos).walkable() and
+            not pos in {e[actor.Properties.POS] for e in self.entities})
+
+
+# Represents the existence and execution of any valid action. This allows us to
+# abstract player/AI decision making as well as get data on all possible
+# actions. Marker() exists to specify if the UI should draw a marker at any
+# location.
+class Action:
+  # Changes the state of the game to reflect the action.
+  def Run(self, game, actor): pass
+  # If this action is on a position (like to where we would move or attack),
+  # returns that position so it can be marked in the UI.
+  def Marker(self): pass
+
+
+# Represents the action of moving from one place to the other.
+class MoveAction:
+  def __init__(self, to_pos): self.to_pos = to_pos
+  def Run(self, game, a): a[actor.Properties.POS] = self.to_pos
+  def Marker(self): return self.to_pos
+
+
+# A depth-first search expanding all nodes that can be walked on from `pos`.
+# `visited` is the set of tiles explored and also the return value for
+# convenience.
+def ExpandWalkable(game, pos, steps_left, visited):
+  visited.add(pos)
+  if steps_left <= 0: return visited
+
+  for step_x, step_y in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+    new_pos = (pos[0] + step_x, pos[1] + step_y)
+    if not game.Walkable(new_pos): continue
+    ExpandWalkable(game, new_pos, steps_left - 1, visited)
+
+  return visited
+
+# Lists out all the VALID actions `a` can take.
+def GenerateActions(game, a):
+  actions = []
+  stats = a.Stats()
+
+  # Add movement options.
+  start = a[actor.Properties.POS]
+  actions.extend(MoveAction(pos) for pos in
+                 ExpandWalkable(game, start, stats.stats['MOV'].value,
+                                set())
+                 if pos != start)
+
+  return actions
+
 def main():
   random.seed()
   pygame.init()
@@ -147,6 +200,8 @@ def main():
     (actor.Properties.IMAGE, '@'),
     (actor.Properties.DESC, "A very simple dood.")),
   )
+  player.PickUp(Item('human feet', '', 'One right, one left.',
+                     StatAddMod('MOV', 4)))
   game.entities.append(player)
 
   # Spawn a random item to play with.
@@ -171,6 +226,13 @@ def main():
   selector_surface.fill([0,100,100,10])
   selector = surface_reg.RegisterSurface(selector_surface)
 
+  possible_move_surface = pygame.Surface((graphics.TILE_SIZE,
+                                          graphics.TILE_SIZE))
+  possible_move_surface.fill([100,0,100,10])
+  possible_move = surface_reg.RegisterSurface(possible_move_surface)
+
+  actions = GenerateActions(game, player)
+
   previous_mouse_grid_pos = None
   desc = None
   while running:
@@ -179,7 +241,29 @@ def main():
         running = False
       elif event.type == pygame.MOUSEMOTION:
         game.mouse_pos = pygame.mouse.get_pos()
+      elif event.type == pygame.MOUSEBUTTONDOWN:
+        game.left_mouse = True
 
+    grid_mouse_pos = graphics.GridPos(camera_offset, game.mouse_pos)
+
+    if game.left_mouse:
+      decided_action = None
+      for a in actions or []:
+        if a.Marker() == grid_mouse_pos:
+          decided_action = a
+
+      if decided_action:
+        decided_action.Run(game, player)
+        actions = GenerateActions(game, player)
+      else:
+        # TODO: Eventually, there should be an ingame log and this'll show up
+        # there.
+        print('Nothing to do, there.')
+
+    game.left_mouse = False
+
+
+    # Render the screen: tiles, entities, UI elements.
     for (x,y), type in game.tile_grid.Iterate():
       graphics.GridBlit(surface_reg[game.tile_grid.Get(x, y).surface_handle()],
                         map_surface, camera_offset, (x, y))
@@ -190,9 +274,13 @@ def main():
       if not (image and pos): continue
       graphics.GridBlit(surface_reg[image], map_surface, camera_offset, pos)
 
-    grid_mouse_pos = graphics.GridPos(camera_offset, game.mouse_pos)
     graphics.GridBlit(surface_reg[selector], map_surface, camera_offset,
                       grid_mouse_pos, special_flags=pygame.BLEND_RGBA_ADD)
+
+    for a in actions:
+      if not a.Marker(): continue
+      graphics.GridBlit(surface_reg[possible_move], map_surface, camera_offset,
+                        a.Marker(), special_flags=pygame.BLEND_RGBA_ADD)
 
     if (previous_mouse_grid_pos is not None and
         previous_mouse_grid_pos != grid_mouse_pos):

@@ -89,11 +89,11 @@ class AdditionModifier(Modifier):
       return f'{self.name}: {ModifierPrefix(self.value)}{self.value}'
 
   def ModifyStatSheet(self, sheet):
-    stats = sheet.stats()
-    if self.name not in stats:
-      stats[name] = IntegerValue(self.name, self.value, self.multiplier)
+    if self.name not in sheet.stats:
+      sheet.stats[self.name] = IntegerStat(
+          self.name, self.value, self.multiplier)
     else:
-      stat = stats[stat]
+      stat = sheet.stats[stat]
       stat.value += self.value
       stat.multiplier *= self.multiplier
 

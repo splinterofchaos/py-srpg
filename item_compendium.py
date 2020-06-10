@@ -26,6 +26,8 @@ def GagueAddMod(stat_name, amount, reason=None):
 def StatAddMod(stat_name, value, reason=None):
   return stats.AdditionModifier(stat_name, value, reason=reason)
 
+# A non-exhaustive list of items in the game. Items can be defined from anywhere
+# in the code, but randomly spawning items go here.
 item_compendium = [
   Item('health potion sample', '!', 'It\'s practically SWAG.',
        GagueAddMod('HP', 5, 'tingly')),
