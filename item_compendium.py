@@ -26,6 +26,9 @@ def GagueAddMod(stat_name, amount, reason=None):
 def StatAddMod(stat_name, value, reason=None):
   return stats.AdditionModifier(stat_name, value, reason=reason)
 
+def StatMultMod(stat_name, value, reason=None):
+  return stats.AdditionModifier(stat_name, 0, value, reason=reason)
+
 # A non-exhaustive list of items in the game. Items can be defined from anywhere
 # in the code, but randomly spawning items go here.
 item_compendium = [
@@ -52,4 +55,6 @@ item_compendium = [
         StatAddMod('FAITH', -40, 'They called me blasphemous!')]),
   Item('holy relic', 'T', 'Of vague religious significance.',
        [StatAddMod('FAITH', 40, 'it\'s not vague if you believe')]),
+  Item('lucky penney', '$', 'Printed in 1984.',
+       [StatMultMod('LUCK', 2, 'very lucky'), StatAddMod('LUCK', 5)]),
 ]

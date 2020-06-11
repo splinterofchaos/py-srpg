@@ -16,7 +16,10 @@ class IntegerStat(Stat):
     self.value = value
     self.multiplier = multiplier
 
-  def __repr__(self): return f'{self.name}: {self.value * self.multiplier}'
+  def __repr__(self):
+    value = self.value or 0
+    multiplier = self.multiplier or 1
+    return f'{self.name}: {value * multiplier}'
 
 
 # Stats like HP, MP, etc..
@@ -67,7 +70,7 @@ class Modifier:
   def ModifyIncomingDamage(self, amount): return amount
 
 
-def ModifierPrefix(x): return '+' if x >= 0 else '-'
+def ModifierPrefix(x): return '+' if x >= 0 else ''
 
 
 # Adds to a stat or its multiplier.
@@ -77,14 +80,13 @@ class AdditionModifier(Modifier):
     self.name = name
     assert bool(value) ^ bool(multiplier)
     self.value = value
-    self.multiplier = multiplier or 1
+    self.multiplier = multiplier
 
   def EffectRepr(self):
-    pre = '+' if self.value > 0 and self.multiplier > 0 else '-'
     if self.multiplier:
       # TODO: convert multiplier to integer out of 100 first
       return (f'{self.name}: '
-              f'{ModifierPrefix(self.multiplier)}{self.multiplier*100}%')
+              f'{ModifierPrefix(self.multiplier)}{int(self.multiplier*100)}%')
     else:
       return f'{self.name}: {ModifierPrefix(self.value)}{self.value}'
 
@@ -93,9 +95,16 @@ class AdditionModifier(Modifier):
       sheet.stats[self.name] = IntegerStat(
           self.name, self.value, self.multiplier)
     else:
-      stat = sheet.stats[stat]
-      stat.value += self.value
-      stat.multiplier *= self.multiplier
+      stat = sheet.stats[self.name]
+      if not stat.value:
+        stat.value = self.value
+      elif self.value:
+        stat.value += self.value
+
+      if not stat.multiplier:
+        stat.multiplier = self.multiplier
+      elif self.multiplier:
+        stat.multiplier += self.multiplier
 
 
 # TODO: support multipliers on fractions, but on the numerator, denominator,

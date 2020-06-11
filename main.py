@@ -229,10 +229,11 @@ def main():
   game.entities.append(player)
 
   # Spawn a random item to play with.
-  valid_tiles = ValidTiles(game.tile_grid, game.entities)
-  valid_pos = random.choice(valid_tiles)
-  random_item = random.choice(item_compendium)
-  game.entities.append(SpawnItem(random_item, 1, valid_pos))
+  for _ in range(5):
+    valid_tiles = ValidTiles(game.tile_grid, game.entities)
+    valid_pos = random.choice(valid_tiles)
+    random_item = random.choice(item_compendium)
+    game.entities.append(SpawnItem(random_item, 1, valid_pos))
 
   screen = pygame.display.set_mode((graphics.TILE_SIZE*52, graphics.TILE_SIZE*45))
 
@@ -240,7 +241,7 @@ def main():
     (0, 0, graphics.TILE_SIZE*40, graphics.TILE_SIZE*40))
   info_surface = screen.subsurface(
     (graphics.TILE_SIZE*41, graphics.TILE_SIZE*2,
-     graphics.TILE_SIZE*10, graphics.TILE_SIZE*10))
+     graphics.TILE_SIZE*10, graphics.TILE_SIZE*40))
 
   running = True
 
