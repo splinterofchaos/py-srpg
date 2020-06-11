@@ -79,7 +79,7 @@ def TileGridFromString(tile_types, string_map):
   return grid
 
 def ValidTiles(tile_grid, entities):
-  taken_positions = {e[actor.Properties.POS] for e in entities}
+  taken_positions = {e.pos for e in entities}
   res = []
   for pos, type in tile_grid.Iterate():
     if type.walkable() and pos not in taken_positions: res.append(pos)
@@ -93,13 +93,8 @@ def SpawnItem(entity_template, id, position):
   # function within Modifier.
   e = copy.deepcopy(entity_template)
   e.id = id
-  e[actor.Properties.POS] = position
+  e.pos = position
   return e
-
-# Some standard components
-POS = "pos"
-IMAGE = "image"
-DESC = "description"
 
 WINDOW_SIZE = (1000, 1000)
 LOOK_DESCRIPTION_START = (600, 100)
@@ -126,11 +121,12 @@ class Game:
   def Walkable(self, pos):
     return (self.tile_grid.HasTile(pos) and
             self.tile_grid.Get(pos).walkable() and
-            not pos in {e[actor.Properties.POS] for e in self.entities})
+            not pos in {e.GetOr('pos', (-1,-1)) for e in self.entities})
 
   def EntityAt(self, pos):
     for e in self.entities:
-      if e[actor.Properties.POS] == pos: return e
+      p = e.GetOr('pos')
+      if p and p == pos: return e
 
 
 # Represents the existence and execution of any valid action. This allows us to
@@ -148,7 +144,7 @@ class Action:
 # Represents the action of moving from one place to the other.
 class MoveAction:
   def __init__(self, to_pos): self.to_pos = to_pos
-  def Run(self, game, a): a[actor.Properties.POS] = self.to_pos
+  def Run(self, game, a): a.pos = self.to_pos
   def Marker(self): return self.to_pos
 
 
@@ -157,9 +153,9 @@ class GetAction:
 
   def Run(self, game, a):
     a.PickUp(self.item)
-    del self.item[actor.Properties.POS]
+    del self.item.pos
 
-  def Marker(self): return self.item[actor.Properties.POS]
+  def Marker(self): return self.item.pos
 
 
 def OrthogonalPositions(pos):
@@ -190,7 +186,7 @@ def ExpandGet(game, pos):
 def GenerateActions(game, a):
   actions = []
   stats = a.Stats()
-  start = a[actor.Properties.POS]
+  start = a.pos
 
   actions.extend(MoveAction(pos) for pos in
                  ExpandWalkable(game, start, stats.stats['MOV'].value,
@@ -220,9 +216,9 @@ def main():
   PLAYER = 0
   player = actor.Actor(PLAYER, 'player')
   player.UpdatePairs((
-    (actor.Properties.POS, (5,5)),
-    (actor.Properties.IMAGE, '@'),
-    (actor.Properties.DESC, "A very simple dood.")),
+    ('pos', (5,5)),
+    ('image', '@'),
+    ('desc', "A very simple dood.")),
   )
   player.PickUp(Item('human feet', '', 'One right, one left.',
                      StatAddMod('MOV', 4)))
@@ -287,15 +283,14 @@ def main():
 
     game.left_mouse = False
 
-
     # Render the screen: tiles, entities, UI elements.
     for (x,y), type in game.tile_grid.Iterate():
       graphics.GridBlit(surface_reg[game.tile_grid.Get(x, y).surface_handle()],
                         map_surface, camera_offset, (x, y))
 
     for e in game.entities:
-      image = e.Get(actor.Properties.IMAGE)
-      pos = e.Get(actor.Properties.POS)
+      image = e.GetOr('image')
+      pos = e.GetOr('pos')
       if not (image and pos): continue
       graphics.GridBlit(surface_reg[image], map_surface, camera_offset, pos)
 
@@ -312,7 +307,8 @@ def main():
     else:
       desc = f'{grid_mouse_pos}:\n{game.tile_grid.Get(grid_mouse_pos).desc()}'
       for e in game.entities:
-        if e.Get(actor.Properties.POS) == grid_mouse_pos:
+        pos = e.GetOr('pos')
+        if pos and pos == grid_mouse_pos:
           desc = f'{grid_mouse_pos}:\n{str(e)}'
           break
 

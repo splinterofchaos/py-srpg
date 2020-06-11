@@ -1,21 +1,21 @@
 import stats
 import actor
-from actor import Entity, NOT_AN_ID, Properties
+from actor import Entity, NOT_AN_ID
 
 def Item(name, image, description, modifiers):
   i = Entity(NOT_AN_ID)
   i = Entity(id)
-  i[Properties.NAME] = name
-  i[Properties.DESC] = description
-  i[Properties.IMAGE] = image
-  i[Properties.MODIFIERS] = []
+  i.name = name
+  i.desc = description
+  i.image = image
+  i.modifiers = []
 
   if isinstance(modifiers, stats.Modifier):
     modifiers = [modifiers]
   if isinstance(modifiers, list):
     for m in modifiers:
       m.parent = i
-      i[Properties.MODIFIERS].append(m)
+      i.modifiers.append(m)
 
   return i
 

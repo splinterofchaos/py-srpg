@@ -9,20 +9,43 @@ def Hp(have, total, reason=None):
 NOT_AN_ID = -1
 
 class Entity:
+  # Add your property to this before using them!
+  valid_components = {'modifiers', 'pos',
+                      'name', 'desc', 'has_stats', 'image'}
+  instance_properties = {'id', 'components', 'children', 'parent'}
+
   def __init__(self, id):
     self.id = id
     self.components = dict()
     self.children = []
     self.parent = None
 
-  def Set(self, key, data): self.components[key] = data
-  def Get(self, key, default=None):
-     return self.components[key] if key in self.components else default
+  def Set(self, key, data):
+    # Needed to bootstrap the class.
+    if key in Entity.instance_properties:
+      return super().__setattr__(key, data)
+
+    if key not in Entity.valid_components:
+      raise AttributeError(f'Component "{key}" not registered in '
+                           f'Entity.valid_components. Valid properties are:'
+                           f'{", ".join(Entity.valid_components)}')
+
+    self.components[key] = data
+
+  def Get(self, key):
+    class DefinitelyAnError: pass
+    result = self.__getattribute__('components').get(key, DefinitelyAnError)
+    if result == DefinitelyAnError:
+      raise AttributeError(f'This entity does not have the attribute, {key}.')
+    return result
+
+  def GetOr(self, key, default=None):
+    return getattr(self, key, default)
 
   def Stats(self):
     sheet = stats.StatSheet()
     for c in self.children:
-      for m in c[Properties.MODIFIERS]:
+      for m in c.modifiers:
         m.ModifyStatSheet(sheet)
     return sheet
 
@@ -31,28 +54,30 @@ class Entity:
     entity.parent = self
     self.children.append(entity)
 
-  def __setitem__(self, key, data): self.Set(key, data)
-  def __getitem__(self, key): return self.Get(key)
-  def __delitem__(self, key): del self.components[key]
+  def __setattr__(self, key, data): self.Set(key, data)
+  def __getattr__(self, key): return self.Get(key)
+  def __delattr__(self, key): del self.components[key]
   def __iter__(self): return self.components.__iter__()
   def __contains__(self, key): return self.components.__contains__(key)
 
   def __repr__(self):
     lines = []
-    name = self.Get(Properties.NAME)
+
+    name = self.GetOr('name')
     if name: lines.append(name)
 
-    desc = self.Get(Properties.DESC)
+    desc = self.GetOr('desc')
     if desc: lines.append(f'"{desc}"')
 
-    if Properties.HAS_STATS in self:
+    if self.GetOr('has_stats'):
       lines.append(str(self.Stats()))
 
-    if Properties.MODIFIERS in self:
-      lines.extend(str(m) for m in self[Properties.MODIFIERS])
+    modifiers = self.GetOr('modifiers')
+    if modifiers:
+      lines.extend(str(m) for m in modifiers)
 
     if self.children:
-      inventory = [c[Properties.NAME] for c in self.children]
+      inventory = [c.name for c in self.children]
       lines.append(f'holding: {", ".join(inventory)}')
 
     return '\n'.join(lines)
@@ -61,39 +86,17 @@ class Entity:
   def UpdatePairs(self, key_datas):
     for key, data in key_datas: self.Set(key, data)
 
-# Stabdard entity properties.
-class Properties(Enum):
-  NAME = 'NAME'
-  DESC = 'DESC'
-  PARENT = 'PARENT'
-  POS = 'POS'
-  IMAGE = 'IMAGE'
-  MODIFIERS = 'MODIFIERS'
-  HAS_STATS = 'HAS_STATS'
-
-
-def Item(id, name, description=None):
-  e = Entity(id)
-  e[Properties.NAME] = name
-  e[Properties.DESC] = description
-  e[Properties.MODIFIERS] = []
-  return e
 
 def AddModifier(e, mod):
   mod.parent = e
-  e[Properties.MODIFIERS].append(mod)
+  e.modifiers.append(mod)
+  e.modifiers.append(mod)
 
 def OnAction(e, action, *args, **kwargs):
   for c in e.children: OnAction(c, action, *args, **kwargs)
-  for m in e.Get(Properties.MODIFIERS, []):
+  for m in e.Get('MODIFIERS', []):
     if m.HasAction(action):
       m.OnAction(action, *args, **kwargs)
-
-def Actor(id, name):
-  e = Entity(id)
-  e[Properties.NAME] = name
-  e[Properties.HAS_STATS] = True
-  return e
 
 def DealDamage(actor, amount):
   sheet = actor.Stats()
@@ -103,9 +106,16 @@ def DealDamage(actor, amount):
   amount = int(amount)
 
   for i in actor.children:
-    for m in i[Properties.MODIFIERS]:
+    for m in i.modifiers:
       if m.HasAction(stats.CONSUME):
         amount = m.OnAction(stats.CONSUME, 'HP', amount)
+
+
+def Actor(id, name):
+  e = Entity(id)
+  e.name = name
+  e.has_stats = True
+  return e
 
 
 # TODO: This class needs to know about the Properties enum, but is this the best
@@ -121,7 +131,7 @@ class RegenModifier(stats.Modifier):
       amount = self.amount
 
       def RegenItem(item, amount):
-        for m in item[Properties.MODIFIERS]:
+        for m in item.modifiers:
           if m.HasAction(stats.REFUND):
             amount = m.OnAction(stats.REFUND, self.name, acc=amount)
         return amount
@@ -145,53 +155,3 @@ class RegenModifier(stats.Modifier):
     copy = RegenModifier(self.name, self.amount)
     copy.parent = self.parent
     sheet.attributes.append(copy)
-
-
-if __name__ == '__main__':
-  _Test_id = 0
-
-  def Test_MakeItem(name, modifiers):
-    global _Test_id
-    _Test_id += 1
-    i = Item(_Test_id, name)
-    for m in modifiers: AddModifier(i, m)
-    print('created item:\n%s\n' % i)
-    return i
-
-  def Test_MakeActor(name, inventory):
-    global _Test_id
-    _Test_id += 1
-    a = Actor(_Test_id, name)
-    for i in inventory: a.PickUp(i)
-    print('created actor:\n%s\n' % a)
-    return a
-
-  def Test_Pickup(actor, item):
-    actor.PickUp(item)
-    print(f'{actor[Properties.NAME]} picked up {item}')
-    print()
-
-  def Test_ActorTakesDamage(actor, d):
-    DealDamage(a, d)
-    print('%s took %s damage\n%s\n' % (actor[Properties.NAME], d, actor))
-
-  potion1 = Test_MakeItem('health potion', [Hp(5, 5)])
-  potion2 = Test_MakeItem('donut', [Hp(5, 5, 'tasty')])
-  a = Test_MakeActor('foo', [potion1, potion2])
-  Test_ActorTakesDamage(a, 5)
-
-  ice = Test_MakeItem('ice cube', [stats.TemperatureModifier(stats.TemperatureModifier.Value.COLD)])
-  Test_Pickup(a, ice)
-  Test_ActorTakesDamage(a, 5)
-
-  coffee = Test_MakeItem('coffee', [stats.TemperatureModifier(stats.TemperatureModifier.Value.HOT, 'steamy')])
-  Test_Pickup(a, coffee)
-  Test_ActorTakesDamage(a, 1)
-  coffee2 = Test_MakeItem('coffee', [stats.TemperatureModifier(stats.TemperatureModifier.Value.HOT, 'steamy')])
-  Test_Pickup(a, coffee2)
-  Test_ActorTakesDamage(a, 1)
-
-  hand_lotion = Test_MakeItem('hand lotion', [RegenModifier('HP', 1)])
-  Test_Pickup(a, hand_lotion)
-  OnAction(a, REGEN)
-  print(a)
