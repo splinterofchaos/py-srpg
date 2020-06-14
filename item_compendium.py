@@ -1,6 +1,6 @@
 import stats
 import actor
-from actor import Entity, NOT_AN_ID
+from actor import Entity, NOT_AN_ID, Action
 
 def Item(name, image, description, modifiers):
   i = Entity(NOT_AN_ID)
@@ -29,6 +29,44 @@ def StatAddMod(stat_name, value, reason=None):
 def StatMultMod(stat_name, value, reason=None):
   return stats.AdditionModifier(stat_name, 0, value, reason=reason)
 
+
+class MeleAction(Action):
+  def __init__(self, damage_vector, target):
+    self.damage_vector = damage_vector
+    self.target = target
+
+  def Run(self, game, actor):
+    self.damage_vector.DealDamage(self.target)
+
+  def Marker(self): return self.target.pos
+
+
+ADD_ACTION = 'add-action'
+
+
+class AxAttackModifier(stats.Modifier):
+  def __init__(self, a=None):
+    super().__init__('STR')
+    self.actor = a
+
+    def AddMeleAction(game, stats):
+      pos = self.actor.pos
+      STR = stats.stats.get('STR')
+      damage = actor.Damage(STR.value if 'STR' else 0)
+      damage_vec = actor.DamageVector([damage])
+      for step in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+        new_pos = (pos[0] + step[0], pos[1] + step[1])
+        e = game.EntityAt(new_pos)
+        if e and 'has_stats' in e: yield MeleAction(damage_vec, e)
+    self.actions[ADD_ACTION] = AddMeleAction
+
+  def EffectRepr(self):
+    return 'Ax attack'
+
+  def ModifyStatSheet(self, sheet):
+    sheet.attributes.append(AxAttackModifier(self.parent.parent))
+
+
 # A non-exhaustive list of items in the game. Items can be defined from anywhere
 # in the code, but randomly spawning items go here.
 item_compendium = [
@@ -41,9 +79,11 @@ item_compendium = [
   Item('large health potion', '!', 'It\s pretty big.',
        GagueAddMod('HP', 25, 'beafy')),
   Item('dull ax', 'x', 'Ax my no questions, I fell you no pines.',
-       [StatAddMod('STR', 10, 'hit things'), StatAddMod('DEX', -5, 'slow')]),
+       [StatAddMod('STR', 10, 'hit things'), StatAddMod('DEX', -5, 'slow'),
+        AxAttackModifier()]),
   Item('lumberjack\'s ax', 'x', 'I fell pines, all right.',
-       [StatAddMod('STR', 20, 'and that\'s okay'), StatAddMod('DEX', -10)]),
+       [StatAddMod('STR', 20, 'and that\'s okay'), StatAddMod('DEX', -10),
+        AxAttackModifier()]),
   Item('slingshot', 'Y', 'Pull hard and aim',
        [StatAddMod('STR', 3, 'pull really hard!'),
         StatAddMod('AIM', 10, 'don\'t miss!'),

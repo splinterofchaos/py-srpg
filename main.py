@@ -129,26 +129,14 @@ class Game:
       if p and p == pos: return e
 
 
-# Represents the existence and execution of any valid action. This allows us to
-# abstract player/AI decision making as well as get data on all possible
-# actions. Marker() exists to specify if the UI should draw a marker at any
-# location.
-class Action:
-  # Changes the state of the game to reflect the action.
-  def Run(self, game, actor): pass
-  # If this action is on a position (like to where we would move or attack),
-  # returns that position so it can be marked in the UI.
-  def Marker(self): pass
-
-
 # Represents the action of moving from one place to the other.
-class MoveAction:
+class MoveAction(actor.Action):
   def __init__(self, to_pos): self.to_pos = to_pos
   def Run(self, game, a): a.pos = self.to_pos
   def Marker(self): return self.to_pos
 
 
-class GetAction:
+class GetAction(actor.Action):
   def __init__(self, item): self.item = item
 
   def Run(self, game, a):
@@ -180,7 +168,7 @@ def ExpandWalkable(game, pos, steps_left, visited):
 def ExpandGet(game, pos):
   for new_pos in OrthogonalPositions(pos):
     e = game.EntityAt(new_pos)
-    if e: yield e
+    if e and 'has_stats' not in e: yield e
 
 # Lists out all the VALID actions `a` can take.
 def GenerateActions(game, a):
@@ -193,6 +181,10 @@ def GenerateActions(game, a):
                                 set())
                  if pos != start)
   actions.extend(GetAction(i) for i in ExpandGet(game, start))
+
+  for attr in stats.attributes:
+      if attr.HasAction(ADD_ACTION):
+          actions.extend(attr.OnAction(ADD_ACTION, game, stats))
 
   return actions
 
@@ -223,6 +215,17 @@ def main():
   player.PickUp(Item('human feet', '', 'One right, one left.',
                      StatAddMod('MOV', 4)))
   game.entities.append(player)
+
+  SPIDER = 1
+  spider = actor.Actor(PLAYER, 'spider')
+  spider.UpdatePairs((
+    ('pos', (10,5)),
+    ('image', 'S'),
+    ('desc', "Creepy and crawly.")),
+  )
+  spider.PickUp(Item('small health potion', '!', 'Don\'t drop it!',
+                     GagueAddMod('HP', 15, 'smells nice')))
+  game.entities.append(spider)
 
   # Spawn a random item to play with.
   for _ in range(5):
