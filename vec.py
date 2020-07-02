@@ -1,3 +1,5 @@
+import math
+
 class Vec2d:
   def __init__(self, x, y):
     self.x = x
@@ -22,3 +24,19 @@ class Vec2d:
 
   def __neg__(self):
     return Vec2d(-self.x, -self.y)
+
+  def MagnitudeSquared(self):
+    return self.x * self.x + self.y * self.y
+
+def DistanceSquared(a, b):
+  x = a.x - b.x
+  y = a.y - b.y
+  return x * x + y * y;
+
+def Distance(a, b):
+  return math.sqrt(DistanceSquared(a, b))
+
+def Lerp(a, b, r):
+  """Returns a vector between a and b, a if r=0, b if r=1"""
+  d = b - a
+  return a + (d * r)

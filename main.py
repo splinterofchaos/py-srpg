@@ -6,7 +6,7 @@ import copy
 import actor
 import graphics
 from item_compendium import *
-from vec import Vec2d
+from vec import *
 
 
 class TileType:
@@ -245,7 +245,8 @@ def main():
 
   running = True
 
-  camera_offset = (0, 0)
+  camera_offset = Vec2d(0, 0)
+  camera_velocity = Vec2d(0, 0)
 
   selector_surface = pygame.Surface((graphics.TILE_SIZE, graphics.TILE_SIZE))
   selector_surface.fill([0,100,100,10])
@@ -260,6 +261,9 @@ def main():
 
   previous_mouse_grid_pos = None
   desc = None
+
+  clock = pygame.time.Clock()
+
   while running:
     for event in pygame.event.get():
       if event.type == pygame.QUIT:
@@ -269,9 +273,15 @@ def main():
       elif event.type == pygame.MOUSEBUTTONDOWN:
         game.left_mouse = True
 
+    time_delta = clock.tick()
+
     screen_center = Vec2d(map_surface.get_width(), map_surface.get_height()) / 2
-    camera_offset = Vec2d(player.pos[0] * graphics.TILE_SIZE,
-                          player.pos[1] * graphics.TILE_SIZE) - screen_center
+    center_to_player = Vec2d(player.pos[0] * graphics.TILE_SIZE,
+                             player.pos[1] * graphics.TILE_SIZE) - screen_center
+    camera_offset_diff = center_to_player - camera_offset
+    if Distance(camera_offset, center_to_player) > graphics.TILE_SIZE * 0.5:
+      camera_offset = Lerp(camera_offset, center_to_player,
+                           1.0 / 400 * time_delta)
 
     grid_mouse_pos = graphics.GridPos(camera_offset, game.mouse_pos)
 
