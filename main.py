@@ -237,16 +237,15 @@ def main():
 
   screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 
-  map_surface = screen.subsurface(
-    (0, 0, graphics.TILE_SIZE*40, graphics.TILE_SIZE*40))
   info_surface = screen.subsurface(
     (graphics.TILE_SIZE*41, graphics.TILE_SIZE*2,
      graphics.TILE_SIZE*10, graphics.TILE_SIZE*40))
 
   running = True
 
-  camera_offset = Vec2d(0, 0)
-  camera_velocity = Vec2d(0, 0)
+  map_frame = graphics.Frame(
+    surface_reg, screen,
+    (0, 0, graphics.TILE_SIZE*40, graphics.TILE_SIZE*40))
 
   selector_surface = pygame.Surface((graphics.TILE_SIZE, graphics.TILE_SIZE))
   selector_surface.fill([0,100,100,10])
@@ -275,15 +274,16 @@ def main():
 
     time_delta = clock.tick()
 
-    screen_center = Vec2d(map_surface.get_width(), map_surface.get_height()) / 2
+    screen_center = map_frame.Dimensions() / 2
     center_to_player = Vec2d(player.pos[0] * graphics.TILE_SIZE,
                              player.pos[1] * graphics.TILE_SIZE) - screen_center
-    camera_offset_diff = center_to_player - camera_offset
-    if Distance(camera_offset, center_to_player) > graphics.TILE_SIZE * 0.5:
-      camera_offset = Lerp(camera_offset, center_to_player,
-                           1.0 / 400 * time_delta)
+    camera_offset_diff = center_to_player - map_frame.camera_offset
+    if (Distance(map_frame.camera_offset, center_to_player) >
+        graphics.TILE_SIZE * 0.5):
+      map_frame.camera_offset = Lerp(map_frame.camera_offset, center_to_player,
+                                     1.0 / 400 * time_delta)
 
-    grid_mouse_pos = graphics.GridPos(camera_offset, game.mouse_pos)
+    grid_mouse_pos = graphics.GridPos(map_frame.camera_offset, game.mouse_pos)
 
     if game.left_mouse:
       decided_action = None
@@ -301,24 +301,27 @@ def main():
 
     game.left_mouse = False
 
+    GRID = 0
+    ACTOR = 1
+    OVERLAY = 2
+
     # Render the screen: tiles, entities, UI elements.
-    for (x,y), type in game.tile_grid.Iterate():
-      graphics.GridBlit(surface_reg[game.tile_grid.Get(x, y).surface_handle()],
-                        map_surface, camera_offset, (x, y))
+    for pos, type in game.tile_grid.Iterate():
+      map_frame.AddTask(graphics.TiledPos(pos), GRID, type.surface_handle())
 
     for e in game.entities:
       image = e.GetOr('image')
       pos = e.GetOr('pos')
       if not (image and pos): continue
-      graphics.GridBlit(surface_reg[image], map_surface, camera_offset, pos)
+      map_frame.AddTask(graphics.TiledPos(pos), ACTOR, image)
 
-    graphics.GridBlit(surface_reg[selector], map_surface, camera_offset,
-                      grid_mouse_pos, special_flags=pygame.BLEND_RGBA_ADD)
+    map_frame.AddTask(graphics.TiledPos(grid_mouse_pos), OVERLAY, selector,
+                      rgb_add=True)
 
     for a in actions:
       if not a.Marker(): continue
-      graphics.GridBlit(surface_reg[possible_move], map_surface, camera_offset,
-                        a.Marker(), special_flags=pygame.BLEND_RGBA_ADD)
+      map_frame.AddTask(graphics.TiledPos(a.Marker()), OVERLAY, possible_move,
+                        rgb_add=True)
 
     if not game.tile_grid.HasTile(grid_mouse_pos):
       desc = None
@@ -334,6 +337,8 @@ def main():
 
     if desc:
       graphics.BlitText(surface_reg, info_surface, desc)
+
+    map_frame.Render()
 
     pygame.display.flip()
     screen.fill((0,0,0))

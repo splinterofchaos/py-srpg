@@ -6,10 +6,10 @@ class Vec2d:
     self.y = y
 
   def __add__(self, v):
-    return Vec2d(self.x + v.x, self.y + v.y)
+    return Vec2d(self.x + v[0], self.y + v[1])
 
   def __sub__(self, v):
-    return Vec2d(self.x - v.x, self.y - v.y)
+    return Vec2d(self.x - v[0], self.y - v[1])
 
   def __getitem__(self, i):
     if i == 0: return self.x

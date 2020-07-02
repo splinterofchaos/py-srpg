@@ -1,5 +1,6 @@
 import pygame
-
+from collections import defaultdict
+from vec import *
 
 BACKGROUND_COLOR = [0,0,0]
 WHITE = [255,255,255]
@@ -10,6 +11,9 @@ SPACING = 1
 # THe width of the ' ' character when not printing mono-spaced.
 SPACE_LEN = SPACING * 2
 
+
+def TiledPos(pos):
+  return Vec2d(pos[0] * TILE_SIZE, pos[1] * TILE_SIZE)
 
 def GraphicalPos(camera_offset, grid_pos):
   return ((grid_pos[0]) * TILE_SIZE - camera_offset[0],
@@ -99,3 +103,34 @@ def BlitText(surface_reg, dest, text):
 
     x, y = Newline(x, y)
 
+class RenderTask:
+  def __init__(self, pos, surface_id, rgb_add=None):
+    self.pos = pos
+    self.surface_id = surface_id
+    self.rgb_add = rgb_add
+
+class Frame:
+  """Manages tasks for rendering images onto a surface or subsurface."""
+  def __init__(self, surface_reg, destination, bounds):
+    self.subsurface = destination.subsurface(bounds)
+    self.camera_offset = Vec2d(0, 0)
+    self.surface_reg = surface_reg
+    self.tasks = defaultdict(list)
+
+  def Dimensions(self):
+    return Vec2d(self.subsurface.get_width(), self.subsurface.get_height())
+
+  def AddTask(self, pos, z, surface_id, rgb_add=None):
+    self.tasks[z].append(RenderTask(pos, surface_id, rgb_add))
+
+  def Render(self):
+    zs = sorted(self.tasks.keys())
+    for z in zs:
+      for t in self.tasks[z]:
+        flags = 0
+        if t.rgb_add: flags |= pygame.BLEND_RGBA_ADD
+        Blit(self.surface_reg[t.surface_id], self.subsurface,
+             (t.pos[0] - self.camera_offset[0],
+              t.pos[1] - self.camera_offset[1]),
+             special_flags=flags)
+    self.tasks.clear()
