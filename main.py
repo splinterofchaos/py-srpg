@@ -6,6 +6,7 @@ import copy
 import actor
 import graphics
 from item_compendium import *
+from vec import Vec2d
 
 
 class TileType:
@@ -196,6 +197,9 @@ def GenerateActions(game, a):
 
   return actions
 
+SCREEN_WIDTH = graphics.TILE_SIZE * 52
+SCREEN_HEIGHT = graphics.TILE_SIZE * 45
+
 def main():
   random.seed()
   pygame.init()
@@ -231,7 +235,7 @@ def main():
     random_item = random.choice(item_compendium)
     game.entities.append(SpawnItem(random_item, 1, valid_pos))
 
-  screen = pygame.display.set_mode((graphics.TILE_SIZE*52, graphics.TILE_SIZE*45))
+  screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 
   map_surface = screen.subsurface(
     (0, 0, graphics.TILE_SIZE*40, graphics.TILE_SIZE*40))
@@ -264,6 +268,10 @@ def main():
         game.mouse_pos = pygame.mouse.get_pos()
       elif event.type == pygame.MOUSEBUTTONDOWN:
         game.left_mouse = True
+
+    screen_center = Vec2d(map_surface.get_width(), map_surface.get_height()) / 2
+    camera_offset = Vec2d(player.pos[0] * graphics.TILE_SIZE,
+                          player.pos[1] * graphics.TILE_SIZE) - screen_center
 
     grid_mouse_pos = graphics.GridPos(camera_offset, game.mouse_pos)
 

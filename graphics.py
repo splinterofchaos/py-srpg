@@ -12,13 +12,13 @@ SPACE_LEN = SPACING * 2
 
 
 def GraphicalPos(camera_offset, grid_pos):
-  return ((grid_pos[0] - camera_offset[0]) * TILE_SIZE,
-          (grid_pos[1] - camera_offset[1]) * TILE_SIZE)
+  return ((grid_pos[0]) * TILE_SIZE - camera_offset[0],
+          (grid_pos[1]) * TILE_SIZE - camera_offset[1])
 
 def GridPos(camera_offset, graphical_pos):
   from math import floor
-  return (floor((graphical_pos[0] / TILE_SIZE) + camera_offset[0]),
-          floor((graphical_pos[1] / TILE_SIZE) + camera_offset[1]))
+  return (floor(((graphical_pos[0] + camera_offset[0]) / TILE_SIZE)),
+          floor(((graphical_pos[1] + camera_offset[1]) / TILE_SIZE)))
 
 # TODO: In a language where every variable is a pointer to a reference counted
 # value, what do we gain by using ID's instead of referencing the objects
@@ -58,7 +58,10 @@ class SurfaceRegistry:
     return self.registry[idx]
 
 def Blit(surface, dest, pos, **kwargs):
-  dest.blit(surface, pos, **kwargs)
+  target_rect = surface.get_rect()
+  target_rect.move(pos[0], pos[1])
+  if dest.get_rect().colliderect(target_rect):
+    dest.blit(surface, pos, **kwargs)
 
 def GridBlit(surface, dest, camera_offset, grid_pos, **kwargs):
   Blit(surface, dest, GraphicalPos(camera_offset, grid_pos), **kwargs)
