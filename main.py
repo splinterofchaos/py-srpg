@@ -132,16 +132,22 @@ class Game:
       if p and p == pos: return e
 
 
+class Marker:
+  def __init__(self, pos, surface):
+    self.pos = pos
+    self.surface = surface
+
+
 # Represents the existence and execution of any valid action. This allows us to
 # abstract player/AI decision making as well as get data on all possible
-# actions. Marker() exists to specify if the UI should draw a marker at any
+# actions. Markers() exists to specify if the UI should draw a marker at any
 # location.
 class Action:
   # Changes the state of the game to reflect the action.
   def Run(self, game, actor): pass
   # If this action is on a position (like to where we would move or attack),
   # returns that position so it can be marked in the UI.
-  def Marker(self): return None, None
+  def Markers(self): return []
 
 
 # Represents the action of moving from one place to the other.
@@ -152,7 +158,8 @@ class MoveAction:
     self.to_pos = to_pos
 
   def Run(self, game, a): a.pos = self.to_pos
-  def Marker(self): return self.to_pos, MoveAction.MARKER_SURFACE
+  def Pos(self): return self.to_pos
+  def Markers(self): return [Marker(self.to_pos, MoveAction.MARKER_SURFACE)]
 
 
 class GetAction:
@@ -168,7 +175,13 @@ class GetAction:
     a.PickUp(self.item)
     del self.item.pos
 
-  def Marker(self): return self.item.pos, GetAction.MARKER_SURFACE
+  def Pos(self): return self.item.pos
+
+  def Markers(self):
+    markers = [Marker(self.item.pos, GetAction.MARKER_SURFACE)]
+    if self.move_action:
+      markers.extend(self.move_action.Markers())
+    return markers
 
 
 def OrthogonalPositions(pos):
@@ -303,8 +316,7 @@ def main():
     if game.left_mouse:
       decided_action = None
       for a in actions or []:
-        pos, _ = a.Marker()
-        if pos == grid_mouse_pos:
+        if a.Pos() == grid_mouse_pos:
           decided_action = a
 
       if decided_action:
@@ -335,10 +347,10 @@ def main():
                       rgb_add=True)
 
     for a in actions:
-      pos, surface_id = a.Marker()
-      if not (pos and surface_id): continue
-      map_frame.AddTask(graphics.TiledPos(pos), OVERLAY, surface_id,
-                        rgb_add=True)
+      for m in a.Markers():
+        if not (m.pos and m.surface): continue
+        map_frame.AddTask(graphics.TiledPos(m.pos), OVERLAY, m.surface,
+                          rgb_add=True)
 
     if not game.tile_grid.HasTile(grid_mouse_pos):
       desc = None
