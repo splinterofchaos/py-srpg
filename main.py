@@ -2,11 +2,13 @@ import pygame
 import typing
 import random
 import copy
+import collections
 
 import actor
 import graphics
 from item_compendium import *
 from vec import *
+from priority_queue import PriorityQueue
 
 
 class TileType:
@@ -144,15 +146,21 @@ class Action:
 
 # Represents the action of moving from one place to the other.
 class MoveAction:
-  def __init__(self, to_pos): self.to_pos = to_pos
+  def __init__(self, to_pos):
+    self.to_pos = to_pos
+
   def Run(self, game, a): a.pos = self.to_pos
   def Marker(self): return self.to_pos
 
 
 class GetAction:
-  def __init__(self, item): self.item = item
+  def __init__(self, item, move_action=None):
+    self.item = item
+    self.move_action = move_action
 
   def Run(self, game, a):
+    if self.move_action:
+      self.move_action.Run(game, a)
     a.PickUp(self.item)
     del self.item.pos
 
@@ -163,39 +171,30 @@ def OrthogonalPositions(pos):
   for step_x, step_y in ((-1, 0), (1, 0), (0, -1), (0, 1)):
     yield pos[0] + step_x, pos[1] + step_y
 
+def ExpandActions(game, start, max_steps):
+  visited = set()
+  actions = []
+  edges = PriorityQueue()
+  edges.Push([start], max_steps)
+  while edges:
+    path, steps_left = edges.Pop()
+    pos = path[-1]
+    if pos in visited: continue
+    visited.add(pos)
 
-# A depth-first search expanding all nodes that can be walked on from `pos`.
-# `visited` is the set of tiles explored and also the return value for
-# convenience.
-def ExpandWalkable(game, pos, steps_left, visited):
-  visited.add(pos)
-  if steps_left <= 0: return visited
+    e = game.EntityAt(pos)
+    if pos != start and e:
+      actions.append(GetAction(e, MoveAction(path[-2])))
+    elif steps_left >= 0 and (pos == start or game.Walkable(pos)):
+      if pos != start: actions.append(MoveAction(pos))
+      for new_pos in OrthogonalPositions(pos):
+        edges.Push(path[:] + [new_pos], steps_left - 1)
 
-  for new_pos in OrthogonalPositions(pos):
-    if not game.Walkable(new_pos): continue
-    ExpandWalkable(game, new_pos, steps_left - 1, visited)
-
-  return visited
-
-# Returns all items "get"able from `pos`.
-def ExpandGet(game, pos):
-  for new_pos in OrthogonalPositions(pos):
-    e = game.EntityAt(new_pos)
-    if e: yield e
+  return actions
 
 # Lists out all the VALID actions `a` can take.
 def GenerateActions(game, a):
-  actions = []
-  stats = a.Stats()
-  start = a.pos
-
-  actions.extend(MoveAction(pos) for pos in
-                 ExpandWalkable(game, start, stats.stats['MOV'].value,
-                                set())
-                 if pos != start)
-  actions.extend(GetAction(i) for i in ExpandGet(game, start))
-
-  return actions
+  return ExpandActions(game, a.pos, a.Stats().stats['MOV'].value)
 
 SCREEN_WIDTH = graphics.TILE_SIZE * 52
 SCREEN_HEIGHT = graphics.TILE_SIZE * 45
