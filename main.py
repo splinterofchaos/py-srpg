@@ -141,19 +141,23 @@ class Action:
   def Run(self, game, actor): pass
   # If this action is on a position (like to where we would move or attack),
   # returns that position so it can be marked in the UI.
-  def Marker(self): pass
+  def Marker(self): return None, None
 
 
 # Represents the action of moving from one place to the other.
 class MoveAction:
+  MARKER_SURFACE = None
+
   def __init__(self, to_pos):
     self.to_pos = to_pos
 
   def Run(self, game, a): a.pos = self.to_pos
-  def Marker(self): return self.to_pos
+  def Marker(self): return self.to_pos, MoveAction.MARKER_SURFACE
 
 
 class GetAction:
+  MARKER_SURFACE = None
+
   def __init__(self, item, move_action=None):
     self.item = item
     self.move_action = move_action
@@ -164,7 +168,7 @@ class GetAction:
     a.PickUp(self.item)
     del self.item.pos
 
-  def Marker(self): return self.item.pos
+  def Marker(self): return self.item.pos, GetAction.MARKER_SURFACE
 
 
 def OrthogonalPositions(pos):
@@ -207,6 +211,11 @@ def ExpandGetItem(game, pos, move_action, visited):
 # Lists out all the VALID actions `a` can take.
 def GenerateActions(game, a):
   return ExpandActions(game, a.pos, a.Stats().stats['MOV'].value)
+
+def RegisterMarkerSurface(surface_reg, rgba_color):
+  s = pygame.Surface((graphics.TILE_SIZE, graphics.TILE_SIZE))
+  s.fill(rgba_color)
+  return surface_reg.RegisterSurface(s)
 
 SCREEN_WIDTH = graphics.TILE_SIZE * 52
 SCREEN_HEIGHT = graphics.TILE_SIZE * 45
@@ -258,14 +267,9 @@ def main():
     surface_reg, screen,
     (0, 0, graphics.TILE_SIZE*40, graphics.TILE_SIZE*40))
 
-  selector_surface = pygame.Surface((graphics.TILE_SIZE, graphics.TILE_SIZE))
-  selector_surface.fill([0,100,100,10])
-  selector = surface_reg.RegisterSurface(selector_surface)
-
-  possible_move_surface = pygame.Surface((graphics.TILE_SIZE,
-                                          graphics.TILE_SIZE))
-  possible_move_surface.fill([100,0,100,10])
-  possible_move = surface_reg.RegisterSurface(possible_move_surface)
+  selector = RegisterMarkerSurface(surface_reg, [0,100,100,10])
+  MoveAction.MARKER_SURFACE = RegisterMarkerSurface(surface_reg, [100,0,100,10])
+  GetAction.MARKER_SURFACE = RegisterMarkerSurface(surface_reg, [50,50,100,10])
 
   actions = GenerateActions(game, player)
 
@@ -299,7 +303,8 @@ def main():
     if game.left_mouse:
       decided_action = None
       for a in actions or []:
-        if a.Marker() == grid_mouse_pos:
+        pos, _ = a.Marker()
+        if pos == grid_mouse_pos:
           decided_action = a
 
       if decided_action:
@@ -330,8 +335,9 @@ def main():
                       rgb_add=True)
 
     for a in actions:
-      if not a.Marker(): continue
-      map_frame.AddTask(graphics.TiledPos(a.Marker()), OVERLAY, possible_move,
+      pos, surface_id = a.Marker()
+      if not (pos and surface_id): continue
+      map_frame.AddTask(graphics.TiledPos(pos), OVERLAY, surface_id,
                         rgb_add=True)
 
     if not game.tile_grid.HasTile(grid_mouse_pos):
