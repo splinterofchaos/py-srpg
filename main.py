@@ -179,17 +179,29 @@ def ExpandActions(game, start, max_steps):
   while edges:
     path, steps_left = edges.Pop()
     pos = path[-1]
-    if pos in visited: continue
+    if pos in visited or (pos != start and not game.Walkable(pos)): continue
     visited.add(pos)
 
-    e = game.EntityAt(pos)
-    if pos != start and e:
-      actions.append(GetAction(e, MoveAction(path[-2])))
-    elif steps_left >= 0 and (pos == start or game.Walkable(pos)):
-      if pos != start: actions.append(MoveAction(pos))
+    move_action = None
+    if pos != start:
+      move_action = MoveAction(pos)
+      actions.append(move_action)
+    actions.extend(ExpandGetItem(game, pos, move_action, visited))
+
+    if steps_left > 0:
       for new_pos in OrthogonalPositions(pos):
         edges.Push(path[:] + [new_pos], steps_left - 1)
 
+  return actions
+
+def ExpandGetItem(game, pos, move_action, visited):
+  actions = []
+  for new_pos in OrthogonalPositions(pos):
+    if new_pos in visited: continue
+    e = game.EntityAt(new_pos)
+    if not e: continue
+    actions.append(GetAction(e, move_action))
+    visited.add(new_pos)
   return actions
 
 # Lists out all the VALID actions `a` can take.
