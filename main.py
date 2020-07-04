@@ -188,33 +188,35 @@ def OrthogonalPositions(pos):
   for step_x, step_y in ((-1, 0), (1, 0), (0, -1), (0, 1)):
     yield pos[0] + step_x, pos[1] + step_y
 
-def ExpandActions(game, start, max_steps):
-  visited = set()
-  actions = []
-  edges = PriorityQueue()
-  edges.Push([start], max_steps)
+def BreadthFirstExpand(game, start, max_steps):
+  tiles = []
+  edges = collections.deque()
+  edges.append((start, max_steps))
   while edges:
-    path, steps_left = edges.Pop()
-    pos = path[-1]
-    if pos in visited or (pos != start and not game.Walkable(pos)): continue
-    visited.add(pos)
+    pos, steps_left = edges.popleft()
+    if pos in tiles or (pos != start and not game.Walkable(pos)): continue
+    tiles.append(pos)
 
+    if steps_left > 0:
+      for new_pos in OrthogonalPositions(pos):
+        edges.append((new_pos, steps_left - 1))
+  return tiles
+
+def ExpandActions(game, start, max_steps):
+  visited_items = set()
+  actions = []
+  for pos in BreadthFirstExpand(game, start, max_steps):
     move_action = None
     if pos != start:
       move_action = MoveAction(pos)
       actions.append(move_action)
-    actions.extend(ExpandGetItem(game, pos, move_action, visited))
-
-    if steps_left > 0:
-      for new_pos in OrthogonalPositions(pos):
-        edges.Push(path[:] + [new_pos], steps_left - 1)
-
+    actions.extend(ExpandGetItem(game, pos, start, move_action, visited_items))
   return actions
 
-def ExpandGetItem(game, pos, move_action, visited):
+def ExpandGetItem(game, pos, start_pos, move_action, visited):
   actions = []
   for new_pos in OrthogonalPositions(pos):
-    if new_pos in visited: continue
+    if new_pos == start_pos or new_pos in visited: continue
     e = game.EntityAt(new_pos)
     if not e: continue
     actions.append(GetAction(e, move_action))
