@@ -1,6 +1,7 @@
 import stats
 import actor
 from actor import Entity, NOT_AN_ID, Action
+import damage
 
 def Item(name, image, description, modifiers):
   i = Entity(NOT_AN_ID)
@@ -49,11 +50,10 @@ class AxAttackModifier(stats.Modifier):
     super().__init__('STR')
     self.actor = a
 
-    def AddMeleAction(game, stats):
+    def AddMeleAction(game, sheet):
       pos = self.actor.pos
-      STR = stats.stats.get('STR')
-      damage = actor.Damage(STR.value if 'STR' else 0)
-      damage_vec = actor.DamageVector([damage])
+      STR = sheet.stats.get('STR', stats.IntegerStat('STR', 0)).value
+      damage_vec = damage.DamageVector([damage.Damage(STR)])
       for step in ((-1, 0), (1, 0), (0, -1), (0, 1)):
         new_pos = (pos[0] + step[0], pos[1] + step[1])
         e = game.EntityAt(new_pos)
