@@ -32,24 +32,14 @@ def StatMultMod(stat_name, value, reason=None):
 
 
 class MeleAction(Action):
-  MARKER_SURFACE = None
-
-  def __init__(self, damage_vector, target, move_action=None):
+  def __init__(self, damage_vector, target):
     self.damage_vector = damage_vector
     self.target = target
-    self.move_action = move_action
 
   def Run(self, game, actor):
-    if self.move_action: self.move_action.Run(game, actor)
     self.damage_vector.DealDamage(self.target)
 
-  def Pos(self): return self.target.pos
-
-  def Markers(self): 
-    markers = [actor.Marker(self.Pos(), self.MARKER_SURFACE)]
-    if self.move_action:
-      markers.extend(self.move_action.Markers())
-    return markers
+  def Marker(self): return self.target.pos
 
 
 ADD_ACTION = 'add-action'
@@ -60,16 +50,14 @@ class AxAttackModifier(stats.Modifier):
     super().__init__('STR')
     self.actor = a
 
-    def AddMeleAction(game, sheet, pos, move_action, visited):
+    def AddMeleAction(game, sheet):
+      pos = self.actor.pos
       STR = sheet.stats.get('STR', stats.IntegerStat('STR', 0)).value
       damage_vec = damage.DamageVector([damage.Damage(STR)])
       for step in ((-1, 0), (1, 0), (0, -1), (0, 1)):
         new_pos = (pos[0] + step[0], pos[1] + step[1])
-        if new_pos in visited: continue
         e = game.EntityAt(new_pos)
-        if e and 'has_stats' in e:
-          visited.add(new_pos)
-          yield MeleAction(damage_vec, e, move_action)
+        if e and 'has_stats' in e: yield MeleAction(damage_vec, e)
     self.actions[ADD_ACTION] = AddMeleAction
 
   def EffectRepr(self):

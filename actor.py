@@ -99,12 +99,6 @@ def OnAction(e, action, *args, **kwargs):
       m.OnAction(action, *args, **kwargs)
 
 
-class Marker:
-  def __init__(self, pos, surface):
-    self.pos = pos
-    self.surface = surface
-    
-
 # Represents the existence and execution of any valid action. This allows us to
 # abstract player/AI decision making as well as get data on all possible
 # actions. Marker() exists to specify if the UI should draw a marker at any
@@ -114,7 +108,7 @@ class Action:
   def Run(self, game, actor): pass
   # If this action is on a position (like to where we would move or attack),
   # returns that position so it can be marked in the UI.
-  def Markers(self): return []
+  def Marker(self): pass
 
 
 def Actor(id, name):
