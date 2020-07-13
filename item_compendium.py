@@ -31,34 +31,6 @@ def StatMultMod(stat_name, value, reason=None):
   return stats.AdditionModifier(stat_name, 0, value, reason=reason)
 
 
-
-ADD_ACTION = 'add-action'
-
-
-class AxAttackModifier(stats.Modifier):
-  def __init__(self, a=None):
-    super().__init__('STR')
-    self.actor = a
-
-    def AddMeleAction(game, sheet, pos, move_action, visited):
-      STR = sheet.stats.get('STR', stats.IntegerStat('STR', 0)).value
-      damage_vec = damage.DamageVector([damage.Damage(STR)])
-      for step in ((-1, 0), (1, 0), (0, -1), (0, 1)):
-        new_pos = (pos[0] + step[0], pos[1] + step[1])
-        if new_pos in visited: continue
-        e = game.EntityAt(new_pos)
-        if e and 'has_stats' in e:
-          visited.add(new_pos)
-          yield MeleAction(damage_vec, e, move_action)
-    self.actions[ADD_ACTION] = AddMeleAction
-
-  def EffectRepr(self):
-    return 'Ax attack'
-
-  def ModifyStatSheet(self, sheet):
-    sheet.attributes.append(AxAttackModifier(self.parent.parent))
-
-
 # A non-exhaustive list of items in the game. Items can be defined from anywhere
 # in the code, but randomly spawning items go here.
 item_compendium = [
@@ -71,11 +43,9 @@ item_compendium = [
   Item('large health potion', '!', 'It\s pretty big.',
        GagueAddMod('HP', 25, 'beafy')),
   Item('dull ax', 'x', 'Ax my no questions, I fell you no pines.',
-       [StatAddMod('STR', 10, 'hit things'), StatAddMod('DEX', -5, 'slow'),
-        AxAttackModifier()]),
+       [StatAddMod('STR', 10, 'hit things'), StatAddMod('DEX', -5, 'slow')]),
   Item('lumberjack\'s ax', 'x', 'I fell pines, all right.',
-       [StatAddMod('STR', 20, 'and that\'s okay'), StatAddMod('DEX', -10),
-        AxAttackModifier()]),
+       [StatAddMod('STR', 20, 'and that\'s okay'), StatAddMod('DEX', -10)]),
   Item('slingshot', 'Y', 'Pull hard and aim',
        [StatAddMod('STR', 3, 'pull really hard!'),
         StatAddMod('AIM', 10, 'don\'t miss!'),

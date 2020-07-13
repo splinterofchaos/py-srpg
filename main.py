@@ -234,12 +234,12 @@ def ExpandGetItem(game, pos, a, move_action, visited):
 def ExpandMeleeAtk(game, pos, a, sheet, move_action, visited):
   # TODO: Handle the case where the actor's RANGE stat is greater than one.
   for new_pos in OrthogonalPositions(pos):
-    if new_pos == a.pos or new_pos in visited: continue
+    if new_pos in visited: continue
 
     e = game.EntityAt(new_pos)
     if not e or 'has_stats' not in e: continue
 
-    atk = sheet.stats.get('STR')
+    atk = sheet.stats.get('ATK')
     atk = (atk and atk.value) or 1
     damage_vec = damage.DamageVector([damage.Damage(atk)])
     yield MeleAction(damage_vec, e, move_action)
