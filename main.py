@@ -5,7 +5,9 @@ import copy
 import collections
 
 import actor
+import damage
 import graphics
+import stats
 from item_compendium import *
 from vec import *
 from priority_queue import PriorityQueue
@@ -165,6 +167,27 @@ class GetAction(actor.Action):
     return markers
 
 
+class MeleAction(actor.Action):
+  MARKER_SURFACE = None
+
+  def __init__(self, damage_vector, target, move_action=None):
+    self.damage_vector = damage_vector
+    self.target = target
+    self.move_action = move_action
+
+  def Run(self, game, actor):
+    if self.move_action: self.move_action.Run(game, actor)
+    self.damage_vector.DealDamage(self.target)
+
+  def Pos(self): return self.target.pos
+
+  def Markers(self): 
+    markers = [actor.Marker(self.Pos(), self.MARKER_SURFACE)]
+    if self.move_action:
+      markers.extend(self.move_action.Markers())
+    return markers
+
+
 def OrthogonalPositions(pos):
   for step_x, step_y in ((-1, 0), (1, 0), (0, -1), (0, 1)):
     yield pos[0] + step_x, pos[1] + step_y
@@ -196,21 +219,30 @@ def GenerateActions(game, a):
       move_action = MoveAction(pos)
       actions.append(move_action)
     actions.extend(ExpandGetItem(game, pos, start, move_action, visited))
-
-    for attr in sheet.attributes:
-        if attr.HasAction(ADD_ACTION):
-            actions.extend(attr.OnAction(ADD_ACTION, game, sheet, pos,
-                                         move_action, visited))
+    actions.extend(ExpandMeleeAtk(game, pos, a, sheet, move_action, visited))
 
   return actions
 
-def ExpandGetItem(game, pos, start_pos, move_action, visited):
-  actions = []
+def ExpandGetItem(game, pos, a, move_action, visited):
   for new_pos in OrthogonalPositions(pos):
-    if new_pos == start_pos or new_pos in visited: continue
+    if new_pos in visited: continue
     e = game.EntityAt(new_pos)
     if not e or 'has_stats' in e: continue
     yield GetAction(e, move_action)
+    visited.add(new_pos)
+
+def ExpandMeleeAtk(game, pos, a, sheet, move_action, visited):
+  # TODO: Handle the case where the actor's RANGE stat is greater than one.
+  for new_pos in OrthogonalPositions(pos):
+    if new_pos == a.pos or new_pos in visited: continue
+
+    e = game.EntityAt(new_pos)
+    if not e or 'has_stats' not in e: continue
+
+    atk = sheet.stats.get('STR')
+    atk = (atk and atk.value) or 1
+    damage_vec = damage.DamageVector([damage.Damage(atk)])
+    yield MeleAction(damage_vec, e, move_action)
     visited.add(new_pos)
 
 def RegisterMarkerSurface(surface_reg, rgba_color):

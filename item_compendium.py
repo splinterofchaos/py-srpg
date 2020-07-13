@@ -31,26 +31,6 @@ def StatMultMod(stat_name, value, reason=None):
   return stats.AdditionModifier(stat_name, 0, value, reason=reason)
 
 
-class MeleAction(Action):
-  MARKER_SURFACE = None
-
-  def __init__(self, damage_vector, target, move_action=None):
-    self.damage_vector = damage_vector
-    self.target = target
-    self.move_action = move_action
-
-  def Run(self, game, actor):
-    if self.move_action: self.move_action.Run(game, actor)
-    self.damage_vector.DealDamage(self.target)
-
-  def Pos(self): return self.target.pos
-
-  def Markers(self): 
-    markers = [actor.Marker(self.Pos(), self.MARKER_SURFACE)]
-    if self.move_action:
-      markers.extend(self.move_action.Markers())
-    return markers
-
 
 ADD_ACTION = 'add-action'
 

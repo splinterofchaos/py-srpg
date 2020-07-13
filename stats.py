@@ -35,6 +35,9 @@ class FractionStat(Stat):
 # A collection of stats and attributes. The sum of modifiers on an item or
 # actor.
 class StatSheet:
+  class AttackType(Enum):
+    MELEE = auto()
+
   def __init__(self):
     self.stats = {}
     self.attributes = []
