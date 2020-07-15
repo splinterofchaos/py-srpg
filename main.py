@@ -246,7 +246,7 @@ def main():
     ('desc', "A very simple dood.")),
   )
   player.PickUp(Item('human feet', '', 'One right, one left.',
-                     StatAddMod('MOV', 4)))
+                     [IntAdd('MOV', 4)]))
   game.entities.append(player)
 
   SPIDER = 1
@@ -257,7 +257,7 @@ def main():
     ('desc', "Creepy and crawly.")),
   )
   spider.PickUp(Item('small health potion', '!', 'Don\'t drop it!',
-                     GagueAddMod('HP', 15, 'smells nice')))
+                     [FractionAdd('HP', 15, 'smells nice')]))
   game.entities.append(spider)
 
   # Spawn a random item to play with.

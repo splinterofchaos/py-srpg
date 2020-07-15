@@ -10,7 +10,7 @@ NOT_AN_ID = -1
 
 class Entity:
   # Add your property to this before using them!
-  valid_components = {'modifiers', 'pos',
+  valid_components = {'stat_sheet', 'pos',
                       'name', 'desc', 'has_stats', 'image'}
   instance_properties = {'id', 'components', 'children', 'parent'}
 
@@ -45,8 +45,7 @@ class Entity:
   def Stats(self):
     sheet = stats.StatSheet()
     for c in self.children:
-      for m in c.modifiers:
-        m.ModifyStatSheet(sheet)
+        sheet.Merge(c.stat_sheet)
     return sheet
 
   def PickUp(self, entity):
@@ -71,10 +70,8 @@ class Entity:
 
     if self.GetOr('has_stats'):
       lines.append(str(self.Stats()))
-
-    modifiers = self.GetOr('modifiers')
-    if modifiers:
-      lines.extend(str(m) for m in modifiers)
+    else:
+      lines.append(str(self.stat_sheet))
 
     if self.children:
       inventory = [c.name for c in self.children]
@@ -86,11 +83,6 @@ class Entity:
   def UpdatePairs(self, key_datas):
     for key, data in key_datas: self.Set(key, data)
 
-
-def AddModifier(e, mod):
-  mod.parent = e
-  e.modifiers.append(mod)
-  e.modifiers.append(mod)
 
 def OnAction(e, action, *args, **kwargs):
   for c in e.children: OnAction(c, action, *args, **kwargs)
@@ -126,38 +118,39 @@ def Actor(id, name):
 
 # TODO: This class needs to know about the Properties enum, but is this the best
 # place for it?
-REGEN = 'regen'
-class RegenModifier(stats.Modifier):
-  def __init__(self, name, amount=1, reason=None):
-    super().__init__(reason)
-    self.name = name
-    self.amount = amount
-
-    def Regen():
-      amount = self.amount
-
-      def RegenItem(item, amount):
-        for m in item.modifiers:
-          if m.HasAction(stats.REFUND):
-            amount = m.OnAction(stats.REFUND, self.name, acc=amount)
-        return amount
-
-      item = self.parent
-      if item.parent:
-        for i in item.parent.children:
-          amount = RegenItem(i, amount)
-      else:
-        amount = RegenItem(item, amount)
-    self.actions[REGEN] = Regen
-
-  def EffectRepr(self):
-    return f'{self.name} regen x{self.amount}'
-
-  def ModifyStatSheet(self, sheet):
-    for a in sheet.attributes:
-      if isinstance(a, RegenModifier) and a.name == self.name:
-        a.amount += self.amount
-        return
-    copy = RegenModifier(self.name, self.amount)
-    copy.parent = self.parent
-    sheet.attributes.append(copy)
+# TODO: This needs to be updated for 
+#REGEN = 'regen'
+#class RegenModifier(stats.Modifier):
+#  def __init__(self, name, amount=1, reason=None):
+#    super().__init__(reason)
+#    self.name = name
+#    self.amount = amount
+#
+#    def Regen():
+#      amount = self.amount
+#
+#      def RegenItem(item, amount):
+#        for m in item.modifiers:
+#          if m.HasAction(stats.REFUND):
+#            amount = m.OnAction(stats.REFUND, self.name, acc=amount)
+#        return amount
+#
+#      item = self.parent
+#      if item.parent:
+#        for i in item.parent.children:
+#          amount = RegenItem(i, amount)
+#      else:
+#        amount = RegenItem(item, amount)
+#    self.actions[REGEN] = Regen
+#
+#  def EffectRepr(self):
+#    return f'{self.name} regen x{self.amount}'
+#
+#  def ModifyStatSheet(self, sheet):
+#    for a in sheet.attributes:
+#      if isinstance(a, RegenModifier) and a.name == self.name:
+#        a.amount += self.amount
+#        return
+#    copy = RegenModifier(self.name, self.amount)
+#    copy.parent = self.parent
+#    sheet.attributes.append(copy)
