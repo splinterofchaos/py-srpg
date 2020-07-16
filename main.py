@@ -3,6 +3,7 @@ import typing
 import random
 import copy
 import collections
+import time
 
 import actor
 import damage
@@ -121,6 +122,8 @@ class Game:
 
     self.mouse_pos = None  # The position of the mouse in pixels.
 
+    self.kill_list = []
+
     # State such as whose turn it currently is will eventually go here, too.
 
   def Walkable(self, pos):
@@ -132,6 +135,19 @@ class Game:
     for e in self.entities:
       p = e.GetOr('pos')
       if p and p == pos: return e
+
+  def UpdateClock(self):
+    new_time = time.time()
+    self.time_delta = new_time - self.time
+    self.time = new_time
+    self.ticks += 1
+
+  def KillPending(self):
+    for to_kill in self.kill_list:
+      for i, e in enumerate(self.entities):
+        if e == to_kill:
+          del self.entities[i]
+          break
 
 
 # Represents the action of moving from one place to the other.
@@ -177,7 +193,10 @@ class MeleAction(actor.Action):
 
   def Run(self, game, actor):
     if self.move_action: self.move_action.Run(game, actor)
-    self.damage_vector.DealDamage(self.target)
+    remaining_hp = self.damage_vector.DealDamage(self.target)
+
+    if not remaining_hp:
+      game.kill_list.append(self.target)
 
   def Pos(self): return self.target.pos
 
@@ -316,7 +335,7 @@ def main():
   GetAction.MARKER_SURFACE = RegisterMarkerSurface(surface_reg, [50,50,100,10])
   MeleAction.MARKER_SURFACE = RegisterMarkerSurface(surface_reg, [200,50,50,10])
 
-  actions = GenerateActions(game, player)
+  actions = None
 
   previous_mouse_grid_pos = None
   desc = None
@@ -331,6 +350,14 @@ def main():
         game.mouse_pos = pygame.mouse.get_pos()
       elif event.type == pygame.MOUSEBUTTONDOWN:
         game.left_mouse = True
+
+    if game.KillPending():
+      # This is probably not necessary in the long run, but for the moment it
+      # prevents the "attack" marker from appearing after killing an entity.
+      actions = None
+
+    if not actions:
+      actions = GenerateActions(game, player)
 
     time_delta = clock.tick()
 
@@ -353,7 +380,7 @@ def main():
 
       if decided_action:
         decided_action.Run(game, player)
-        actions = GenerateActions(game, player)
+        actions = None
       else:
         # TODO: Eventually, there should be an ingame log and this'll show up
         # there.
@@ -378,7 +405,7 @@ def main():
     map_frame.AddTask(graphics.TiledPos(grid_mouse_pos), OVERLAY, selector,
                       rgb_add=True)
 
-    for a in actions:
+    for a in actions or []:
       for m in a.Markers():
         if not (m.pos and m.surface): continue
         map_frame.AddTask(graphics.TiledPos(m.pos), OVERLAY, m.surface,

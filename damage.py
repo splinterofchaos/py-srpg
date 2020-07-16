@@ -34,6 +34,6 @@ class DamageVector:
     for damage in self.damages:
       amount += damage.ResolveAmount(sheet)
 
+    remaining_hp = sheet.stats['HP'].n - amount
     DealDamage(defender, amount)
-
-    return amount
+    return remaining_hp
