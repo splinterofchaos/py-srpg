@@ -8,9 +8,11 @@ def DealDamage(actor, amount):
   amount = int(amount)
 
   for i in actor.children:
-    for m in i.modifiers:
-      if m.HasAction(stats.CONSUME):
-        amount = m.OnAction(stats.CONSUME, 'HP', amount)
+    for (name, stat) in i.stat_sheet.stats.items():
+      if stat.HasAction(stats.CONSUME):
+        print('consuming', amount, 'from', stat)
+        amount = stat.OnAction(stats.CONSUME, 'HP', amount)
+        print('now stat is', stat)
 
 
 class Damage:

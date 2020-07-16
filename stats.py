@@ -14,7 +14,7 @@ class Stat:
     if self.reason:
       return f'{self.name}: {effect} ({self.reason})'
     else:
-      return effect
+      return f'{self.name}: {effect}'
 
   def HasAction(self, action_id): return action_id in self.actions
 
@@ -35,7 +35,7 @@ class IntegerStat(Stat):
     self.multiplier = multiplier
 
   def EffectRepr(self):
-    if self.multiplier:
+    if self.multiplier != 1:
       # TODO: convert multiplier to integer out of 100 first
       return (f'{int(self.multiplier*100)}%')
     else:
@@ -75,6 +75,10 @@ class FractionStat(Stat):
   def Merge(self, other):
     self.n += other.n
     self.d += other.d
+
+  def Copy(self):
+    return FractionStat(self.name, self.n, self.d, self.reason)
+
 
 
 # A collection of stats and attributes. The sum of modifiers on an item or

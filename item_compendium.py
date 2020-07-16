@@ -27,30 +27,6 @@ def IntMult(stat_name, value, reason=None):
   return stats.IntegerStat(stat_name, 0, value, reason=reason)
 
 
-class MeleAction(Action):
-  MARKER_SURFACE = None
-
-  def __init__(self, damage_vector, target, move_action=None):
-    self.damage_vector = damage_vector
-    self.target = target
-    self.move_action = move_action
-
-  def Run(self, game, actor):
-    if self.move_action: self.move_action.Run(game, actor)
-    self.damage_vector.DealDamage(self.target)
-
-  def Pos(self): return self.target.pos
-
-  def Markers(self): 
-    markers = [actor.Marker(self.Pos(), self.MARKER_SURFACE)]
-    if self.move_action:
-      markers.extend(self.move_action.Markers())
-    return markers
-
-
-ADD_ACTION = 'add-action'
-
-
 # A non-exhaustive list of items in the game. Items can be defined from anywhere
 # in the code, but randomly spawning items go here.
 item_compendium = [
@@ -63,11 +39,11 @@ item_compendium = [
   Item('large health potion', '!', 'It\s pretty big.',
        {FractionAdd('HP', 25, 'beafy')}),
   Item('dull ax', 'x', 'Ax my no questions, I fell you no pines.',
-       [IntAdd('STR', 10, 'hit things'), IntAdd('DEX', -5, 'slow')]),
+       [IntAdd('ATK', 10, 'hit things'), IntAdd('DEX', -5, 'slow')]),
   Item('lumberjack\'s ax', 'x', 'I fell pines, all right.',
-       [IntAdd('STR', 20, 'and that\'s okay'), IntAdd('DEX', -10)]),
+       [IntAdd('ATK', 20, 'and that\'s okay'), IntAdd('DEX', -10)]),
   Item('slingshot', 'Y', 'Pull hard and aim',
-       [IntAdd('STR', 3, 'pull really hard!'),
+       [IntAdd('ATK', 3, 'pull really hard!'),
         IntAdd('AIM', 10, 'don\'t miss!'),
         IntAdd('MATURITY', -7, 'a child\'s weapon')]),
   #Item('sleeping bag', '_', 'So tired!',
