@@ -46,29 +46,25 @@ class IntegerStat(Stat):
     self.multiplier += other.multiplier
 
 # Stats like HP, MP, etc..
-CONSUME = 'consume'
-REFUND = 'refund'
 class FractionStat(Stat):
   def __init__(self, name, numerator, denominator, reason=None):
     super(FractionStat, self).__init__(name, reason)
     self.n = numerator
     self.d = denominator
 
-    def Consume(stat, acc=None):
-      if stat != self.name: return acc
-      left = max(0, self.n - acc)
-      acc -= min(self.n, acc)
-      self.n = left
-      return acc
-    self.actions[CONSUME] = Consume
+  def Consume(self, acc=None):
+    """Reduces the numerator by acc returns whatever is left in acc."""
+    left = max(0, self.n - acc)
+    acc -= min(self.n, acc)
+    self.n = left
+    return acc
 
-    def Refund(stat, acc=None):
-      if stat != self.name: return acc
-      have = min(self.d, self.n + acc)
-      acc -= min(acc, self.d - self.n)
-      self.n = have
-      return acc
-    self.actions[REFUND] = Refund
+  def Refund(self, acc=None):
+    """Adds acc to the numerator and returns what is left in acc."""
+    have = min(self.d, self.n + acc)
+    acc -= min(acc, self.d - self.n)
+    self.n = have
+    return acc
 
   def EffectRepr(self): return f'{self.n}/{self.d}'
 
