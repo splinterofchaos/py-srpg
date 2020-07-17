@@ -8,7 +8,7 @@ def DealDamage(actor, amount):
   amount = int(amount)
 
   for i in actor.children:
-    hp = i.stat_sheet.stats['HP']
+    hp = i.stat_sheet.stats.get('HP')
     if hp: amount = hp.Consume(amount)
 
 

@@ -142,12 +142,24 @@ class Game:
     self.time = new_time
     self.ticks += 1
 
+  def _DropItems(self, entity):
+    for pos, item in zip(BreadthFirstExpand(self, entity.pos, 999),
+                         entity.children):
+      item.parent = None
+      item.pos = pos
+      self.entities.append(item)
+
+
   def KillPending(self):
+    killed_one = False
     for to_kill in self.kill_list:
       for i, e in enumerate(self.entities):
         if e == to_kill:
+          self._DropItems(self.entities[i])
           del self.entities[i]
+          killed_one = True
           break
+    return killed_one
 
 
 # Represents the action of moving from one place to the other.
@@ -212,18 +224,18 @@ def OrthogonalPositions(pos):
     yield pos[0] + step_x, pos[1] + step_y
 
 def BreadthFirstExpand(game, start, max_steps):
-  tiles = []
   edges = collections.deque()
   edges.append((start, max_steps))
+  visited = set()
   while edges:
     pos, steps_left = edges.popleft()
-    if pos in tiles or (pos != start and not game.Walkable(pos)): continue
-    tiles.append(pos)
+    if pos in visited or (pos != start and not game.Walkable(pos)): continue
+    yield pos
+    visited.add(pos)
 
     if steps_left > 0:
       for new_pos in OrthogonalPositions(pos):
         edges.append((new_pos, steps_left - 1))
-  return tiles
 
 def GenerateActions(game, a):
   start = a.pos
@@ -309,6 +321,7 @@ def main():
   )
   spider.PickUp(Item('small health potion', '!', 'Don\'t drop it!',
                      [FractionAdd('HP', 15, 'smells nice')]))
+  spider.PickUp(Item('gold', '0', 'Shiny', []))
   game.entities.append(spider)
 
   # Spawn a random item to play with.
