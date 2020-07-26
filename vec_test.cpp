@@ -2,15 +2,7 @@
 #include <cstdlib>
 
 #include "vec.h"
-
-template<typename T>
-void test(const char* const op_desc, T result, T expected) {
-  if (result != expected) {
-    std::cerr << op_desc << ":\n";
-    std::cerr << "       got: " << result << '\n';
-    std::cerr << "  expected: " << expected << std::endl;
-  }
-}
+#include "test.h"
 
 template<typename T, size_t N>
 std::ostream& operator<<(std::ostream& os, Vec<T, N> v) {
@@ -23,8 +15,6 @@ std::ostream& operator<<(std::ostream& os, Vec<T, N> v) {
   }
   return os << '>';
 }
-
-#define TEST(op, expect) test(#op, op, expect)
 
 int main() {
   TEST(Vec(1, 1) + Vec(1.0, 1.0), Vec(2.0, 2.0));
