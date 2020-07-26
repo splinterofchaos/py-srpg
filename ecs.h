@@ -55,7 +55,7 @@ public:
     StoreTuple stores_;
 
 protected:
-    template<typename U> const Store<U>& Get() const {
+    template<typename U> const Store<U>& get() const {
         return std::get<const Store<U>&>(stores_);
     }
 
@@ -74,51 +74,51 @@ protected:
         EntityId max_id;
 
         // Make sure getting the U'th iterator is easy.
-        template<typename U> auto& Get() const {
+        template<typename U> auto& get() const {
             return std::get<typename Store<U>::const_iterator>(its);
         }
         template<typename U>
-        auto& Get() { return std::get<typename Store<U>::const_iterator>(its); }
+        auto& get() { return std::get<typename Store<U>::const_iterator>(its); }
 
-        bool AnyAtEnd() const {
-            return ((Get<T>() == range.Get<T>().end()) || ...);
+        bool any_at_end() const {
+            return ((get<T>() == range.get<T>().end()) || ...);
         }
 
-        bool AllSame() const { return ((Get<T>()->id == max_id) && ...); }
+        bool all_same() const { return ((get<T>()->id == max_id) && ...); }
 
         // A helper to catch up iterators that are behind.
         template<typename U>
-        EntityId IncrementIfLower(typename Store<U>::const_iterator& it,
+        EntityId increment_if_lower(typename Store<U>::const_iterator& it,
             EntityId id) const {
-            if (it != range.Get<U>().end() && it->id < id) it++;
-            return it == range.Get<U>().end() ? id : it->id;
+            if (it != range.get<U>().end() && it->id < id) it++;
+            return it == range.get<U>().end() ? id : it->id;
         }
 
         template<typename U>
-        void IncrementIfNotAtEnd(typename Store<U>::const_iterator& it) {
-          if (it != range.Get<U>().end()) ++it;
+        void increment_if_not_at_end(typename Store<U>::const_iterator& it) {
+          if (it != range.get<U>().end()) ++it;
         }
 
         // After iteration, or on initialization, increment any iterators that
         // are behind.
-        void CatchUp() {
-          if (!AnyAtEnd()) max_id = std::max({Get<T>()->id...});
-          while (!AnyAtEnd() && !AllSame()) {
-              max_id = std::max({IncrementIfLower<T>(Get<T>(), max_id)...});
+        void catch_up() {
+          if (!any_at_end()) max_id = std::max({get<T>()->id...});
+          while (!any_at_end() && !all_same()) {
+              max_id = std::max({increment_if_lower<T>(get<T>(), max_id)...});
           }
-          if (AnyAtEnd()) {
-            its = {Get<T>() = range.Get<T>().end()...};
+          if (any_at_end()) {
+            its = {get<T>() = range.get<T>().end()...};
           }
         }
 
 
         ConstIterator& operator++() {
           // Increment at least once.
-          if (!AnyAtEnd()) {
-            (IncrementIfNotAtEnd<T>(Get<T>()), ...);
+          if (!any_at_end()) {
+            (increment_if_not_at_end<T>(get<T>()), ...);
           }
           // And then until all iterators point to the same entity.
-          CatchUp();
+          catch_up();
 
           return *this;
         }
@@ -132,19 +132,19 @@ protected:
 
         ConstIterator(const ConstComponentRange& range, iterator_tuple its)
             : range(range), its(std::move(its)) {
-              CatchUp();  // Ensure a valid initial starting position.
+              catch_up();  // Ensure a valid initial starting position.
         }
 
         bool operator==(const ConstIterator& other) {
-          return AnyAtEnd() && other.AnyAtEnd() ||
-              ((Get<T>() == other.Get<T>()) && ...);
+          return any_at_end() && other.any_at_end() ||
+              ((get<T>() == other.get<T>()) && ...);
         }
         bool operator!=(const ConstIterator& other) {
             return !(*this == other);
         }
 
         const_reference operator*() const {
-            return std::forward_as_tuple(max_id, Get<T>()->data...);
+            return std::forward_as_tuple(max_id, get<T>()->data...);
         }
     };
 
@@ -153,11 +153,11 @@ public:
         : stores_(stores) { }
 
     ConstIterator begin() const {
-        return ConstIterator(*this, { Get<T>().begin()... });
+        return ConstIterator(*this, { get<T>().begin()... });
     }
 
     ConstIterator end() const {
-        return ConstIterator(*this, { Get<T>().end()... });
+        return ConstIterator(*this, { get<T>().end()... });
     }
 };
 
@@ -170,7 +170,7 @@ class ComponentRange {
     std::tuple<Store<T>&...> stores_;
 
 protected:
-    template<typename U> Store<U>& Get() const {
+    template<typename U> Store<U>& get() const {
         return std::get<Store<U>&>(stores_);
     }
 
@@ -189,50 +189,50 @@ protected:
         EntityId max_id;
 
         // Make sure getting the U'th iterator is easy.
-        template<typename U> auto& Get() const {
+        template<typename U> auto& get() const {
             return std::get<typename Store<U>::iterator>(its);
         }
         template<typename U>
-        auto& Get() { return std::get<typename Store<U>::iterator>(its); }
+        auto& get() { return std::get<typename Store<U>::iterator>(its); }
 
-        bool AnyAtEnd() const {
-            return ((Get<T>() >= range.Get<T>().end()) || ...);
+        bool any_at_end() const {
+            return ((get<T>() >= range.get<T>().end()) || ...);
         }
 
-        bool AllSame() const { return ((Get<T>()->id == max_id) && ...); }
+        bool all_same() const { return ((get<T>()->id == max_id) && ...); }
 
         // A helper to catch up iterators that are behind.
         template<typename U>
-        EntityId IncrementIfLower(typename Store<U>::iterator& it,
+        EntityId increment_if_lower(typename Store<U>::iterator& it,
                                   EntityId id) const {
-            if (it != range.Get<U>().end() && it->id < id) it++;
-            return it == range.Get<U>().end() ? id : it->id;
+            if (it != range.get<U>().end() && it->id < id) it++;
+            return it == range.get<U>().end() ? id : it->id;
         }
 
         template<typename U>
-        void IncrementIfNotAtEnd(typename Store<U>::iterator& it) {
-          if (it != range.Get<U>().end()) ++it;
+        void increment_if_not_at_end(typename Store<U>::iterator& it) {
+          if (it != range.get<U>().end()) ++it;
         }
 
         // After iteration, or on initialization, increment any iterators that
         // are behind.
-        void CatchUp() {
-          if (!AnyAtEnd()) max_id = std::max({Get<T>()->id...});
-          while (!AnyAtEnd() && !AllSame()) {
-              max_id = std::max({IncrementIfLower<T>(Get<T>(), max_id)...});
+        void catch_up() {
+          if (!any_at_end()) max_id = std::max({get<T>()->id...});
+          while (!any_at_end() && !all_same()) {
+              max_id = std::max({increment_if_lower<T>(get<T>(), max_id)...});
           }
-          if (AnyAtEnd()) {
-            its = {Get<T>() = range.Get<T>().end()...};
+          if (any_at_end()) {
+            its = {get<T>() = range.get<T>().end()...};
           }
         }
 
         Iterator& operator++() {
             // Increment at least once.
-            if (!AnyAtEnd()) {
-              (IncrementIfNotAtEnd<T>(Get<T>()), ...);
+            if (!any_at_end()) {
+              (increment_if_not_at_end<T>(get<T>()), ...);
             }
             // And then until all iterators point to the same entity.
-            CatchUp();
+            catch_up();
 
             return *this;
         }
@@ -245,19 +245,19 @@ protected:
 
         Iterator(ComponentRange& range, iterator_tuple its)
             : range(range), its(std::move(its)) {
-          CatchUp();  // Ensure a valid initial starting position.
+          catch_up();  // Ensure a valid initial starting position.
         }
 
         bool operator==(const Iterator& other) {
-          return AnyAtEnd() && other.AnyAtEnd() ||
-              ((Get<T>() == other.Get<T>()) && ...);
+          return any_at_end() && other.any_at_end() ||
+              ((get<T>() == other.get<T>()) && ...);
         }
         bool operator!=(const Iterator& other) {
             return !(*this == other);
         }
 
         reference operator*() const {
-            return std::forward_as_tuple(max_id, Get<T>()->data...);
+            return std::forward_as_tuple(max_id, get<T>()->data...);
         }
     };
 
@@ -268,11 +268,11 @@ public:
         : stores_(stores) { }
 
     Iterator begin() {
-        return Iterator(*this, {Get<T>().begin()...});
+        return Iterator(*this, {get<T>().begin()...});
     }
 
     Iterator end() {
-        return Iterator(*this, {Get<T>().end()...});
+        return Iterator(*this, {get<T>().end()...});
     }
 };
 
@@ -291,9 +291,9 @@ class EntityComponentSystem {
     std::tuple<Store<Components>...> components_;
 
     template<typename T>
-    const Store<T>& GetStore() const { return std::get<Store<T>>(components_); }
+    const Store<T>& get_store() const { return std::get<Store<T>>(components_); }
     template<typename T>
-    Store<T>& GetStore() { return std::get<Store<T>>(components_); }
+    Store<T>& get_store() { return std::get<Store<T>>(components_); }
 
     template<typename T>
     using FindResultConst = std::pair<bool, typename Store<T>::const_iterator>;
@@ -302,8 +302,8 @@ class EntityComponentSystem {
     using FindResult = std::pair<bool, typename Store<T>::iterator>;
 
     template<typename T>
-    FindResultConst<T> FindComponent(EntityId id) const {
-        const Store<T>& series = GetStore<T>();
+    FindResultConst<T> find_component(EntityId id) const {
+        const Store<T>& series = get_store<T>();
         auto pred =
             [](const ComponentData<T>& c, EntityId id) { return c.id < id; };
         auto it = std::lower_bound(series.begin(), series.end(), id, pred);
@@ -311,8 +311,8 @@ class EntityComponentSystem {
     }
 
     template<typename T>
-    FindResult<T> FindComponent(EntityId id) {
-        Store<T>& series = GetStore<T>();
+    FindResult<T> find_component(EntityId id) {
+        Store<T>& series = get_store<T>();
         auto pred =
             [](const ComponentData<T>& c, EntityId id) { return c.id < id; };
         auto it = std::lower_bound(series.begin(), series.end(), id, pred);
@@ -320,18 +320,18 @@ class EntityComponentSystem {
     }
 
     template<typename Iterator, typename T>
-    void EmplaceAt(EntityId id, Iterator it, T data) {
-        GetStore<T>().emplace(it, id, std::move(data));
+    void emplace_at(EntityId id, Iterator it, T data) {
+        get_store<T>().emplace(it, id, std::move(data));
     }
 
-    const EntityComponentSystem<Components...>* ConstThis() const {
+    const EntityComponentSystem<Components...>* const_this() const {
         return this;
     }
 
 public:
     EntityComponentSystem() = default;
 
-    EntityId NewEntity() {
+    EntityId new_entity() {
         entity_ids_.push_back(next_id_);
         next_id_.id++;
         return entity_ids_.back();
@@ -342,49 +342,49 @@ public:
     // Adds data to a component, although that the entity exists is taken for
     // granted.
     template<typename T>
-    EcsError Write(EntityId id, T data,
+    EcsError write(EntityId id, T data,
                    WriteAction action = WriteAction::CREATE_ENTRY) {
-        auto [found, insert] = FindComponent<T>(id);
+        auto [found, insert] = find_component<T>(id);
         if (found && insert->id == id && action == WriteAction::CREATE_ENTRY) {
           return EcsError::ALREADY_EXISTS;
         }
-        EmplaceAt(id, insert, std::move(data));
+        emplace_at(id, insert, std::move(data));
         return EcsError::OK;
     }
 
     // Adds data to a component, although that the entity exists is taken for
     // granted.
     template<typename T, typename U, typename...V>
-    EcsError Write(EntityId id, T data, U next, V...rest) {
-        EcsError e = Write(id, std::move(data));
+    EcsError write(EntityId id, T data, U next, V...rest) {
+        EcsError e = write(id, std::move(data));
         return e != EcsError::OK ?
-            e : Write(id, std::move(next), std::move(rest)...);
+            e : write(id, std::move(next), std::move(rest)...);
     }
 
     template<typename...T>
-    EntityId WriteNewEntity(T...components) {
-        EntityId id = NewEntity();
-        Write(id, std::move(components)...);
+    EntityId write_new_entity(T...components) {
+        EntityId id = new_entity();
+        write(id, std::move(components)...);
         return id;
     }
 
     template<typename T>
-    EcsError Read(EntityId id, const T** out) const {
-        auto [found, it] = FindComponent<T>(id);
+    EcsError read(EntityId id, const T** out) const {
+        auto [found, it] = find_component<T>(id);
         if (!found) return EcsError::NOT_FOUND;
         *out = &it->data;
         return EcsError::OK;
     }
 
     template<typename T>
-    void ReadOrPanic(EntityId id, const T** out) const {
-      *out = &ReadOrPanic<T>(id);
+    void read_or_panic(EntityId id, const T** out) const {
+      *out = &read_or_panic<T>(id);
     }
 
     // Unsafe version of read that ignores NOT_FOUND errors.
     template<typename T>
-    const T& ReadOrPanic(EntityId id) const {
-        auto [found, it] = FindComponent<T>(id);
+    const T& read_or_panic(EntityId id) const {
+        auto [found, it] = find_component<T>(id);
         if (!found) {
           std::cerr << "Exiting because of entity not found." << std::endl;
           *(char*)nullptr = '0';
@@ -393,19 +393,19 @@ public:
     }
 
     template<typename T>
-    EcsError Read(EntityId id, T** out) {
-        return ConstThis()->Read(id, const_cast<const T**>(out));
+    EcsError read(EntityId id, T** out) {
+        return const_this()->read(id, const_cast<const T**>(out));
     }
 
     template<typename T>
-    void ReadOrPanic(EntityId id, T** out) {
-      *out = &ReadOrPanic<T>(id);
+    void read_or_panic(EntityId id, T** out) {
+      *out = &read_or_panic<T>(id);
     }
 
     // Unsafe version of read that ignores NOT_FOUND errors.
     template<typename T>
-    T& ReadOrPanic(EntityId id) {
-      auto [found, it] = FindComponent<T>(id);
+    T& read_or_panic(EntityId id) {
+      auto [found, it] = find_component<T>(id);
       if (!found) {
         std::cerr << "Exiting because of entity not found." << std::endl;
         *(char*)nullptr = '0';
@@ -414,52 +414,52 @@ public:
     }
 
     template<typename...T>
-    EcsError Read(EntityId id, const T**...out) const {
-        std::vector<EcsError> errors{ Read(id, out)... };
+    EcsError read(EntityId id, const T**...out) const {
+        std::vector<EcsError> errors{ read(id, out)... };
         for (EcsError e : errors) if (e != EcsError::OK) return e;
         return EcsError::OK;
     }
 
     template<typename...T>
-    void ReadOrPanic(EntityId id, const T**...out) const {
-      (ReadOrPanic(id, out), ...);
+    void read_or_panic(EntityId id, const T**...out) const {
+      (read_or_panic(id, out), ...);
     }
 
     template<typename...T>
-    EcsError Read(EntityId id, T**...out) {
-        return ConstThis()->Read(id, const_cast<const T**>(out)...);
+    EcsError read(EntityId id, T**...out) {
+        return const_this()->read(id, const_cast<const T**>(out)...);
     }
 
     template<typename...T>
-    void ReadOrPanic(EntityId id, T**...out) {
-      (ReadOrPanic(id, out), ...);
+    void read_or_panic(EntityId id, T**...out) {
+      (read_or_panic(id, out), ...);
     }
 
     template<typename...U>
-    ConstComponentRange<U...> ReadAll() const {
+    ConstComponentRange<U...> read_all() const {
         using Range = ConstComponentRange<U...>;
-        return Range(typename Range::StoreTuple(GetStore<U>()...));
+        return Range(typename Range::StoreTuple(get_store<U>()...));
     }
 
     template<typename...U>
-    ComponentRange<U...> ReadAll() {
+    ComponentRange<U...> read_all() {
       using Range = ComponentRange<U...>;
-      return Range(typename Range::StoreTuple(GetStore<U>()...));
+      return Range(typename Range::StoreTuple(get_store<U>()...));
     }
 
-    bool HasEntity(EntityId id) const {
+    bool has_entity(EntityId id) const {
       auto it = std::lower_bound(entity_ids_.begin(), entity_ids_.end(), id);
       return it != entity_ids_.end() && *it == id;
     }
 
     template<typename U>
-    void EraseComponent(EntityId id) {
-      auto [found, it] = FindComponent<U>(id);
-      if (found) GetStore<U>().erase(it);
+    void erase_component(EntityId id) {
+      auto [found, it] = find_component<U>(id);
+      if (found) get_store<U>().erase(it);
     }
 
-    void Erase(EntityId id) {
-      (EraseComponent<Components>(id), ...);
+    void erase(EntityId id) {
+      (erase_component<Components>(id), ...);
       auto it = std::lower_bound(entity_ids_.begin(), entity_ids_.end(), id);
       if (it == entity_ids_.end()) return;
       entity_ids_.erase(it);
