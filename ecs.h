@@ -5,6 +5,8 @@
 #include <tuple>
 #include <iostream>
 
+#include "util.h"
+
 // Note: One source of knowledge:
 // https://www.gamasutra.com/blogs/TobiasStein/20171122/310172/The_EntityComponentSystem__An_awesome_gamedesign_pattern_in_C_Part_1.php
 
@@ -38,14 +40,11 @@ struct ComponentData {
 template<typename T>
 using Store = std::vector<ComponentData<T>>;
 
-
 // A range abstraction that allows multiple component data series to be iterated
 // lazily over in a range-based for loop.
-template<typename...T>
-class ConstComponentRange {
+template<typename StoreTuple, typename IteratorTuple>
+class ComponentRange {
 public:
-    using StoreTuple = std::tuple<const Store<T> &...>;
-
   private:
     // Note: Explicitly storing const references to the stores prevents this
     // struct from serving  clients that need mutation, however non-const
@@ -55,186 +54,65 @@ public:
     StoreTuple stores_;
 
 protected:
-    template<typename U> const Store<U>& get() const {
-        return std::get<const Store<U>&>(stores_);
-    }
-
-    struct ConstIterator {
-        // To iterate through these stores, we'll need to remember where we came
-        // from, though mostly just so we know where the end is.
-        const ConstComponentRange& range;
-
-        using iterator_tuple = std::tuple<typename Store<T>::const_iterator...>;
-        iterator_tuple its;
-
-        using const_reference = std::tuple<EntityId, const T &...>;
+    struct Iterator {
+        IteratorTuple its;
+        IteratorTuple ends;
 
         // To know if all iterators are pointing to the same entity, we'll neet
         // to remember what entity that is.
         EntityId max_id;
 
-        // Make sure getting the U'th iterator is easy.
-        template<typename U> auto& get() const {
-            return std::get<typename Store<U>::const_iterator>(its);
+        bool sentinel = false;
+
+        template<typename It>
+        bool at_end(It it) const {
+          return it == std::get<It>(ends);
         }
-        template<typename U>
-        auto& get() { return std::get<typename Store<U>::const_iterator>(its); }
+        // Note that the alternative to the above is
+        // std::get<std::decay_t<decltype(it)>>(ends).
 
         bool any_at_end() const {
-            return ((get<T>() == range.get<T>().end()) || ...);
+          auto any = [](auto...args) { return (args || ...); };
+          auto pred = [this](const auto& it) { return at_end(it); };
+          return std::apply(any, tuple_map(pred, its));
         }
 
-        bool all_same() const { return ((get<T>()->id == max_id) && ...); }
+        // True if all iterators point to the same ID.
+        bool all_same() const {
+          auto all = [](auto...args) { return (args && ...); };
+          auto equals_max_id =
+              [this](const auto& it) { return it->id == max_id; };
+          return std::apply(all, tuple_map(equals_max_id, its));
+        }
+
+        template<typename Iter>
+        void increment_iter(Iter& it) {
+          if (!at_end(it)) ++it;
+          if (!at_end(it)) max_id = std::max(it->id, max_id);
+        }
 
         // A helper to catch up iterators that are behind.
-        template<typename U>
-        EntityId increment_if_lower(typename Store<U>::const_iterator& it,
-            EntityId id) const {
-            if (it != range.get<U>().end() && it->id < id) it++;
-            return it == range.get<U>().end() ? id : it->id;
-        }
-
-        template<typename U>
-        void increment_if_not_at_end(typename Store<U>::const_iterator& it) {
-          if (it != range.get<U>().end()) ++it;
+        void increment_if_lower(EntityId id) {
+          auto impl = [&](auto& it) {
+            if (!at_end(it) && it->id < id) increment_iter(it);
+          };
+          tuple_foreach(impl, its);
         }
 
         // After iteration, or on initialization, increment any iterators that
         // are behind.
         void catch_up() {
-          if (!any_at_end()) max_id = std::max({get<T>()->id...});
-          while (!any_at_end() && !all_same()) {
-              max_id = std::max({increment_if_lower<T>(get<T>(), max_id)...});
-          }
-          if (any_at_end()) {
-            its = {get<T>() = range.get<T>().end()...};
-          }
+          while (!any_at_end() && !all_same()) increment_if_lower(max_id);
+          if (any_at_end()) its = ends;
         }
 
 
-        ConstIterator& operator++() {
+        Iterator& operator++() {
           // Increment at least once.
-          if (!any_at_end()) {
-            (increment_if_not_at_end<T>(get<T>()), ...);
-          }
-          // And then until all iterators point to the same entity.
+          tuple_foreach([this](auto& it) { increment_iter(it); }, its);
           catch_up();
 
           return *this;
-        }
-
-        ConstIterator operator++(int) {
-            ConstIterator old = *this;
-            ++(*this);
-            return old;
-        }
-
-
-        ConstIterator(const ConstComponentRange& range, iterator_tuple its)
-            : range(range), its(std::move(its)) {
-              catch_up();  // Ensure a valid initial starting position.
-        }
-
-        bool operator==(const ConstIterator& other) {
-          return any_at_end() && other.any_at_end() ||
-              ((get<T>() == other.get<T>()) && ...);
-        }
-        bool operator!=(const ConstIterator& other) {
-            return !(*this == other);
-        }
-
-        const_reference operator*() const {
-            return std::forward_as_tuple(max_id, get<T>()->data...);
-        }
-    };
-
-public:
-    explicit ConstComponentRange(std::tuple<const Store<T> &...> stores)
-        : stores_(stores) { }
-
-    ConstIterator begin() const {
-        return ConstIterator(*this, { get<T>().begin()... });
-    }
-
-    ConstIterator end() const {
-        return ConstIterator(*this, { get<T>().end()... });
-    }
-};
-
-// NOTE: Ideally, this should share definitions with the above const version.
-// For now, it is copy/pasted.
-// A range abstraction that allows multiple component data series to be iterated
-// lazily over in a range-based for loop.
-template<typename...T>
-class ComponentRange {
-    std::tuple<Store<T>&...> stores_;
-
-protected:
-    template<typename U> Store<U>& get() const {
-        return std::get<Store<U>&>(stores_);
-    }
-
-    struct Iterator {
-        // To iterate through these stores, we'll need to remember where we came
-        // from, though mostly just so we know where the end is.
-        const ComponentRange& range;
-
-        using iterator_tuple = std::tuple<typename Store<T>::iterator...>;
-        iterator_tuple its;
-
-        using reference = std::tuple<EntityId, T&...>;
-
-        // To know if all iterators are pointing to the same entity, we'll neet
-        // to remember what entity that is.
-        EntityId max_id;
-
-        // Make sure getting the U'th iterator is easy.
-        template<typename U> auto& get() const {
-            return std::get<typename Store<U>::iterator>(its);
-        }
-        template<typename U>
-        auto& get() { return std::get<typename Store<U>::iterator>(its); }
-
-        bool any_at_end() const {
-            return ((get<T>() >= range.get<T>().end()) || ...);
-        }
-
-        bool all_same() const { return ((get<T>()->id == max_id) && ...); }
-
-        // A helper to catch up iterators that are behind.
-        template<typename U>
-        EntityId increment_if_lower(typename Store<U>::iterator& it,
-                                  EntityId id) const {
-            if (it != range.get<U>().end() && it->id < id) it++;
-            return it == range.get<U>().end() ? id : it->id;
-        }
-
-        template<typename U>
-        void increment_if_not_at_end(typename Store<U>::iterator& it) {
-          if (it != range.get<U>().end()) ++it;
-        }
-
-        // After iteration, or on initialization, increment any iterators that
-        // are behind.
-        void catch_up() {
-          if (!any_at_end()) max_id = std::max({get<T>()->id...});
-          while (!any_at_end() && !all_same()) {
-              max_id = std::max({increment_if_lower<T>(get<T>(), max_id)...});
-          }
-          if (any_at_end()) {
-            its = {get<T>() = range.get<T>().end()...};
-          }
-        }
-
-        Iterator& operator++() {
-            // Increment at least once.
-            if (!any_at_end()) {
-              (increment_if_not_at_end<T>(get<T>()), ...);
-            }
-            // And then until all iterators point to the same entity.
-            catch_up();
-
-            return *this;
         }
 
         Iterator operator++(int) {
@@ -243,36 +121,40 @@ protected:
             return old;
         }
 
-        Iterator(ComponentRange& range, iterator_tuple its)
-            : range(range), its(std::move(its)) {
+
+        Iterator(IteratorTuple its, IteratorTuple ends)
+            : its(std::move(its)), ends(std::move(ends)) {
+          max_id = std::get<0>(its)->id;
           catch_up();  // Ensure a valid initial starting position.
         }
 
-        bool operator==(const Iterator& other) {
-          return any_at_end() && other.any_at_end() ||
-              ((get<T>() == other.get<T>()) && ...);
+        Iterator() { sentinel = true; }
+
+        bool operator==(const Iterator& other) const {
+          return sentinel ? other == *this : any_at_end();
         }
-        bool operator!=(const Iterator& other) {
+        bool operator!=(const Iterator& other) const {
             return !(*this == other);
         }
 
-        reference operator*() const {
-            return std::forward_as_tuple(max_id, get<T>()->data...);
+        auto operator*() const {
+            auto data = [](const auto& it) -> auto& { return it->data; };
+            return std::tuple_cat(std::tuple(max_id), tuple_map(data, its));
         }
     };
 
 public:
-    using StoreTuple = std::tuple<Store<T>&...>;
-
     explicit ComponentRange(StoreTuple stores)
         : stores_(stores) { }
 
-    Iterator begin() {
-        return Iterator(*this, {get<T>().begin()...});
+    Iterator begin() const {
+        auto b = [](auto&& store) { return store.begin(); };
+        auto e = [](auto&& store) { return store.end(); };
+        return Iterator(tuple_map(b, stores_), tuple_map(e, stores_));
     }
 
-    Iterator end() {
-        return Iterator(*this, {get<T>().end()...});
+    Iterator end() const {
+        return Iterator();
     }
 };
 
@@ -436,15 +318,17 @@ public:
     }
 
     template<typename...U>
-    ConstComponentRange<U...> read_all() const {
-        using Range = ConstComponentRange<U...>;
-        return Range(typename Range::StoreTuple(get_store<U>()...));
+    auto read_all() const {
+      using Range = ComponentRange<std::tuple<const Store<U>...>,
+                                   std::tuple<typename Store<U>::const_iterator...>>;
+      return Range(std::tuple<const Store<U>&...>(get_store<U>()...));
     }
 
     template<typename...U>
-    ComponentRange<U...> read_all() {
-      using Range = ComponentRange<U...>;
-      return Range(typename Range::StoreTuple(get_store<U>()...));
+    auto read_all() {
+      using Range = ComponentRange<std::tuple<Store<U>&...>,
+                                   std::tuple<typename Store<U>::iterator...>>;
+      return Range(std::tuple<Store<U>&...>(get_store<U>()...));
     }
 
     bool has_entity(EntityId id) const {
