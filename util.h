@@ -21,3 +21,23 @@ void tuple_foreach(F&& f, std::tuple<T...>& t) {
   (f(std::get<T>(t)), ...);
 }
 
+// === errors ===
+struct Error {
+  bool ok = true;
+  std::string reason;
+
+  Error() { }
+  Error(std::string reason) : ok(false), reason(std::move(reason)) { }
+};
+
+template<typename...StrLike>
+std::string concat_strings(std::string s, const StrLike&...rest) {
+  (s.append(rest), ...);
+  return s;
+}
+
+template<typename...StrLike>
+std::string concat_strings(const StrLike&...s) {
+  return concat_strings(std::string(), s...);
+}
+

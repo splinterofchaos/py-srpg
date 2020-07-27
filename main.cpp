@@ -6,13 +6,10 @@
 #include <cstdlib>
 #include <iostream>
 
-constexpr unsigned int WINDOW_HEIGHT = 640;
-constexpr unsigned int WINDOW_WIDTH = 480;
+#include "graphics.h"
 
-void panic_sdl_error(const char* const action) {
-  std::cerr << "SDL error while " << action << ": " << SDL_GetError();
-  std::exit(1);
-}
+constexpr int WINDOW_HEIGHT = 640;
+constexpr int WINDOW_WIDTH = 480;
 
 void print_shader_log(GLuint shader) {
 	//Make sure name is shader
@@ -58,27 +55,13 @@ void print_program_log(GLuint program) {
   //Deallocate string
   delete[] infoLog;
 }
+  
 
 int main() {
-  if (SDL_Init(SDL_INIT_VIDEO) < 0) panic_sdl_error("initializing");
-
-  SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);  // 4?
-  SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
-  SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
- 
-  SDL_Window* win = SDL_CreateWindow(
-      "SRPG", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, WINDOW_WIDTH,
-      WINDOW_HEIGHT, SDL_WINDOW_OPENGL|SDL_WINDOW_SHOWN);
-  if (win == nullptr) panic_sdl_error("creating window");
-
-  auto gl_context = SDL_GL_CreateContext(win);
-  if (gl_context == nullptr) panic_sdl_error("creating OpenGL context");
-
-  GLenum glew_error = glewInit();
-  if (glew_error != GLEW_OK) {
-    std::cerr << "error initializing GLEW: " << glewGetErrorString(glew_error)
-              << std::endl;
-    std::exit(1);
+  Graphics gfx;
+  if (Error e = gfx.init(WINDOW_WIDTH, WINDOW_HEIGHT); !e.ok) {
+    std::cerr << e.reason << std::endl;
+    return 1;
   }
 
   GLuint program_id = glCreateProgram();
@@ -193,13 +176,9 @@ int main() {
 
     glUseProgram(0);
 
-    SDL_GL_SwapWindow(win);
+    gfx.swap_buffers();
   }
 
-  print_program_log(program_id);
-  print_shader_log(frag_shader);
-
   glDeleteProgram(program_id);
-  SDL_DestroyWindow(win);
   SDL_Quit();
 }
