@@ -32,6 +32,28 @@ public:
   GLuint id() const { return id_; }
 };
 
+class GlProgram {
+  GLuint id_;
+
+public:
+  GlProgram() { id_ = glCreateProgram(); }
+  ~GlProgram() { glDeleteProgram(id_); }
+
+  void add_shader(const Shader& s) { glAttachShader(id_, s.id()); }
+
+  GLint attribute_location(const char* const name) {
+    return glGetAttribLocation(id_, name);
+  }
+
+  Error link();
+
+  // Ask GL to use this program.
+  void use() { glUseProgram(id_); }
+  void unuse() { glUseProgram(0); }
+
+  std::string log() const;
+};
+
 // This is a little POD for organizing SDL and OpenGL code.
 class Graphics {
   SDL_Window* win_ = nullptr;

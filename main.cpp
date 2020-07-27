@@ -61,7 +61,6 @@ Error run() {
   Graphics gfx;
   if (Error e = gfx.init(WINDOW_WIDTH, WINDOW_HEIGHT); !e.ok) return e;
 
-  GLuint program_id = glCreateProgram();
 
   Shader verts(Shader::Type::VERTEX);
   verts.add_source(
@@ -74,8 +73,6 @@ Error run() {
 
   if (Error e = verts.compile(); !e.ok) return e;
 
-  glAttachShader(program_id, verts.id());
-
   Shader frag(Shader::Type::FRAGMENT);
   frag.add_source(
     "#version 140\n"
@@ -87,22 +84,13 @@ Error run() {
 
   if (Error e = frag.compile(); !e.ok) return e;
 
-  glAttachShader(program_id, frag.id());
-  glLinkProgram(program_id);
+  GlProgram gl_program;
+  gl_program.add_shader(verts);
+  gl_program.add_shader(frag);
+  if (Error e = gl_program.link(); !e.ok) return e;
 
-  GLint program_linked;
-  glGetProgramiv(program_id, GL_LINK_STATUS, &program_linked);
-  if (program_linked != GL_TRUE) {
-    std::cerr << "Error linking GL program " << program_id << ":\n";
-    print_program_log(program_id);
-    std::exit(1);
-  }
-
-  auto gl_vertext_pos = glGetAttribLocation(program_id, "vertex_pos");
-  if (gl_vertext_pos == -1) {
-    std::cerr << "vertex_pos is not a valid glsl program var." << std::endl;
-    std::exit(1);
-  }
+  auto gl_vertext_pos = gl_program.attribute_location("vertex_pos");
+  if (gl_vertext_pos == -1) return Error("vertex_pos is not a valid var.");
 
   //Initialize clear color
   glClearColor(0.f, 0.f, 0.f, 1.f);
@@ -117,7 +105,6 @@ Error run() {
 
   //IBO data
   GLuint index_data[] = {0, 1, 2, 3};
- 
  
   GLuint vertext_buf_obj;
   glGenBuffers(1, &vertext_buf_obj);
@@ -139,7 +126,7 @@ Error run() {
 
     glClear(GL_COLOR_BUFFER_BIT);
 
-    glUseProgram(program_id);
+    gl_program.use();
 
     glEnableVertexAttribArray(gl_vertext_pos);
     glBindBuffer(GL_ARRAY_BUFFER, vertext_buf_obj);
@@ -154,8 +141,6 @@ Error run() {
 
     gfx.swap_buffers();
   }
-
-  glDeleteProgram(program_id);
 
   return Error();
 }

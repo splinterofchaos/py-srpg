@@ -51,6 +51,35 @@ Error Shader::compile() {
   return Error();
 }
 
+std::string GlProgram::log() const {
+  if (!glIsProgram(id_)) {
+    return concat_strings("No program with id ", std::to_string(id_));
+  }
+
+  GLint len;
+  glGetProgramiv(id_, GL_INFO_LOG_LENGTH, &len);
+
+  std::string log(len + 1, 0);
+  GLint real_len;
+  glGetProgramInfoLog(id_, len, &real_len, log.data());
+  log.resize(real_len + 1);
+
+  return log;
+}
+
+Error GlProgram::link() {
+  glLinkProgram(id_);
+
+  GLint link_status;
+  glGetProgramiv(id_, GL_LINK_STATUS, &link_status);
+  if (link_status != GL_TRUE) {
+    return Error(concat_strings("Error linking GL program ",
+                                std::to_string(id_), ";\n", log()));
+  }
+
+  return Error();
+}
+
 
 Error Graphics::init(int width, int height) {
   if (SDL_Init(SDL_INIT_VIDEO) < 0) return sdl_error("initializing");
