@@ -57,61 +57,37 @@ void print_program_log(GLuint program) {
 }
   
 
-int main() {
+Error run() {
   Graphics gfx;
-  if (Error e = gfx.init(WINDOW_WIDTH, WINDOW_HEIGHT); !e.ok) {
-    std::cerr << e.reason << std::endl;
-    return 1;
-  }
+  if (Error e = gfx.init(WINDOW_WIDTH, WINDOW_HEIGHT); !e.ok) return e;
 
   GLuint program_id = glCreateProgram();
 
-  GLuint vshader = glCreateShader(GL_VERTEX_SHADER);
-
-  const GLchar* vshader_source[] = {
+  Shader verts(Shader::Type::VERTEX);
+  verts.add_source(
 		"#version 140\n"
     "in vec2 vertex_pos;"
     "void main() {"
       "gl_Position = vec4(vertex_pos, 0, 1);"
     "}"
-  };
+  );
 
-  glShaderSource(vshader, 1, vshader_source, nullptr);
-  glCompileShader(vshader);
+  if (Error e = verts.compile(); !e.ok) return e;
 
-  GLint vshader_compiled = GL_FALSE;
-  glGetShaderiv(vshader, GL_COMPILE_STATUS, &vshader_compiled);
-  if (vshader_compiled != GL_TRUE) {
-    std::cerr << "Unabled to compile vertext shader " << vshader << ":\n";
-    print_shader_log(vshader);
-    std::exit(1);
-  }
+  glAttachShader(program_id, verts.id());
 
-  glAttachShader(program_id, vshader);
-
-  GLuint frag_shader = glCreateShader(GL_FRAGMENT_SHADER);
-
-  const GLchar* frag_shader_source[] =
-  {
+  Shader frag(Shader::Type::FRAGMENT);
+  frag.add_source(
     "#version 140\n"
     "out vec4 frag_pos;"
     "void main() {"
       "frag_pos = vec4(0.5);"
     "}"
-  };
+  );
 
-  glShaderSource(frag_shader, 1, frag_shader_source, nullptr);
-  glCompileShader(frag_shader);
+  if (Error e = frag.compile(); !e.ok) return e;
 
-  GLint frag_shader_compiled = GL_FALSE;
-  glGetShaderiv(frag_shader, GL_COMPILE_STATUS, &frag_shader_compiled);
-  if (frag_shader_compiled != GL_TRUE) {
-    std::cerr << "Unable to compile fragment shader " << frag_shader << ":\n";
-    print_shader_log(frag_shader);
-    std::exit(1);
-  }
-
-  glAttachShader(program_id, frag_shader);
+  glAttachShader(program_id, frag.id());
   glLinkProgram(program_id);
 
   GLint program_linked;
@@ -180,5 +156,14 @@ int main() {
   }
 
   glDeleteProgram(program_id);
-  SDL_Quit();
+
+  return Error();
+}
+
+int main() {
+  if (Error e = run(); !e.ok) {
+    std::cerr << e.reason << std::endl;
+    return 1;
+  }
+  return 0;
 }

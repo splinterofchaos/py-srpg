@@ -8,6 +8,50 @@ Error sdl_error(const char* const action) {
   return Error(oss.str());
 }
 
+Shader::Shader(Shader::Type type) {
+  id_ = glCreateShader(GLenum(type));
+  type_ = type;
+}
+
+void Shader::add_source(std::string src) {
+  sources_.push_back(std::move(src));
+}
+
+std::string Shader::log() const {
+  if (!glIsShader(id_)) {
+    return concat_strings("No shader with id ", std::to_string(id_));
+  }
+
+  GLint len;
+  glGetShaderiv(id_, GL_INFO_LOG_LENGTH, &len);
+
+  std::string log(len + 1, 0);
+  GLint real_len;
+  glGetShaderInfoLog(id_, len, &real_len, log.data());
+  log.resize(real_len + 1);
+
+  return log;
+}
+
+Error Shader::compile() {
+  const char* sources[sources_.size()];
+  for (unsigned int i = 0; i < sources_.size(); ++i) {
+    sources[i] = sources_[i].c_str();
+  }
+
+  glShaderSource(id_, sources_.size(), sources, nullptr);
+  glCompileShader(id_);
+
+  GLint status;
+  if (glGetShaderiv(id_, GL_COMPILE_STATUS, &status); status != GL_TRUE) {
+    return Error(concat_strings("Unable to compile shader (id=",
+                                std::to_string(id_), "):\n", log()));
+  }
+
+  return Error();
+}
+
+
 Error Graphics::init(int width, int height) {
   if (SDL_Init(SDL_INIT_VIDEO) < 0) return sdl_error("initializing");
 
