@@ -42,7 +42,7 @@ using Store = std::vector<ComponentData<T>>;
 
 // A range abstraction that allows multiple component data series to be iterated
 // lazily over in a range-based for loop.
-template<typename StoreTuple, typename IteratorTuple>
+template<typename StoreTuple>
 class ComponentRange {
 public:
 private:
@@ -54,6 +54,7 @@ private:
   StoreTuple stores_;
 
 protected:
+  template<typename IteratorTuple>
   struct Iterator {
     IteratorTuple its;
     IteratorTuple ends;
@@ -147,14 +148,14 @@ public:
   explicit ComponentRange(StoreTuple stores)
     : stores_(stores) { }
 
-  Iterator begin() const {
+  auto begin() const {
     auto b = [](auto&& store) { return store.begin(); };
     auto e = [](auto&& store) { return store.end(); };
     return Iterator(tuple_map(b, stores_), tuple_map(e, stores_));
   }
 
-  Iterator end() const {
-    return Iterator();
+  auto end() const {
+    return decltype(begin())();
   }
 };
 
@@ -319,18 +320,12 @@ class EntityComponentSystem {
 
   template<typename...U>
   auto read_all() const {
-    using Range = ComponentRange<
-        std::tuple<const Store<U>...>,
-        std::tuple<typename Store<U>::const_iterator...>>;
-    return Range(std::tuple<const Store<U>&...>(get_store<U>()...));
+    return ComponentRange(std::tuple<const Store<U>&...>(get_store<U>()...));
   }
 
   template<typename...U>
   auto read_all() {
-    using Range = ComponentRange<
-        std::tuple<Store<U>&...>,
-        std::tuple<typename Store<U>::iterator...>>;
-    return Range(std::tuple<Store<U>&...>(get_store<U>()...));
+    return ComponentRange(std::tuple<Store<U>&...>(get_store<U>()...));
   }
 
   bool has_entity(EntityId id) const {
