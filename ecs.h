@@ -1,7 +1,6 @@
 #pragma once
 
 #include <vector>
-#include <algorithm>
 #include <tuple>
 #include <iostream>
 
@@ -44,13 +43,6 @@ using Store = std::vector<ComponentData<T>>;
 // lazily over in a range-based for loop.
 template<typename StoreTuple>
 class ComponentRange {
-public:
-private:
-  // Note: Explicitly storing const references to the stores prevents this
-  // struct from serving  clients that need mutation, however non-const
-  // references would do the opposite.
-  //
-  // Is there a way of maintaining const correctness without code duplication?
   StoreTuple stores_;
 
 protected:
@@ -93,9 +85,9 @@ protected:
     }
 
     // A helper to catch up iterators that are behind.
-    void increment_if_lower(EntityId id) {
+    void increment_if_lower_than_max_id() {
       auto impl = [&](auto& it) {
-        if (!at_end(it) && it->id < id) increment_iter(it);
+        if (!at_end(it) && it->id < max_id) increment_iter(it);
       };
       tuple_foreach(impl, its);
     }
@@ -103,7 +95,7 @@ protected:
     // After iteration, or on initialization, increment any iterators that
     // are behind.
     void catch_up() {
-      while (!any_at_end() && !all_same()) increment_if_lower(max_id);
+      while (!any_at_end() && !all_same()) increment_if_lower_than_max_id();
       if (any_at_end()) its = ends;
     }
 
