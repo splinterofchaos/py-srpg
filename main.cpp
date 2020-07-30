@@ -7,55 +7,11 @@
 #include <iostream>
 
 #include "graphics.h"
+#include "vec.h"
+
 
 constexpr int WINDOW_HEIGHT = 640;
 constexpr int WINDOW_WIDTH = 480;
-
-void print_shader_log(GLuint shader) {
-	//Make sure name is shader
-	if(!glIsShader(shader)) {
-    std::cerr << "PrintShaderLog: No shader with id " << shader << std::endl;
-    return;
-  }
-  //Shader log length
-  int info_log_len = 0;
-  int max_len = info_log_len;
-  
-  //Get info string length
-  glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &max_len);
-  
-  //Allocate string
-  char* infoLog = new char[max_len];
-  
-  //Get info log
-  glGetShaderInfoLog(shader, max_len, &info_log_len, infoLog);
-  if(info_log_len) std::cout << infoLog << std::endl;
-
-  //Deallocate string
-  delete[] infoLog;
-}
-
-void print_program_log(GLuint program) {
-	//Make sure name is program
-	if(!glIsProgram(program)) {
-    std::cerr << "print_program_log: No program with id " << program << std::endl;
-    return;
-  }
-  //Shader log length
-  int info_log_len = 0;
-  int max_len = info_log_len;
-  
-  //Get info string length
-  glGetProgramiv(program, GL_INFO_LOG_LENGTH, &max_len);
-  
-  char* infoLog = new char[max_len];
-  glGetProgramInfoLog(program, max_len, &info_log_len, infoLog);
-  if(info_log_len) std::cout << infoLog << std::endl;
-
-  //Deallocate string
-  delete[] infoLog;
-}
-  
 
 Error run() {
   Graphics gfx;
@@ -66,8 +22,11 @@ Error run() {
   verts.add_source(
 		"#version 140\n"
     "in vec2 vertex_pos;"
+    "in vec2 tex_coord;"
+    "out vec2 TexCoord;"
     "void main() {"
       "gl_Position = vec4(vertex_pos, 0, 1);"
+      "TexCoord = tex_coord;"
     "}"
   );
 
@@ -76,9 +35,12 @@ Error run() {
   Shader frag(Shader::Type::FRAGMENT);
   frag.add_source(
     "#version 140\n"
-    "out vec4 frag_pos;"
+    "in vec2 TexCoord;"
+    "in vec2 tex_coord;"
+    "out vec4 FragColor;"
+    "uniform sampler2D tex;"
     "void main() {"
-      "frag_pos = vec4(0.5);"
+      "FragColor = texture(tex, TexCoord);"
     "}"
   );
 
@@ -91,31 +53,70 @@ Error run() {
 
   auto gl_vertext_pos = gl_program.attribute_location("vertex_pos");
   if (gl_vertext_pos == -1) return Error("vertex_pos is not a valid var.");
+  auto gl_tex_coord = gl_program.attribute_location("tex_coord");
+  if (gl_tex_coord == -1) return Error("tex_coord is not a valid var.");
 
   //Initialize clear color
   glClearColor(0.f, 0.f, 0.f, 1.f);
 
-  //VBO data
-  GLfloat vertex_data[] = {
-    -0.5f, -0.5f,
-    0.5f, -0.5f,
-    0.5f,  0.5f,
-    -0.5f,  0.5f
+  SDL_Surface* floor_surface = SDL_LoadBMP("art/goblin.bmp");
+  if (floor_surface == nullptr) {
+    return Error(concat_strings("Failed to load art/floor.bmp: ",
+                                SDL_GetError()));
+  }
+
+  GLuint floor_texture;
+  glGenTextures(1, &floor_texture);
+  glBindTexture(GL_TEXTURE_2D, floor_texture);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, floor_surface->w,
+               floor_surface->h, 0, GL_RGB, GL_UNSIGNED_BYTE,
+               floor_surface->pixels);
+  if (auto e = glGetError(); e != GL_NO_ERROR) {
+    return Error(concat_strings(
+        "I'm too lazy to figure out if there's a function which maps this GL "
+        "error number to a string so here's a number: ", std::to_string(e)));
+  }
+
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+  GLfloat bad_color[] = {.8f, 0.5f, 0.8f, 1.f};
+  glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, bad_color);
+
+  SDL_FreeSurface(floor_surface);
+
+  //GLuint vao;
+  //glGenVertexArrays(1, &vao);
+  //glBindVertexArray(vao);
+
+  struct Vertex {
+    Vec<GLfloat, 2> pos;
+    Vec<GLfloat, 2> tex_coord;
   };
 
-  //IBO data
-  GLuint index_data[] = {0, 1, 2, 3};
- 
-  GLuint vertext_buf_obj;
-  glGenBuffers(1, &vertext_buf_obj);
-  glBindBuffer(GL_ARRAY_BUFFER, vertext_buf_obj);
-  glBufferData(GL_ARRAY_BUFFER, 2 * 4 * sizeof(GLfloat), vertex_data, GL_STATIC_DRAW);
+  //VBO data
+  Vertex vertecies[] = {
+    // Position    TexCoords
+    {{-0.5f, -0.5f},  {1.0f, 1.0f}},
+    {{ 0.5f, -0.5f},  {0.0f, 1.0f}},
+    {{ 0.5f,  0.5f},  {0.0f, 0.0f}},
+    {{-0.5f,  0.5f},  {1.0f, 0.0f}}
+  };
 
-  //Create IBO
-  GLuint index_buf_obj;
-  glGenBuffers(1, &index_buf_obj);
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, index_buf_obj);
-  glBufferData(GL_ELEMENT_ARRAY_BUFFER, 4 * sizeof(GLuint), index_data, GL_STATIC_DRAW);
+  GLuint vbo;
+  glGenBuffers(1, &vbo);
+  glBindBuffer(GL_ARRAY_BUFFER, vbo);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(vertecies), vertecies, GL_STATIC_DRAW);
+
+  //IBO data
+  GLuint vbo_elems[] = {0, 1, 2,
+                        2, 3, 0};
+
+  GLuint vbo_elems_id;
+  glGenBuffers(1, &vbo_elems_id);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo_elems_id);
+  glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(vbo_elems), vbo_elems, GL_STATIC_DRAW);
 
   bool keep_going = true;
   SDL_Event e;
@@ -126,16 +127,23 @@ Error run() {
 
     glClear(GL_COLOR_BUFFER_BIT);
 
+    // This must happen before gl_program.use().
+    auto uni = gl_program.uniform_location("tex");
+    if (uni == -1) return Error("tex is not a valid uniform location.");
+    glUniform1i(uni, floor_texture);
+
     gl_program.use();
 
+
     glEnableVertexAttribArray(gl_vertext_pos);
-    glBindBuffer(GL_ARRAY_BUFFER, vertext_buf_obj);
-    glVertexAttribPointer(gl_vertext_pos, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(GLfloat), nullptr);
+    glVertexAttribPointer(gl_vertext_pos, 2, GL_FLOAT, GL_FALSE,
+                          sizeof(Vertex), (void*)offsetof(Vertex, pos));
 
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, index_buf_obj);
-    glDrawElements(GL_TRIANGLE_FAN, 4, GL_UNSIGNED_INT, nullptr);
+    glEnableVertexAttribArray(gl_tex_coord);
+    glVertexAttribPointer(gl_tex_coord, 2, GL_FLOAT, GL_FALSE,
+                          sizeof(Vertex), (void*)offsetof(Vertex, tex_coord));
 
-    glDisableVertexAttribArray(gl_vertext_pos);
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
     glUseProgram(0);
 

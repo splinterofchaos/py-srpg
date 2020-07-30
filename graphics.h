@@ -39,10 +39,16 @@ public:
   GlProgram() { id_ = glCreateProgram(); }
   ~GlProgram() { glDeleteProgram(id_); }
 
+  GLuint id() const { return id_; }
+
   void add_shader(const Shader& s) { glAttachShader(id_, s.id()); }
 
   GLint attribute_location(const char* const name) {
     return glGetAttribLocation(id_, name);
+  }
+
+  GLint uniform_location(const char* const name) {
+    return glGetUniformLocation(id_, name);
   }
 
   Error link();
