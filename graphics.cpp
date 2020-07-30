@@ -2,6 +2,8 @@
 
 #include "graphics.h"
 
+// TODO: use glpp for the gl* functions.
+
 Error sdl_error(const char* const action) {
   std::ostringstream oss;
   oss << "SDL error while " << action << ": " << SDL_GetError();
@@ -79,7 +81,6 @@ Error GlProgram::link() {
 
   return Error();
 }
-
 
 Error Graphics::init(int width, int height) {
   if (SDL_Init(SDL_INIT_VIDEO) < 0) return sdl_error("initializing");

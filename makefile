@@ -26,8 +26,8 @@ obj/ecs_test : ecs.h ecs_test.cpp test.h util.h
 obj/graphics.o : graphics.h graphics.cpp util.h
 	${COMPILER} ${OPS} -c graphics.cpp -o obj/graphics.o
 
-obj/main.o : main.cpp obj/graphics.o
+obj/main.o : main.cpp obj/graphics.o glpp.h
 	${COMPILER} ${OPS} -c main.cpp -o obj/main.o
 
-obj/run : obj/main.o
+obj/run : obj/main.o 
 	${COMPILER} ${OPS} obj/main.o obj/graphics.o -lSDL2 -lGL -lGLEW -lGLU -o obj/run
