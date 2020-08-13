@@ -1,5 +1,6 @@
 #include <sstream>
 
+#include "glpp.h"
 #include "graphics.h"
 
 // TODO: use glpp for the gl* functions.
@@ -69,6 +70,26 @@ std::string GlProgram::log() const {
   return log;
 }
 
+Error GlProgram::attribute_location(const char* const name, GLint& out) const {
+  out = attribute_location(name);
+  if (out == -1) {
+    return Error(concat_strings(
+            name, " is not a valid attribute location (program id: ",
+            std::to_string(id_)));
+  }
+  return Error();
+}
+
+Error GlProgram::uniform_location(const char* const name, GLint& out) const {
+  out = uniform_location(name);
+  if (out == -1) {
+    return Error(concat_strings(
+            name, " is not a valid uniform location (program id: ",
+            std::to_string(id_)));
+  }
+  return Error();
+}
+
 Error GlProgram::link() {
   glLinkProgram(id_);
 
@@ -83,7 +104,8 @@ Error GlProgram::link() {
 }
 
 Error Graphics::init(int width, int height) {
-  if (SDL_Init(SDL_INIT_VIDEO) < 0) return sdl_error("initializing");
+  if (SDL_Init(SDL_INIT_VIDEO|SDL_INIT_AUDIO) < 0)
+    return sdl_error("initializing");
 
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);  // 4?
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
@@ -115,4 +137,30 @@ Graphics::~Graphics() {
   SDL_GL_DeleteContext(gl_context_);
   SDL_DestroyWindow(win_);
   SDL_Quit();
+}
+
+Error load_bmp_texture(const char* const filename, GLuint& texture) {
+  SDL_Surface* surface = SDL_LoadBMP(filename);
+  if (surface == nullptr) {
+    return Error(concat_strings("Failed to load image: ", SDL_GetError()));
+  }
+
+  texture = gl::genTexture();
+  gl::bindTexture(GL_TEXTURE_2D, texture);
+  gl::texImage2D(GL_TEXTURE_2D, 0, GL_RGBA, surface->w, surface->h, 0, GL_BGRA,
+                 GL_UNSIGNED_BYTE, surface->pixels);
+  SDL_FreeSurface(surface);
+
+  if (auto e = glGetError(); e != GL_NO_ERROR) {
+    return Error(concat_strings(
+        "I'm too lazy to figure out if there's a function which maps this GL "
+        "error number to a string so here's a number: ", std::to_string(e)));
+  }
+
+  gl::texParameter(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  gl::texParameter(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  gl::texParameter(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+  gl::texParameter(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+
+  return Error();
 }

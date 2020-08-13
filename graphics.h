@@ -1,3 +1,5 @@
+#pragma once
+
 #include <SDL2/SDL.h>
 #include <GL/glew.h>
 #include <SDL2/SDL_opengl.h>
@@ -37,19 +39,27 @@ class GlProgram {
 
 public:
   GlProgram() { id_ = glCreateProgram(); }
-  ~GlProgram() { glDeleteProgram(id_); }
+  GlProgram(GlProgram&& other) {
+    id_ = other.id_;
+    other.id_ = 0;
+  }
+
+  ~GlProgram() { if (id_) glDeleteProgram(id_); }
 
   GLuint id() const { return id_; }
 
   void add_shader(const Shader& s) { glAttachShader(id_, s.id()); }
 
-  GLint attribute_location(const char* const name) {
+  GLint attribute_location(const char* const name) const {
     return glGetAttribLocation(id_, name);
   }
 
-  GLint uniform_location(const char* const name) {
+  GLint uniform_location(const char* const name) const {
     return glGetUniformLocation(id_, name);
   }
+
+  Error attribute_location(const char* const name, GLint& out) const;
+  Error uniform_location(const char* const name, GLint& out) const;
 
   Error link();
 
@@ -77,3 +87,5 @@ public:
 
   ~Graphics();
 };
+
+Error load_bmp_texture(const char* const filename, GLuint& texture);
