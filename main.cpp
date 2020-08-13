@@ -6,9 +6,10 @@
 #include <cstdlib>
 #include <iostream>
 
+#include <glm/vec2.hpp>
+
 #include "glpp.h"
 #include "graphics.h"
-#include "vec.h"
 
 
 constexpr int WINDOW_HEIGHT = 640;
@@ -91,8 +92,8 @@ Error run() {
   //glBindVertexArray(vao);
 
   struct Vertex {
-    Vec<GLfloat, 2> pos;
-    Vec<GLfloat, 2> tex_coord;
+    glm::vec2 pos;
+    glm::vec2 tex_coord;
   };
 
   //VBO data
