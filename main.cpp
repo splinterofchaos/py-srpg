@@ -24,7 +24,7 @@ Error run() {
   GlProgram tex_shader_program;
   if (Error e = simple_texture_shader(tex_shader_program); !e.ok) return e;
 
-  GLint gl_vertex_pos, gl_tex_coord, gl_color;
+  GLint gl_vertex_pos, gl_tex_coord;
   if (Error e =
       tex_shader_program.attribute_location("vertex_pos", gl_vertex_pos) &&
       tex_shader_program.attribute_location("tex_coord", gl_tex_coord);
@@ -33,35 +33,8 @@ Error run() {
   //Initialize clear color
   gl::clearColor(0.f, 0.f, 0.f, 1.f);
 
-  SDL_Surface* floor_surface = SDL_LoadBMP("art/goblin.bmp");
-  if (floor_surface == nullptr) {
-    return Error(concat_strings("Failed to load art/floor.bmp: ",
-                                SDL_GetError()));
-  }
-
-  GLuint floor_texture = gl::genTexture();
-  gl::bindTexture(GL_TEXTURE_2D, floor_texture);
-  gl::texImage2D(GL_TEXTURE_2D, 0, GL_RGB, floor_surface->w,
-                 floor_surface->h, 0, GL_RGB, GL_UNSIGNED_BYTE,
-                 floor_surface->pixels);
-  SDL_FreeSurface(floor_surface);
-
-  if (auto e = glGetError(); e != GL_NO_ERROR) {
-    return Error(concat_strings(
-        "I'm too lazy to figure out if there's a function which maps this GL "
-        "error number to a string so here's a number: ", std::to_string(e)));
-  }
-
-  gl::texParameter(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-  gl::texParameter(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-  gl::texParameter(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-  gl::texParameter(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-  gl::texParameter(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR,
-                   {.8f, 0.5f, 0.8f, 1.f});
-
-  //GLuint vao;
-  //glGenVertexArrays(1, &vao);
-  //glBindVertexArray(vao);
+  GLuint tex;
+  if (Error e = load_bmp_texture("art/goblin.bmp", tex); !e.ok) return e;
 
   struct Vertex {
     glm::vec2 pos;
@@ -101,7 +74,7 @@ Error run() {
     // This must happen before gl_program.use().
     auto uni = tex_shader_program.uniform_location("tex");
     if (uni == -1) return Error("tex is not a valid uniform location.");
-    gl::uniform(uni, floor_texture);
+    gl::uniform(uni, tex);
 
     tex_shader_program.use();
 

@@ -145,9 +145,11 @@ Error load_bmp_texture(const char* const filename, GLuint& texture) {
     return Error(concat_strings("Failed to load image: ", SDL_GetError()));
   }
 
+  auto format = surface->format->Amask ? GL_RGBA : GL_RGB;
+
   texture = gl::genTexture();
   gl::bindTexture(GL_TEXTURE_2D, texture);
-  gl::texImage2D(GL_TEXTURE_2D, 0, GL_RGBA, surface->w, surface->h, 0, GL_BGRA,
+  gl::texImage2D(GL_TEXTURE_2D, 0, GL_RGBA, surface->w, surface->h, 0, format,
                  GL_UNSIGNED_BYTE, surface->pixels);
   SDL_FreeSurface(surface);
 
