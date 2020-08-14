@@ -17,6 +17,34 @@
 constexpr int WINDOW_HEIGHT = 640;
 constexpr int WINDOW_WIDTH = 480;
 
+template<typename Vec> Vec just_x(Vec v) { v.y = 0; return v; }
+template<typename Vec> Vec just_y(Vec v) { v.x = 0; return v; }
+template<typename Vec> Vec flip_x(Vec v) { v.x = -v.x; return v; }
+template<typename Vec> Vec flip_y(Vec v) { v.y = -v.y; return v; }
+
+// The vertex type used for sending data to the graphics card.
+struct Vertex {
+  glm::vec2 pos;
+  glm::vec2 tex_coord;
+};
+
+GLuint rectangle_vbo(glm::vec3 dimensions = glm::vec3(1.f, 1.f, 0.f),
+                     glm::vec2 tex_lower_left = glm::vec2(0.f, 0.f),
+                     glm::vec2 tex_size = glm::vec2(1.f, 1.f)) {
+  Vertex vertecies[] = {
+    {dimensions / 2.f,          tex_lower_left},
+    {flip_x(dimensions / 2.f),  tex_lower_left + just_x(tex_size)},
+    {-dimensions / 2.f,         tex_lower_left + tex_size},
+    {flip_x(-dimensions) / 2.f, tex_lower_left + just_y(tex_size)}
+  };
+  GLuint vbo = gl::genBuffer();
+  gl::bindBuffer(GL_ARRAY_BUFFER, vbo);
+  gl::bufferData(GL_ARRAY_BUFFER, vertecies, GL_STATIC_DRAW);
+
+  return vbo;
+}
+
+
 Error run() {
   Graphics gfx;
   if (Error e = gfx.init(WINDOW_WIDTH, WINDOW_HEIGHT); !e.ok) return e;
@@ -34,25 +62,9 @@ Error run() {
   gl::clearColor(0.f, 0.f, 0.f, 1.f);
 
   GLuint tex;
-  if (Error e = load_bmp_texture("art/goblin.bmp", tex); !e.ok) return e;
+  if (Error e = load_bmp_texture("art/floor.bmp", tex); !e.ok) return e;
 
-  struct Vertex {
-    glm::vec2 pos;
-    glm::vec2 tex_coord;
-  };
-
-  //VBO data
-  Vertex vertecies[] = {
-    // Position    TexCoords
-    {{-0.5f, -0.5f},  {1.0f, 1.0f}},
-    {{ 0.5f, -0.5f},  {0.0f, 1.0f}},
-    {{ 0.5f,  0.5f},  {0.0f, 0.0f}},
-    {{-0.5f,  0.5f},  {1.0f, 0.0f}}
-  };
-
-  GLuint vbo = gl::genBuffer();
-  gl::bindBuffer(GL_ARRAY_BUFFER, vbo);
-  gl::bufferData(GL_ARRAY_BUFFER, vertecies, GL_STATIC_DRAW);
+  GLuint vbo = rectangle_vbo();
 
   //IBO data
   GLuint vbo_elems[] = {0, 1, 2,
@@ -78,6 +90,7 @@ Error run() {
 
     tex_shader_program.use();
 
+    gl::bindBuffer(GL_ARRAY_BUFFER, vbo);
 
     gl::enableVertexAttribArray(gl_vertex_pos);
     gl::vertexAttribPointer<float>(gl_vertex_pos, 2, GL_FALSE, &Vertex::pos);
