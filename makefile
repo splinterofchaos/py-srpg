@@ -22,8 +22,11 @@ obj/ecs_test : include/ecs.h include/ecs_test.cpp include/test.h include/util.h
 obj/graphics.o : include/graphics.h include/graphics.cpp include/util.h
 	${COMPILER} ${OPS} -c include/graphics.cpp -o obj/graphics.o
 
-obj/main.o : main.cpp obj/graphics.o include/glpp.h
+obj/shaders.o : shaders.* include/graphics.h include/util.h
+	${COMPILER} ${OPS} -c shaders.cpp -o obj/shaders.o
+
+obj/main.o : main.cpp include/*.h
 	${COMPILER} ${OPS} -c main.cpp -o obj/main.o
 
-obj/run : obj/main.o 
-	${COMPILER} ${OPS} obj/main.o obj/graphics.o -lSDL2 -lGL -lGLEW -lGLU -o obj/run
+obj/run : obj/main.o obj/graphics.o obj/shaders.o
+	${COMPILER} ${OPS} obj/*.o -lSDL2 -lGL -lGLEW -lGLU -o obj/run

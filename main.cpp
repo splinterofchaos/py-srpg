@@ -7,10 +7,12 @@
 #include <iostream>
 
 #include <glm/vec2.hpp>
+#include <glm/vec4.hpp>
+#include <glm/gtc/type_ptr.hpp>
 
 #include "glpp.h"
 #include "graphics.h"
-
+#include "shaders.h"
 
 constexpr int WINDOW_HEIGHT = 640;
 constexpr int WINDOW_WIDTH = 480;
@@ -19,44 +21,14 @@ Error run() {
   Graphics gfx;
   if (Error e = gfx.init(WINDOW_WIDTH, WINDOW_HEIGHT); !e.ok) return e;
 
+  GlProgram tex_shader_program;
+  if (Error e = simple_texture_shader(tex_shader_program); !e.ok) return e;
 
-  Shader verts(Shader::Type::VERTEX);
-  verts.add_source(
-		"#version 140\n"
-    "in vec2 vertex_pos;"
-    "in vec2 tex_coord;"
-    "out vec2 TexCoord;"
-    "void main() {"
-      "gl_Position = vec4(vertex_pos, 0, 1);"
-      "TexCoord = tex_coord;"
-    "}"
-  );
-
-  if (Error e = verts.compile(); !e.ok) return e;
-
-  Shader frag(Shader::Type::FRAGMENT);
-  frag.add_source(
-    "#version 140\n"
-    "in vec2 TexCoord;"
-    "in vec2 tex_coord;"
-    "out vec4 FragColor;"
-    "uniform sampler2D tex;"
-    "void main() {"
-      "FragColor = texture(tex, TexCoord);"
-    "}"
-  );
-
-  if (Error e = frag.compile(); !e.ok) return e;
-
-  GlProgram gl_program;
-  gl_program.add_shader(verts);
-  gl_program.add_shader(frag);
-  if (Error e = gl_program.link(); !e.ok) return e;
-
-  auto gl_vertext_pos = gl_program.attribute_location("vertex_pos");
-  if (gl_vertext_pos == -1) return Error("vertex_pos is not a valid var.");
-  auto gl_tex_coord = gl_program.attribute_location("tex_coord");
-  if (gl_tex_coord == -1) return Error("tex_coord is not a valid var.");
+  GLint gl_vertex_pos, gl_tex_coord, gl_color;
+  if (Error e =
+      tex_shader_program.attribute_location("vertex_pos", gl_vertex_pos) &&
+      tex_shader_program.attribute_location("tex_coord", gl_tex_coord);
+      !e.ok) return e;
 
   //Initialize clear color
   gl::clearColor(0.f, 0.f, 0.f, 1.f);
@@ -127,15 +99,15 @@ Error run() {
     gl::clear();
 
     // This must happen before gl_program.use().
-    auto uni = gl_program.uniform_location("tex");
+    auto uni = tex_shader_program.uniform_location("tex");
     if (uni == -1) return Error("tex is not a valid uniform location.");
     gl::uniform(uni, floor_texture);
 
-    gl_program.use();
+    tex_shader_program.use();
 
 
-    gl::enableVertexAttribArray(gl_vertext_pos);
-    gl::vertexAttribPointer<float>(gl_vertext_pos, 2, GL_FALSE, &Vertex::pos);
+    gl::enableVertexAttribArray(gl_vertex_pos);
+    gl::vertexAttribPointer<float>(gl_vertex_pos, 2, GL_FALSE, &Vertex::pos);
 
     gl::enableVertexAttribArray(gl_tex_coord);
     gl::vertexAttribPointer<float>(gl_tex_coord, 2, GL_FALSE, &Vertex::tex_coord);
