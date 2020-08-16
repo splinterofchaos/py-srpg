@@ -6,9 +6,10 @@ Error simple_texture_shader(GlProgram& tex_shader_program) {
 		#version 140
     in vec3 vertex_pos;
     in vec2 tex_coord;
+    uniform mat4 transform;
     out vec2 TexCoord;
     void main() {
-      gl_Position = vec4(vertex_pos, 1);
+      gl_Position = transform * vec4(vertex_pos, 1);
       TexCoord = tex_coord;
     }
   )");

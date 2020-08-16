@@ -64,7 +64,7 @@ public:
   Error link();
 
   // Ask GL to use this program.
-  void use() { glUseProgram(id_); }
+  void use() const { glUseProgram(id_); }
   void unuse() { glUseProgram(0); }
 
   std::string log() const;
