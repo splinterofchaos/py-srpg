@@ -1,6 +1,6 @@
 
 COMPILER = g++
-OPS = -Wall -std=c++2a -Iinclude
+OPS = -Wall -std=c++2a -Iinclude `pkg-config --cflags freetype2`
 
 test : obj/stats_test obj/ecs_test
 run : obj/run
@@ -29,4 +29,4 @@ obj/main.o : main.cpp include/*.h
 	${COMPILER} ${OPS} -c main.cpp -o obj/main.o
 
 obj/run : obj/main.o obj/graphics.o obj/shaders.o
-	${COMPILER} ${OPS} obj/*.o -lSDL2 -lGL -lGLEW -lGLU -o obj/run
+	${COMPILER} ${OPS} obj/*.o -lSDL2 -lfreetype -lGL -lGLEW -lGLU -o obj/run

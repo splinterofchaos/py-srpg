@@ -1,6 +1,7 @@
 #include <SDL2/SDL.h>
 #include <GL/glew.h>
 #include <SDL2/SDL_opengl.h>
+#include <SDL2/SDL_ttf.h>
 #include <GL/glu.h>
 
 #include <cstdlib>
@@ -9,6 +10,9 @@
 #include <glm/vec2.hpp>
 #include <glm/vec4.hpp>
 #include <glm/gtc/type_ptr.hpp>
+
+#include <ft2build.h>
+#include FT_FREETYPE_H
 
 #include "glpp.h"
 #include "graphics.h"
@@ -58,11 +62,50 @@ Error run() {
       tex_shader_program.attribute_location("tex_coord", gl_tex_coord);
       !e.ok) return e;
 
-  //Initialize clear color
-  gl::clearColor(0.f, 0.f, 0.f, 1.f);
+  gl::clearColor(0.f, 0.f, 1.f, 1.f);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+  glEnable(GL_BLEND);
 
-  GLuint tex;
-  if (Error e = load_bmp_texture("art/floor.bmp", tex); !e.ok) return e;
+  FT_Library freetype;
+  if (auto error = FT_Init_FreeType(&freetype)) {
+    return Error("Initializing freetype: ", std::to_string(error));
+  }
+
+  FT_Face face;
+  if (auto error = FT_New_Face(freetype, "font/LeagueMono-Bold.ttf", 0, &face))
+  {
+    return Error("Loading font: ", std::to_string(error));
+  }
+
+  float h_dpi, v_dpi;
+  SDL_GetDisplayDPI(0, nullptr, &h_dpi, &v_dpi);
+  if (auto error = FT_Set_Char_Size(face, 0, 32*64, h_dpi, v_dpi)) {
+    return Error("Setting char size: ", std::to_string(error));
+  }
+  if (auto error = FT_Set_Pixel_Sizes(face, 0, 32)) {
+    return Error("Setting pixel sizes: ", std::to_string(error));
+  }
+
+  auto glyph_index = FT_Get_Char_Index(face, 'A');
+  if (auto error = FT_Load_Glyph(face, glyph_index, 0)) {
+    return Error("Loading char index: ", std::to_string(error));
+  }
+
+  if (auto error = FT_Load_Char(face, 'A', FT_LOAD_RENDER)) {
+    return Error("Loading glyph: ", std::to_string(error));
+  }
+
+  glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+
+  GLuint tex = gl::genTexture();
+  gl::bindTexture(GL_TEXTURE_2D, tex);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, face->glyph->bitmap.width,
+               face->glyph->bitmap.rows, 0, GL_RED, GL_UNSIGNED_BYTE,
+               face->glyph->bitmap.buffer);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
   GLuint vbo = rectangle_vbo();
 
@@ -73,7 +116,6 @@ Error run() {
   GLuint vbo_elems_id = gl::genBuffer();
   gl::bindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo_elems_id);
   gl::bufferData(GL_ELEMENT_ARRAY_BUFFER, vbo_elems, GL_STATIC_DRAW);
-
   bool keep_going = true;
   SDL_Event e;
   while (keep_going) {
@@ -87,7 +129,6 @@ Error run() {
     auto uni = tex_shader_program.uniform_location("tex");
     if (uni == -1) return Error("tex is not a valid uniform location.");
     gl::uniform(uni, tex);
-
     tex_shader_program.use();
 
     gl::bindBuffer(GL_ARRAY_BUFFER, vbo);
@@ -110,7 +151,7 @@ Error run() {
 
 int main() {
   if (Error e = run(); !e.ok) {
-    std::cerr << e.reason << std::endl;
+    std::cerr << "Error: " << e.reason << std::endl;
     return 1;
   }
   return 0;

@@ -35,20 +35,6 @@ void tuple_foreach(F&& f, std::tuple<T...>& t) {
   (f(std::get<T>(t)), ...);
 }
 
-// === errors ===
-struct Error {
-  bool ok = true;
-  std::string reason;
-
-  Error() { }
-  Error(std::string reason) : ok(false), reason(std::move(reason)) { }
-};
-
-inline Error operator&&(const Error& e, const Error& e2) {
-  if (!e.ok) return e;
-  return e2;
-}
-
 // === misc ===
 template<typename...StrLike>
 std::string concat_strings(std::string s, const StrLike&...rest) {
@@ -184,3 +170,20 @@ public:
     if (found) erase(it);
   }
 };
+
+// === errors ===
+struct Error {
+  bool ok = true;
+  std::string reason;
+
+  template<typename...Strings>
+  Error(Strings&&...strings) {
+    ok = sizeof...(strings) == 0;
+    reason = concat_strings(std::forward<Strings>(strings)...);
+  }
+};
+
+inline Error operator&&(const Error& e, const Error& e2) {
+  if (!e.ok) return e;
+  return e2;
+}
