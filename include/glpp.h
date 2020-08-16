@@ -18,6 +18,8 @@
 // Occasionally, default arguments may be supplied for functions where there is
 // rarely a different argument. For example, GL_COLOR_BUFFER_BIT to glClear().
 
+# pragma once
+
 #include <utility>
 #include <GL/glew.h>
 

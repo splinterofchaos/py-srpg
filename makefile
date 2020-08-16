@@ -25,8 +25,11 @@ obj/graphics.o : include/graphics.h include/graphics.cpp include/util.h
 obj/shaders.o : shaders.* include/graphics.h include/util.h
 	${COMPILER} ${OPS} -c shaders.cpp -o obj/shaders.o
 
+obj/font.o : font.cpp font.h include/glpp.h include/util.h
+	${COMPILER} ${OPS} -c font.cpp -o obj/font.o
+
 obj/main.o : main.cpp include/*.h
 	${COMPILER} ${OPS} -c main.cpp -o obj/main.o
 
-obj/run : obj/main.o obj/graphics.o obj/shaders.o
+obj/run : obj/main.o obj/graphics.o obj/shaders.o obj/font.o
 	${COMPILER} ${OPS} obj/*.o -lSDL2 -lfreetype -lGL -lGLEW -lGLU -o obj/run
