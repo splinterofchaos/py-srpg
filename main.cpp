@@ -175,7 +175,14 @@ Error run() {
   SDL_Event e;
   while (keep_going) {
     while (SDL_PollEvent(&e) != 0) {
-      if (e.type == SDL_QUIT) keep_going = false;
+      switch (e.type) {
+        case SDL_QUIT: keep_going = false;
+        case SDL_KEYDOWN: {
+          switch (e.key.keysym.sym) {
+            case 'q': keep_going = false;
+          }
+        }
+      }
     }
 
     gl::clear();
