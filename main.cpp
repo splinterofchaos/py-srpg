@@ -14,6 +14,7 @@
 #include <ft2build.h>
 #include FT_FREETYPE_H
 
+#include "ecs.h"
 #include "font.h"
 #include "glpp.h"
 #include "graphics.h"
@@ -104,22 +105,34 @@ struct RenderConfig {
   glm::vec4 fg_color, bg_color;
 };
 
+struct Transform {
+  glm::ivec2 pos;
+  unsigned int z;
+};
+
+glm::vec3 to_graphical_pos(const Transform& transform) {
+  return glm::vec3(transform.pos.x * TILE_SIZE, transform.pos.y * TILE_SIZE,
+                   transform.z);
+}
+
+using Ecs = EntityComponentSystem<Transform, RenderConfig>;
+
 void render_object(glm::vec3 pos, const GlProgramBindings& program_bindings,
-                   const RenderConfig& render_config) {
+                   const RenderConfig& render_config_template) {
   program_bindings.program.use();
 
-  glBindTexture(GL_TEXTURE_2D, render_config.texture);
+  glBindTexture(GL_TEXTURE_2D, render_config_template.texture);
 
-  gl::bindBuffer(GL_ARRAY_BUFFER, render_config.vbo);
-  gl::uniform(program_bindings.texture_uniform, render_config.texture);
+  gl::bindBuffer(GL_ARRAY_BUFFER, render_config_template.vbo);
+  gl::uniform(program_bindings.texture_uniform, render_config_template.texture);
   gl::uniform4v(program_bindings.fg_color_uniform, 1,
-              glm::value_ptr(render_config.fg_color));
+              glm::value_ptr(render_config_template.fg_color));
   gl::uniform4v(program_bindings.bg_color_uniform, 1,
-              glm::value_ptr(render_config.bg_color));
+              glm::value_ptr(render_config_template.bg_color));
   gl::uniform2v(program_bindings.bottom_left_uniform, 1,
-              glm::value_ptr(render_config.top_left));
+              glm::value_ptr(render_config_template.top_left));
   gl::uniform2v(program_bindings.top_right_uniform, 1,
-              glm::value_ptr(render_config.bottom_right));
+              glm::value_ptr(render_config_template.bottom_right));
 
   gl::enableVertexAttribArray(program_bindings.vertex_pos_attr);
   gl::vertexAttribPointer<float>(program_bindings.vertex_pos_attr, 2, GL_FALSE,
@@ -158,19 +171,37 @@ Error run() {
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   glEnable(GL_BLEND);
 
-  RenderConfig render_config;
-  render_config.vbo = rectangle_vbo();
-  render_config.fg_color = glm::vec4(.5f, .5f, .5f, 1.f);
-  render_config.bg_color = glm::vec4(.2f, .2f, .2f, 1.f);
+  glEnable(GL_DEPTH);
+
+  RenderConfig render_config_template;
+  render_config_template.vbo = rectangle_vbo();
+  render_config_template.fg_color = glm::vec4(.5f, .5f, .5f, 1.f);
+  render_config_template.bg_color = glm::vec4(.2f, .2f, .2f, 1.f);
 
   FontMap font_map;
   if (Error e = font_map.init("font/LeagueMono-Bold.ttf"); !e.ok) return e;
+
+  glm::vec3 camera_offset(0.95f, 0.95f, 0.f);
 
   GLuint vbo_elems[] = {0, 1, 2,
                         2, 3, 0};
   GLuint vbo_elems_id = gl::genBuffer();
   gl::bindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo_elems_id);
   gl::bufferData(GL_ELEMENT_ARRAY_BUFFER, vbo_elems, GL_STATIC_DRAW);
+
+  Ecs ecs;
+  for (int x = 0; x < 20; ++x) for (int y = 0; y < 20; ++y) {
+    Glyph* glyph;
+    if (Error e = font_map.get_safe('a' + x, &glyph); !e.ok) return e;
+
+    RenderConfig rc = render_config_template;
+    rc.texture = glyph->texture;
+    rc.top_left = glyph->top_left;
+    rc.bottom_right = glyph->bottom_right;
+
+    ecs.write_new_entity(Transform{{x, y}, 0}, rc);
+  }
+
   bool keep_going = true;
   SDL_Event e;
   while (keep_going) {
@@ -187,21 +218,11 @@ Error run() {
 
     gl::clear();
 
-    for (int x = 0; x < 20; ++x)
-      for (int y = 0; y < 20; ++y) {
-        Glyph* glyph;
-        if (Error e = font_map.get_safe('a' + x, &glyph); !e.ok) return e;
-
-        render_config.texture = glyph->texture;
-        render_config.top_left = glyph->top_left;
-        render_config.bottom_right = glyph->bottom_right;
-
-        render_object(
-            glm::vec3(-1.f + TILE_SIZE/2 + x * TILE_SIZE,
-                      -1.f + TILE_SIZE/2 + y * TILE_SIZE, 0),
-            program_bindings,
-            render_config);
-      }
+    for (const auto& [_, transform, render_config] :
+         ecs.read_all<Transform, RenderConfig>()) {
+      render_object(to_graphical_pos(transform) - camera_offset,
+                    program_bindings, render_config);
+    }
 
     gfx.swap_buffers();
   }
