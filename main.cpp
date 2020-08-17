@@ -61,6 +61,8 @@ struct GlProgramBindings {
   GLint texture_uniform = -1;
   GLint bg_color_uniform = -1;
   GLint fg_color_uniform = -1;
+  GLint bottom_left_uniform = -1;
+  GLint top_right_uniform = -1;
 
   Error init_vertex_pos_attr() {
     return program.attribute_location("vertex_pos", vertex_pos_attr);
@@ -85,11 +87,20 @@ struct GlProgramBindings {
   Error init_bg_color_uniform() {
     return program.uniform_location("bg_color", bg_color_uniform);
   }
+
+  Error init_bottom_left_uniform() {
+    return program.uniform_location("top_left", bottom_left_uniform);
+  }
+
+  Error init_top_right_uniform() {
+    return program.uniform_location("bottom_right", top_right_uniform);
+  }
 };
 
 struct RenderConfig {
   GLuint vbo = 0;
   GLuint texture = 0;
+  glm::vec2 top_left, bottom_right;
   glm::vec4 fg_color, bg_color;
 };
 
@@ -97,12 +108,18 @@ void render_object(glm::vec3 pos, const GlProgramBindings& program_bindings,
                    const RenderConfig& render_config) {
   program_bindings.program.use();
 
+  glBindTexture(GL_TEXTURE_2D, render_config.texture);
+
   gl::bindBuffer(GL_ARRAY_BUFFER, render_config.vbo);
   gl::uniform(program_bindings.texture_uniform, render_config.texture);
   gl::uniform4v(program_bindings.fg_color_uniform, 1,
               glm::value_ptr(render_config.fg_color));
   gl::uniform4v(program_bindings.bg_color_uniform, 1,
               glm::value_ptr(render_config.bg_color));
+  gl::uniform2v(program_bindings.bottom_left_uniform, 1,
+              glm::value_ptr(render_config.top_left));
+  gl::uniform2v(program_bindings.top_right_uniform, 1,
+              glm::value_ptr(render_config.bottom_right));
 
   gl::enableVertexAttribArray(program_bindings.vertex_pos_attr);
   gl::vertexAttribPointer<float>(program_bindings.vertex_pos_attr, 2, GL_FALSE,
@@ -132,7 +149,9 @@ Error run() {
       program_bindings.init_texture_uniform() &&
       program_bindings.init_transform_uniform() &&
       program_bindings.init_fg_color_uniform() &&
-      program_bindings.init_bg_color_uniform();
+      program_bindings.init_bg_color_uniform() &&
+      program_bindings.init_bottom_left_uniform() &&
+      program_bindings.init_top_right_uniform();
       !e.ok) return e;
 
   gl::clearColor(0.f, 0.f, 0.f, 1.f);
@@ -146,9 +165,6 @@ Error run() {
 
   FontMap font_map;
   if (Error e = font_map.init("font/LeagueMono-Bold.ttf"); !e.ok) return e;
-  GLuint tex = 0;
-  if (Error e = font_map.get_safe('.', render_config.texture); !e.ok) return e;
-  std::cout << "tex = " << tex << std::endl;
 
   GLuint vbo_elems[] = {0, 1, 2,
                         2, 3, 0};
@@ -165,12 +181,20 @@ Error run() {
     gl::clear();
 
     for (int x = 0; x < 20; ++x)
-      for (int y = 0; y < 20; ++y)
+      for (int y = 0; y < 20; ++y) {
+        Glyph* glyph;
+        if (Error e = font_map.get_safe('a' + x, &glyph); !e.ok) return e;
+
+        render_config.texture = glyph->texture;
+        render_config.top_left = glyph->top_left;
+        render_config.bottom_right = glyph->bottom_right;
+
         render_object(
             glm::vec3(-1.f + TILE_SIZE/2 + x * TILE_SIZE,
                       -1.f + TILE_SIZE/2 + y * TILE_SIZE, 0),
             program_bindings,
             render_config);
+      }
 
     gfx.swap_buffers();
   }

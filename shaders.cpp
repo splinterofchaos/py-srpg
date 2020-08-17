@@ -25,8 +25,15 @@ Error text_shader(GlProgram& tex_shader_program) {
     uniform sampler2D tex;
     uniform vec4 bg_color;
     uniform vec4 fg_color;
+    uniform vec2 top_left;
+    uniform vec2 bottom_right;
     void main() {
-      FragColor = mix(bg_color, fg_color, texture(tex, TexCoord).r);
+      float a = 0;
+      if (all(greaterThan(TexCoord, top_left)) && 
+          all(lessThan(TexCoord, bottom_right))) {
+        a = texture(tex, smoothstep(top_left, bottom_right, TexCoord)).r;
+      }
+      FragColor = mix(bg_color, fg_color, a);
     }
   )");
   if (Error e = frag.compile(); !e.ok) return e;
