@@ -4,7 +4,7 @@
 
 glm::mat4x4 transformation(glm::vec3 pos, float angle, float size) {
   glm::mat4x4 transform = glm::translate(glm::mat4(1.f), pos);
-  transform *= glm::scale(glm::mat4(1.f), glm::vec3(scale));
+  transform *= glm::scale(glm::mat4(1.f), glm::vec3(size));
   transform = glm::rotate(transform, angle, glm::vec3(0, 0, 1));
   return transform;
 }

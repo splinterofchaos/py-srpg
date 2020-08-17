@@ -3,4 +3,5 @@
 #include "graphics.h"
 #include "util.h"
 
-Error simple_texture_shader(GlProgram& program);
+// A shader designed for text rendered to a greyscale texture.
+Error text_shader(GlProgram& program);

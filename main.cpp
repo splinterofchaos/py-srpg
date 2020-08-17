@@ -52,16 +52,15 @@ GLuint rectangle_vbo(glm::vec3 dimensions = glm::vec3(1.f, 1.f, 0),
   return vbo;
 }
 
-struct RenderData {
+struct GlProgramBindings {
   const GlProgram& program;
 
   GLint vertex_pos_attr = -1;
   GLint tex_coord_attr = -1;
   GLint transform_uniform = -1;
   GLint texture_uniform = -1;
-
-  GLuint vbo = 0;
-  GLuint texture = 0;
+  GLint bg_color_uniform = -1;
+  GLint fg_color_uniform = -1;
 
   Error init_vertex_pos_attr() {
     return program.attribute_location("vertex_pos", vertex_pos_attr);
@@ -78,24 +77,43 @@ struct RenderData {
   Error init_transform_uniform() {
     return program.uniform_location("transform", transform_uniform);
   }
+
+  Error init_fg_color_uniform() {
+    return program.uniform_location("fg_color", fg_color_uniform);
+  }
+
+  Error init_bg_color_uniform() {
+    return program.uniform_location("bg_color", bg_color_uniform);
+  }
 };
 
-void render_object(glm::vec3 pos, const RenderData& render_data) {
-  render_data.program.use();
+struct RenderConfig {
+  GLuint vbo = 0;
+  GLuint texture = 0;
+  glm::vec4 fg_color, bg_color;
+};
 
-  gl::bindBuffer(GL_ARRAY_BUFFER, render_data.vbo);
-  gl::uniform(render_data.texture_uniform, render_data.texture);
+void render_object(glm::vec3 pos, const GlProgramBindings& program_bindings,
+                   const RenderConfig& render_config) {
+  program_bindings.program.use();
 
-  gl::enableVertexAttribArray(render_data.vertex_pos_attr);
-  gl::vertexAttribPointer<float>(render_data.vertex_pos_attr, 2, GL_FALSE,
+  gl::bindBuffer(GL_ARRAY_BUFFER, render_config.vbo);
+  gl::uniform(program_bindings.texture_uniform, render_config.texture);
+  gl::uniform4v(program_bindings.fg_color_uniform, 1,
+              glm::value_ptr(render_config.fg_color));
+  gl::uniform4v(program_bindings.bg_color_uniform, 1,
+              glm::value_ptr(render_config.bg_color));
+
+  gl::enableVertexAttribArray(program_bindings.vertex_pos_attr);
+  gl::vertexAttribPointer<float>(program_bindings.vertex_pos_attr, 2, GL_FALSE,
                                  &Vertex::pos);
 
-  gl::enableVertexAttribArray(render_data.tex_coord_attr);
-  gl::vertexAttribPointer<float>(render_data.tex_coord_attr, 2, GL_FALSE,
+  gl::enableVertexAttribArray(program_bindings.tex_coord_attr);
+  gl::vertexAttribPointer<float>(program_bindings.tex_coord_attr, 2, GL_FALSE,
                                  &Vertex::tex_coord);
 
-  glUniformMatrix4fv(render_data.transform_uniform, 1, GL_FALSE,
-                     glm::value_ptr(transformation(pos, 0, TILE_SIZE * 0.8f)));
+  glUniformMatrix4fv(program_bindings.transform_uniform, 1, GL_FALSE,
+                     glm::value_ptr(transformation(pos, 0, TILE_SIZE)));
 
   gl::drawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 }
@@ -105,27 +123,33 @@ Error run() {
   if (Error e = gfx.init(WINDOW_WIDTH, WINDOW_HEIGHT); !e.ok) return e;
 
   GlProgram tex_shader_program;
-  if (Error e = simple_texture_shader(tex_shader_program); !e.ok) return e;
+  if (Error e = text_shader(tex_shader_program); !e.ok) return e;
 
-  RenderData render_data{.program = tex_shader_program};
+  GlProgramBindings program_bindings{.program = tex_shader_program};
   if (Error e =
-      render_data.init_vertex_pos_attr() &&
-      render_data.init_tex_coord_attr() &&
-      render_data.init_texture_uniform() &&
-      render_data.init_transform_uniform();
+      program_bindings.init_vertex_pos_attr() &&
+      program_bindings.init_tex_coord_attr() &&
+      program_bindings.init_texture_uniform() &&
+      program_bindings.init_transform_uniform() &&
+      program_bindings.init_fg_color_uniform() &&
+      program_bindings.init_bg_color_uniform();
       !e.ok) return e;
 
-  gl::clearColor(0.f, 0.f, 1.f, 1.f);
+  gl::clearColor(0.f, 0.f, 0.f, 1.f);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   glEnable(GL_BLEND);
+
+  RenderConfig render_config;
+  render_config.vbo = rectangle_vbo();
+  render_config.fg_color = glm::vec4(.5f, .5f, .5f, 1.f);
+  render_config.bg_color = glm::vec4(.2f, .2f, .2f, 1.f);
 
   FontMap font_map;
   if (Error e = font_map.init("font/LeagueMono-Bold.ttf"); !e.ok) return e;
   GLuint tex = 0;
-  if (Error e = font_map.get_safe('b', render_data.texture); !e.ok) return e;
+  if (Error e = font_map.get_safe('.', render_config.texture); !e.ok) return e;
   std::cout << "tex = " << tex << std::endl;
 
-  render_data.vbo = rectangle_vbo();
   GLuint vbo_elems[] = {0, 1, 2,
                         2, 3, 0};
   GLuint vbo_elems_id = gl::genBuffer();
@@ -145,7 +169,8 @@ Error run() {
         render_object(
             glm::vec3(-1.f + TILE_SIZE/2 + x * TILE_SIZE,
                       -1.f + TILE_SIZE/2 + y * TILE_SIZE, 0),
-            render_data);
+            program_bindings,
+            render_config);
 
     gfx.swap_buffers();
   }

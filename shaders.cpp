@@ -1,6 +1,6 @@
 #include "shaders.h"
 
-Error simple_texture_shader(GlProgram& tex_shader_program) {
+Error text_shader(GlProgram& tex_shader_program) {
   Shader verts(Shader::Type::VERTEX);
   verts.add_source(R"(
 		#version 140
@@ -19,10 +19,14 @@ Error simple_texture_shader(GlProgram& tex_shader_program) {
   frag.add_source(R"(
     #version 140
     in vec2 TexCoord;
+    in vec4 Bg_color;
+    in vec4 Fg_color;
     out vec4 FragColor;
     uniform sampler2D tex;
+    uniform vec4 bg_color;
+    uniform vec4 fg_color;
     void main() {
-      FragColor = vec4(1, 1, 1, texture(tex, TexCoord).r);
+      FragColor = mix(bg_color, fg_color, texture(tex, TexCoord).r);
     }
   )");
   if (Error e = frag.compile(); !e.ok) return e;
