@@ -141,7 +141,8 @@ void bufferData(GLuint buffer, const T (&data)[N], GLenum usage) {
   bufferData(buffer, sizeof(T) * N, data, usage);
 }
 
-inline void clear(GLbitfield mask = GL_COLOR_BUFFER_BIT) {
+inline void clear(GLbitfield mask = GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+{
   glClear(mask);
 }
 

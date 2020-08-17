@@ -26,4 +26,5 @@ public:
   Error init(const char* const ttf_file);
 
   Error get_safe(char c, Glyph** glyph);
+  const Glyph& get(char c);
 };

@@ -103,11 +103,20 @@ struct RenderConfig {
   GLuint texture = 0;
   glm::vec2 top_left, bottom_right;
   glm::vec4 fg_color, bg_color;
+
+  RenderConfig() = default;
+  RenderConfig(GLuint vbo, const Glyph& glyph,
+               glm::vec4 fg_color, glm::vec4 bg_color = glm::vec4())
+      : vbo(vbo), fg_color(fg_color), bg_color(bg_color) {
+    texture = glyph.texture;
+    top_left = glyph.top_left;
+    bottom_right = glyph.bottom_right;
+  }
 };
 
 struct Transform {
   glm::ivec2 pos;
-  unsigned int z;
+  int z;
 };
 
 glm::vec3 to_graphical_pos(const Transform& transform) {
@@ -118,21 +127,21 @@ glm::vec3 to_graphical_pos(const Transform& transform) {
 using Ecs = EntityComponentSystem<Transform, RenderConfig>;
 
 void render_object(glm::vec3 pos, const GlProgramBindings& program_bindings,
-                   const RenderConfig& render_config_template) {
+                   const RenderConfig& render_config) {
   program_bindings.program.use();
 
-  glBindTexture(GL_TEXTURE_2D, render_config_template.texture);
+  glBindTexture(GL_TEXTURE_2D, render_config.texture);
 
-  gl::bindBuffer(GL_ARRAY_BUFFER, render_config_template.vbo);
-  gl::uniform(program_bindings.texture_uniform, render_config_template.texture);
+  gl::bindBuffer(GL_ARRAY_BUFFER, render_config.vbo);
+  gl::uniform(program_bindings.texture_uniform, render_config.texture);
   gl::uniform4v(program_bindings.fg_color_uniform, 1,
-              glm::value_ptr(render_config_template.fg_color));
+              glm::value_ptr(render_config.fg_color));
   gl::uniform4v(program_bindings.bg_color_uniform, 1,
-              glm::value_ptr(render_config_template.bg_color));
+              glm::value_ptr(render_config.bg_color));
   gl::uniform2v(program_bindings.bottom_left_uniform, 1,
-              glm::value_ptr(render_config_template.top_left));
+              glm::value_ptr(render_config.top_left));
   gl::uniform2v(program_bindings.top_right_uniform, 1,
-              glm::value_ptr(render_config_template.bottom_right));
+              glm::value_ptr(render_config.bottom_right));
 
   gl::enableVertexAttribArray(program_bindings.vertex_pos_attr);
   gl::vertexAttribPointer<float>(program_bindings.vertex_pos_attr, 2, GL_FALSE,
@@ -171,12 +180,12 @@ Error run() {
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   glEnable(GL_BLEND);
 
-  glEnable(GL_DEPTH);
+  glEnable(GL_DEPTH_TEST);
+  glDepthFunc(GL_LESS);
+  glOrtho(-1, 1, -1, 1, -10, 10);
+  //glDepthFunc(GL_ALWAYS);
 
-  RenderConfig render_config_template;
-  render_config_template.vbo = rectangle_vbo();
-  render_config_template.fg_color = glm::vec4(.5f, .5f, .5f, 1.f);
-  render_config_template.bg_color = glm::vec4(.2f, .2f, .2f, 1.f);
+  GLuint vbo = rectangle_vbo();
 
   FontMap font_map;
   if (Error e = font_map.init("font/LeagueMono-Bold.ttf"); !e.ok) return e;
@@ -190,16 +199,20 @@ Error run() {
   gl::bufferData(GL_ELEMENT_ARRAY_BUFFER, vbo_elems, GL_STATIC_DRAW);
 
   Ecs ecs;
+
+  // Create the tiles. Note that this MUST happen first so they are drawn
+  // first. Eventually, we might want to consider z-sorting.
   for (int x = 0; x < 20; ++x) for (int y = 0; y < 20; ++y) {
-    Glyph* glyph;
-    if (Error e = font_map.get_safe('a' + x, &glyph); !e.ok) return e;
-
-    RenderConfig rc = render_config_template;
-    rc.texture = glyph->texture;
-    rc.top_left = glyph->top_left;
-    rc.bottom_right = glyph->bottom_right;
-
+    RenderConfig rc(vbo, font_map.get('a' + x),
+                    glm::vec4(.5f, .5f, .5f, 1.f),
+                    glm::vec4(.2f, .2f, .2f, 1.f));
     ecs.write_new_entity(Transform{{x, y}, 0}, rc);
+  }
+
+  {  // create player
+    RenderConfig rc(vbo, font_map.get('@'),
+                    glm::vec4(.9f, .6f, .1f, 1.f));
+    ecs.write_new_entity(Transform{{5, 5}, -1}, rc);
   }
 
   bool keep_going = true;

@@ -81,3 +81,9 @@ Error FontMap::get_safe(char c, Glyph** glyph) {
   *glyph = &it->second;
   return Error();
 }
+
+const Glyph& FontMap::get(char c) {
+  Glyph* glyph;
+  get_safe(c, &glyph);
+  return *glyph;
+}
