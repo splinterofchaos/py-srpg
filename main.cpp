@@ -26,94 +26,6 @@ constexpr int WINDOW_WIDTH = 480;
 
 constexpr float TILE_SIZE = 0.1f;
 
-template<typename Vec> Vec just_x(Vec v) { v.y = 0; return v; }
-template<typename Vec> Vec just_y(Vec v) { v.x = 0; return v; }
-template<typename Vec> Vec flip_x(Vec v) { v.x = -v.x; return v; }
-template<typename Vec> Vec flip_y(Vec v) { v.y = -v.y; return v; }
-
-// The vertex type used for sending data to the graphics card.
-struct Vertex {
-  glm::vec2 pos;
-  glm::vec2 tex_coord;
-};
-
-GLuint rectangle_vbo(glm::vec3 dimensions = glm::vec3(1.f, 1.f, 0),
-                     glm::vec2 tex_lower_left = glm::vec2(0.f, 0.f),
-                     glm::vec2 tex_size = glm::vec2(1.f, 1.f)) {
-  Vertex vertecies[] = {
-    {dimensions / 2.f,          tex_lower_left + just_x(tex_size)},
-    {flip_x(dimensions / 2.f),  tex_lower_left},
-    {-dimensions / 2.f,         tex_lower_left + just_y(tex_size)},
-    {flip_x(-dimensions) / 2.f, tex_lower_left + tex_size}
-  };
-  GLuint vbo = gl::genBuffer();
-  gl::bindBuffer(GL_ARRAY_BUFFER, vbo);
-  gl::bufferData(GL_ARRAY_BUFFER, vertecies, GL_STATIC_DRAW);
-
-  return vbo;
-}
-
-struct GlProgramBindings {
-  const GlProgram& program;
-
-  GLint vertex_pos_attr = -1;
-  GLint tex_coord_attr = -1;
-  GLint transform_uniform = -1;
-  GLint texture_uniform = -1;
-  GLint bg_color_uniform = -1;
-  GLint fg_color_uniform = -1;
-  GLint bottom_left_uniform = -1;
-  GLint top_right_uniform = -1;
-
-  Error init_vertex_pos_attr() {
-    return program.attribute_location("vertex_pos", vertex_pos_attr);
-  }
-
-  Error init_tex_coord_attr() {
-    return program.attribute_location("tex_coord", tex_coord_attr);
-  }
-
-  Error init_texture_uniform() {
-    return program.uniform_location("tex", texture_uniform);
-  }
-
-  Error init_transform_uniform() {
-    return program.uniform_location("transform", transform_uniform);
-  }
-
-  Error init_fg_color_uniform() {
-    return program.uniform_location("fg_color", fg_color_uniform);
-  }
-
-  Error init_bg_color_uniform() {
-    return program.uniform_location("bg_color", bg_color_uniform);
-  }
-
-  Error init_bottom_left_uniform() {
-    return program.uniform_location("top_left", bottom_left_uniform);
-  }
-
-  Error init_top_right_uniform() {
-    return program.uniform_location("bottom_right", top_right_uniform);
-  }
-};
-
-struct RenderConfig {
-  GLuint vbo = 0;
-  GLuint texture = 0;
-  glm::vec2 top_left, bottom_right;
-  glm::vec4 fg_color, bg_color;
-
-  RenderConfig() = default;
-  RenderConfig(GLuint vbo, const Glyph& glyph,
-               glm::vec4 fg_color, glm::vec4 bg_color = glm::vec4())
-      : vbo(vbo), fg_color(fg_color), bg_color(bg_color) {
-    texture = glyph.texture;
-    top_left = glyph.top_left;
-    bottom_right = glyph.bottom_right;
-  }
-};
-
 struct Transform {
   glm::ivec2 pos;
   int z;
@@ -124,57 +36,14 @@ glm::vec3 to_graphical_pos(const Transform& transform) {
                    transform.z);
 }
 
-using Ecs = EntityComponentSystem<Transform, RenderConfig>;
-
-void render_object(glm::vec3 pos, const GlProgramBindings& program_bindings,
-                   const RenderConfig& render_config) {
-  program_bindings.program.use();
-
-  glBindTexture(GL_TEXTURE_2D, render_config.texture);
-
-  gl::bindBuffer(GL_ARRAY_BUFFER, render_config.vbo);
-  gl::uniform(program_bindings.texture_uniform, render_config.texture);
-  gl::uniform4v(program_bindings.fg_color_uniform, 1,
-              glm::value_ptr(render_config.fg_color));
-  gl::uniform4v(program_bindings.bg_color_uniform, 1,
-              glm::value_ptr(render_config.bg_color));
-  gl::uniform2v(program_bindings.bottom_left_uniform, 1,
-              glm::value_ptr(render_config.top_left));
-  gl::uniform2v(program_bindings.top_right_uniform, 1,
-              glm::value_ptr(render_config.bottom_right));
-
-  gl::enableVertexAttribArray(program_bindings.vertex_pos_attr);
-  gl::vertexAttribPointer<float>(program_bindings.vertex_pos_attr, 2, GL_FALSE,
-                                 &Vertex::pos);
-
-  gl::enableVertexAttribArray(program_bindings.tex_coord_attr);
-  gl::vertexAttribPointer<float>(program_bindings.tex_coord_attr, 2, GL_FALSE,
-                                 &Vertex::tex_coord);
-
-  glUniformMatrix4fv(program_bindings.transform_uniform, 1, GL_FALSE,
-                     glm::value_ptr(transformation(pos, 0, TILE_SIZE)));
-
-  gl::drawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-}
+using Ecs = EntityComponentSystem<Transform, GlyphRenderConfig>;
 
 Error run() {
   Graphics gfx;
   if (Error e = gfx.init(WINDOW_WIDTH, WINDOW_HEIGHT); !e.ok) return e;
 
-  GlProgram tex_shader_program;
-  if (Error e = text_shader(tex_shader_program); !e.ok) return e;
-
-  GlProgramBindings program_bindings{.program = tex_shader_program};
-  if (Error e =
-      program_bindings.init_vertex_pos_attr() &&
-      program_bindings.init_tex_coord_attr() &&
-      program_bindings.init_texture_uniform() &&
-      program_bindings.init_transform_uniform() &&
-      program_bindings.init_fg_color_uniform() &&
-      program_bindings.init_bg_color_uniform() &&
-      program_bindings.init_bottom_left_uniform() &&
-      program_bindings.init_top_right_uniform();
-      !e.ok) return e;
+  GlyphShaderProgram glyph_shader;
+  if (Error e = glyph_shader.init(); !e.ok) return e;;
 
   gl::clearColor(0.f, 0.f, 0.f, 1.f);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -183,9 +52,6 @@ Error run() {
   glEnable(GL_DEPTH_TEST);
   glDepthFunc(GL_LESS);
   glOrtho(-1, 1, -1, 1, -10, 10);
-  //glDepthFunc(GL_ALWAYS);
-
-  GLuint vbo = rectangle_vbo();
 
   FontMap font_map;
   if (Error e = font_map.init("font/LeagueMono-Bold.ttf"); !e.ok) return e;
@@ -203,15 +69,14 @@ Error run() {
   // Create the tiles. Note that this MUST happen first so they are drawn
   // first. Eventually, we might want to consider z-sorting.
   for (int x = 0; x < 20; ++x) for (int y = 0; y < 20; ++y) {
-    RenderConfig rc(vbo, font_map.get('a' + x),
-                    glm::vec4(.5f, .5f, .5f, 1.f),
-                    glm::vec4(.2f, .2f, .2f, 1.f));
+    GlyphRenderConfig rc(font_map.get('a' + x),
+                         glm::vec4(.5f, .5f, .5f, 1.f),
+                         glm::vec4(.2f, .2f, .2f, 1.f));
     ecs.write_new_entity(Transform{{x, y}, 0}, rc);
   }
 
   {  // create player
-    RenderConfig rc(vbo, font_map.get('@'),
-                    glm::vec4(.9f, .6f, .1f, 1.f));
+    GlyphRenderConfig rc(font_map.get('@'), glm::vec4(.9f, .6f, .1f, 1.f));
     ecs.write_new_entity(Transform{{5, 5}, -1}, rc);
   }
 
@@ -232,9 +97,9 @@ Error run() {
     gl::clear();
 
     for (const auto& [_, transform, render_config] :
-         ecs.read_all<Transform, RenderConfig>()) {
-      render_object(to_graphical_pos(transform) - camera_offset,
-                    program_bindings, render_config);
+         ecs.read_all<Transform, GlyphRenderConfig>()) {
+      glyph_shader.render_glyph(to_graphical_pos(transform) - camera_offset,
+                                TILE_SIZE, render_config);
     }
 
     gfx.swap_buffers();

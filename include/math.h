@@ -5,6 +5,11 @@
 
 glm::mat4x4 transformation(glm::vec3 pos, float angle, float size);
 
+template<typename Vec> Vec just_x(Vec v) { v.y = 0; return v; }
+template<typename Vec> Vec just_y(Vec v) { v.x = 0; return v; }
+template<typename Vec> Vec flip_x(Vec v) { v.x = -v.x; return v; }
+template<typename Vec> Vec flip_y(Vec v) { v.y = -v.y; return v; }
+
 // Returns the Z-axis part of a 3D cross product.
 float cross2(const glm::vec3& a, const glm::vec3& b);
 
