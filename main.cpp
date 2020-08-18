@@ -31,9 +31,18 @@ struct Transform {
   int z;
 };
 
+glm::vec3 to_graphical_pos(glm::ivec2 pos, int z) {
+  return glm::vec3(pos.x * TILE_SIZE, pos.y * TILE_SIZE, z);
+}
+
 glm::vec3 to_graphical_pos(const Transform& transform) {
-  return glm::vec3(transform.pos.x * TILE_SIZE, transform.pos.y * TILE_SIZE,
-                   transform.z);
+  return to_graphical_pos(transform.pos, transform.z);
+}
+
+glm::ivec3 to_grid_pos(const glm::vec3& p) {
+  return {(int)std::ceil((p.x + TILE_SIZE/2) / TILE_SIZE),
+          (int)std::ceil(p.y / TILE_SIZE),
+          0};
 }
 
 using Ecs = EntityComponentSystem<Transform, GlyphRenderConfig>;
@@ -45,12 +54,13 @@ Error run() {
   GlyphShaderProgram glyph_shader;
   if (Error e = glyph_shader.init(); !e.ok) return e;;
 
+  MarkerShaderProgram marker_shader;
+  if (Error e = marker_shader.init(); !e.ok) return e;
+
   gl::clearColor(0.f, 0.f, 0.f, 1.f);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   glEnable(GL_BLEND);
 
-  glEnable(GL_DEPTH_TEST);
-  glDepthFunc(GL_LESS);
   glOrtho(-1, 1, -1, 1, -10, 10);
 
   FontMap font_map;
@@ -94,6 +104,19 @@ Error run() {
       }
     }
 
+    // The selector graphically represents what tile the mouse is hovering
+    // over. This might be a bit round-a-bout, but find where to place the
+    // selector on screen by finding its position on the grid. Later, we
+    // convert it to a grid-a-fied screen position.
+    int mouse_x, mouse_y;
+    SDL_GetMouseState(&mouse_x, &mouse_y);
+    glm::vec3 mouse_screen_pos(float(mouse_x * 2) / WINDOW_WIDTH - 1,
+                               float(-mouse_y * 2) / WINDOW_HEIGHT + 1,
+                               0.f);
+    glm::ivec3 mouse_grid_pos =
+      glm::ivec3((mouse_screen_pos + TILE_SIZE/2) / TILE_SIZE +
+                 camera_offset / TILE_SIZE);
+
     gl::clear();
 
     for (const auto& [_, transform, render_config] :
@@ -101,6 +124,10 @@ Error run() {
       glyph_shader.render_glyph(to_graphical_pos(transform) - camera_offset,
                                 TILE_SIZE, render_config);
     }
+
+    marker_shader.render_marker(
+        to_graphical_pos(mouse_grid_pos, 0) - camera_offset,
+        TILE_SIZE, glm::vec4(0.1f, 0.3f, 0.6f, .5f));
 
     gfx.swap_buffers();
   }

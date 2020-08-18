@@ -52,3 +52,19 @@ public:
   void render_glyph(glm::vec3 pos, float size,
                     const GlyphRenderConfig& config);
 };
+
+// Markers are drawn over most other elements and can denote tiles to which an
+// actor can move, attack, or the cursor's position.
+class MarkerShaderProgram {
+  GlProgram program_;
+  GLuint vbo_ = 0;
+
+  GLint vertex_pos_attr_ = -1;
+  GLint transform_uniform_ = -1;
+  GLint color_uniform_ = -1;
+
+public:
+  Error init();
+
+  void render_marker(glm::vec3 pos, float size, glm::vec4 color);
+};
