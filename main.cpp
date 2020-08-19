@@ -21,6 +21,7 @@
 #include "components.h"
 #include "font.h"
 #include "glpp.h"
+#include "grid.h"
 #include "graphics.h"
 #include "math.h"
 #include "shaders.h"
@@ -45,6 +46,18 @@ using Milliseconds = std::chrono::milliseconds;
 Time now() {
   return std::chrono::high_resolution_clock::now();
 }
+
+const char* const STARTING_GRID = R"(
+##############
+#............#
+#............#
+#....####....####
+#....#  #.......#
+#....#  #.......#
+#....####.......#
+#...............#
+#...............#
+#################)";
 
 Error run() {
   Graphics gfx;
@@ -75,13 +88,27 @@ Error run() {
 
   Ecs ecs;
 
-  // Create the tiles. Note that this MUST happen first so they are drawn
-  // first. Eventually, we might want to consider z-sorting.
-  for (int x = 0; x < 20; ++x) for (int y = 0; y < 20; ++y) {
-    GlyphRenderConfig rc(font_map.get('a' + x),
-                         glm::vec4(.5f, .5f, .5f, 1.f),
-                         glm::vec4(.2f, .2f, .2f, 1.f));
-    ecs.write_new_entity(Transform{{x, y}, 0}, rc);
+  std::unordered_map<char, Tile> tile_types;
+  tile_types['.'] = Tile{.walkable = true, .glyph = '.',
+                         .fg_color = glm::vec4(.5f, .5f, .5f, 1.f),
+                         .bg_color = glm::vec4(.2f, .2f, .2f, 1.f)};
+  tile_types['#'] = Tile{.walkable = false, .glyph = '#',
+                         .fg_color = glm::vec4(.3f, .3f, .3f, 1.f),
+                         .bg_color = glm::vec4(.1f, .1f, .1f, 1.f)};
+
+  // Create the tiles.
+  //
+  // Note that this MUST happen first so they are drawn first. Eventually, we
+  // might want to consider z-sorting.
+  //
+  // Also note that the grid represents actual tile data so we don't have to
+  // search the ECS every time we want to check a tile. The entities themselves
+  // are just used for rendering.
+  Grid grid = grid_from_string(STARTING_GRID, tile_types);
+  for (auto [pos, tile] : grid) {
+    GlyphRenderConfig rc(font_map.get(tile.glyph), tile.fg_color,
+                         tile.bg_color);
+    ecs.write_new_entity(Transform{pos, 0}, rc);
   }
 
   EntityId player;
@@ -136,7 +163,9 @@ Error run() {
     if (current_action && current_action->finished()) current_action.reset();
 
     if (mouse_down && !current_action) {
-      current_action = move_action(player, mouse_grid_pos);
+      auto [tile, in_grid] = grid.get(mouse_grid_pos);
+      if (in_grid && tile.walkable)
+        current_action = move_action(player, mouse_grid_pos);
     }
     mouse_down = false;
 
