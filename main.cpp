@@ -16,7 +16,9 @@
 #include <ft2build.h>
 #include FT_FREETYPE_H
 
+#include "action.h"
 #include "ecs.h"
+#include "components.h"
 #include "font.h"
 #include "glpp.h"
 #include "graphics.h"
@@ -29,26 +31,6 @@ constexpr int WINDOW_WIDTH = 480;
 
 constexpr float TILE_SIZE = 0.1f;
 
-using Time = std::chrono::high_resolution_clock::time_point;
-using Milliseconds = std::chrono::milliseconds;
-
-Time now() {
-  return std::chrono::high_resolution_clock::now();
-}
-
-// The logical position of an entity on the grid.
-struct GridPos {
-  glm::ivec2 pos;
-};
-
-// The graphical position of an entity in 2D/3D space. NOT RELATIVE TO THE
-// CAMERA POSITION. The integer value of pos' coordinates map to the same
-// location for a GridPos.
-struct Transform {
-  glm::vec2 pos;
-  int z;
-};
-
 glm::vec3 to_graphical_pos(glm::vec2 pos, int z) {
   return glm::vec3(pos.x * TILE_SIZE, pos.y * TILE_SIZE, z);
 }
@@ -57,65 +39,12 @@ glm::vec3 to_graphical_pos(const Transform& transform) {
   return to_graphical_pos(transform.pos, transform.z);
 }
 
-using Ecs = EntityComponentSystem<GridPos, Transform, GlyphRenderConfig>;
+using Time = std::chrono::high_resolution_clock::time_point;
+using Milliseconds = std::chrono::milliseconds;
 
-// An "action" encompasses a change of state of the game. It handled both the
-// animations and state effects of that action.
-//
-// Historical note: Previously, I had attempted to have an animation
-// abstraction that would run and then call back into the game state in order
-// to reflect changes, but this induced massive amounts of complexity. Handling
-// it all in one place is much simpler.
-class Action {
-  StopWatch stop_watch_;  // Records the amount of time for this animation.
-
-protected:
-  virtual void impl(Ecs& ecs) = 0;
-
-public:
-  Action(StopWatch stop_watch) : stop_watch_(stop_watch) {
-    stop_watch_.start();
-  }
-
-  float ratio_finished() { return stop_watch_.ratio_consumed(); }
-
-  bool finished() { return stop_watch_.finished(); }
-
-  void run(Ecs& ecs, Milliseconds dt) {
-    stop_watch_.consume(dt);
-    impl(ecs);
-  }
-};
-
-class MoveAction : public Action {
-  EntityId actor_;
-  glm::ivec2 to_pos_;
-
-  static constexpr std::chrono::milliseconds MOVE_TILE_TIME =
-    std::chrono::milliseconds(200);
-
-public:
-  MoveAction(EntityId actor, glm::ivec2 to_pos)
-      : Action(StopWatch(MOVE_TILE_TIME)), actor_(actor), to_pos_(to_pos) { }
-
-  void impl(Ecs& ecs) override {
-    GridPos* grid_pos = nullptr;
-    Transform* transform = nullptr;
-    if (EcsError e = ecs.read(actor_, &transform, &grid_pos);
-        e != EcsError::OK) {
-      std::cerr << "MoveAction(): got error from ECS: " << int(e);
-      return;
-    }
-
-    transform->pos = glm::mix(glm::vec2(grid_pos->pos), glm::vec2(to_pos_),
-                              ratio_finished());
-
-    if (finished()) {
-      grid_pos->pos = to_pos_;
-      transform->pos = to_pos_;
-    }
-  }
-};
+Time now() {
+  return std::chrono::high_resolution_clock::now();
+}
 
 Error run() {
   Graphics gfx;
@@ -207,7 +136,7 @@ Error run() {
     if (current_action && current_action->finished()) current_action.reset();
 
     if (mouse_down && !current_action) {
-      current_action.reset(new MoveAction(player, mouse_grid_pos));
+      current_action = move_action(player, mouse_grid_pos);
     }
     mouse_down = false;
 

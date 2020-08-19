@@ -33,8 +33,12 @@ obj/font.o : font.cpp font.h include/glpp.h include/util.h
 obj/math.o : include/math.h include/math.cpp
 	${COMPILER} ${OPS} -c include/math.cpp -o obj/math.o
 
+obj/action.o : action.h action.cpp components.h include/timer.h
+	${COMPILER} ${OPS} -c action.cpp -o obj/action.o
+
 obj/main.o : main.cpp include/*.h *.h
 	${COMPILER} ${OPS} -c main.cpp -o obj/main.o
 
-obj/run : obj/main.o obj/graphics.o obj/shaders.o obj/font.o obj/math.o
+obj/run : obj/main.o obj/graphics.o obj/shaders.o obj/font.o obj/math.o \
+					obj/action.o
 	${COMPILER} ${OPS} obj/*.o -lSDL2 -lfreetype -lGL -lGLEW -lGLU -o obj/run
