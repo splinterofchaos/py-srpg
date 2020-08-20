@@ -108,12 +108,14 @@ Error run() {
   for (auto [pos, tile] : grid) {
     GlyphRenderConfig rc(font_map.get(tile.glyph), tile.fg_color,
                          tile.bg_color);
+    rc.center();
     ecs.write_new_entity(Transform{pos, 0}, rc);
   }
 
   EntityId player;
   {
     GlyphRenderConfig rc(font_map.get('@'), glm::vec4(.9f, .6f, .1f, 1.f));
+    rc.center();
     player = ecs.write_new_entity(Transform{{5.f, 5.f}, -1},
                                   GridPos{{5, 5}},
                                   rc);

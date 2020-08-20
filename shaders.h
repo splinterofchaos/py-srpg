@@ -28,6 +28,11 @@ struct GlyphRenderConfig {
     top_left = glyph.top_left;
     bottom_right = glyph.bottom_right;
   }
+
+  // By default, the glyph will be drawn proportionate to its space on a tile
+  // which is not representative of the width of the tile so it will bias to
+  // the left. center() corrects it for tile-based rendering.
+  void center();
 };
 
 // This shader program handles its own initialization and rendering of glyphs.

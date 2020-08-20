@@ -18,6 +18,13 @@ static GLuint rectangle_vbo(glm::vec3 dimensions = glm::vec3(1.f, 1.f, 0),
   return vbo;
 }
 
+void GlyphRenderConfig::center() {
+  glm::vec2 current_center = (top_left + bottom_right) / 2.f;
+  glm::vec2 offset = glm::vec2(0.5f, 0.5f) - current_center;
+  top_left += offset;
+  bottom_right += offset;
+}
+
 Error GlyphShaderProgram::init() {
   vbo_ = rectangle_vbo();
 
