@@ -6,12 +6,15 @@
 
 #include <chrono>
 #include <cstdlib>
+#include <deque>
 #include <iostream>
 #include <memory>
+#include <unordered_set>
 
 #include <glm/vec2.hpp>
 #include <glm/vec4.hpp>
 #include <glm/gtc/type_ptr.hpp>
+#include <glm/gtx/hash.hpp>
 
 #include <ft2build.h>
 #include FT_FREETYPE_H
@@ -58,6 +61,37 @@ const char* const STARTING_GRID = R"(
 #...............#
 #...............#
 #################)";
+
+std::vector<glm::ivec2> adjacent_steps() {
+  return {{1, 0}, {0, 1}, {-1, 0}, {0, -1}};
+}
+
+std::vector<Path> expand_walkable(Grid grid, glm::ivec2 start,
+                                  unsigned int max_dist) {
+  std::deque<Path> edges = {{start}};
+  std::unordered_set<glm::ivec2> visited;
+  std::vector<Path> paths;
+  while (!edges.empty()) {
+    Path path = std::move(edges.front());
+    edges.pop_front();
+
+    if (!visited.insert(path.back()).second) continue;
+    paths.push_back(path);
+
+    if (path.size() + 1 >= max_dist) continue;
+    for (glm::vec step : adjacent_steps()) {
+      glm::ivec2 next_pos = step + path.back();
+      auto [tile, in_grid] = grid.get(next_pos);
+      if (!in_grid || !tile.walkable) continue;
+
+      Path new_path = path;
+      new_path.push_back(next_pos);
+      edges.push_back(new_path);
+    }
+  }
+
+  return paths;
+}
 
 Error run() {
   Graphics gfx;
@@ -165,9 +199,15 @@ Error run() {
     if (current_action && current_action->finished()) current_action.reset();
 
     if (mouse_down && !current_action) {
-      auto [tile, in_grid] = grid.get(mouse_grid_pos);
-      if (in_grid && tile.walkable)
-        current_action = move_action(player, mouse_grid_pos);
+      const GridPos& player_pos = ecs.read_or_panic<GridPos>(player);
+      std::vector<Path> possible_paths = expand_walkable(grid, player_pos.pos,
+                                                         5);
+      auto it = std::find_if(possible_paths.begin(), possible_paths.end(),
+                             [mouse_grid_pos](const Path& p) {
+                                 return p.back() == glm::ivec2(mouse_grid_pos);
+                             });
+      if (it != possible_paths.end())
+        current_action = move_action(player, std::move(*it));
     }
     mouse_down = false;
 

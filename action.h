@@ -5,6 +5,8 @@
 #include "components.h"
 #include "timer.h"
 
+using Path = std::vector<glm::ivec2>;
+
 // An "action" encompasses a change of state of the game. It handled both the
 // animations and state effects of that action.
 //
@@ -33,4 +35,4 @@ public:
   }
 };
 
-std::unique_ptr<Action> move_action(EntityId actor, glm::ivec2 to_pos);
+std::unique_ptr<Action> move_action(EntityId actor, Path path);

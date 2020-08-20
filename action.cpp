@@ -1,15 +1,18 @@
 #include "action.h"
 
+#include "util.h"
+
 class MoveAction : public Action {
   EntityId actor_;
-  glm::ivec2 to_pos_;
+  Path path_;
 
   static constexpr std::chrono::milliseconds MOVE_TILE_TIME =
     std::chrono::milliseconds(200);
 
 public:
-  MoveAction(EntityId actor, glm::ivec2 to_pos)
-      : Action(StopWatch(MOVE_TILE_TIME)), actor_(actor), to_pos_(to_pos) { }
+  MoveAction(EntityId actor, Path path)
+      : Action(StopWatch(MOVE_TILE_TIME * path.size())), actor_(actor),
+        path_(std::move(path)) { }
 
   void impl(Ecs& ecs) override {
     GridPos* grid_pos = nullptr;
@@ -20,18 +23,18 @@ public:
       return;
     }
 
-    transform->pos = glm::mix(glm::vec2(grid_pos->pos), glm::vec2(to_pos_),
-                              ratio_finished());
+    auto to_float = [](glm::ivec2 v) -> glm::vec2 { return v; };
+    transform->pos = mix_vector_by_ratio(path_, ratio_finished(), to_float);
 
     if (finished()) {
-      grid_pos->pos = to_pos_;
-      transform->pos = to_pos_;
+      grid_pos->pos = path_.back();
+      transform->pos = path_.back();
     }
   }
 };
 
 
-std::unique_ptr<Action> move_action(EntityId actor, glm::ivec2 to_pos) {
-  return std::make_unique<MoveAction>(actor, to_pos);
+std::unique_ptr<Action> move_action(EntityId actor, Path path) {
+  return std::make_unique<MoveAction>(actor, path);
 }
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <algorithm>
+#include <cmath>
 #include <tuple>
 #include <vector>
 
@@ -68,6 +69,27 @@ static constexpr Identity identity;
 template<typename F>
 constexpr auto invoker(F f) {
   return [f](auto&&...x) { return std::invoke(f, x...); };
+}
+
+// From a vector representing a gradient of values, returns the point between
+// two elements proportionate to t in the range [0, 1]. In case the vector
+// holds integers, F can convert the values to floats to allow greater
+// granularity.
+template<typename T, typename F = Identity,
+         typename Result = std::result_of_t<F(T)>>
+Result mix_vector_by_ratio(const std::vector<T>& vec, float t,
+                         F f = F()) {
+  // Safety first!
+  if (!vec.size()) return Result();
+  if (t < 0) return f(vec.front());
+  if (t > 1) return f(vec.back());
+
+  // The "floating index" between zero and the highest index.
+  float fi = t * (vec.size() - 1);
+  unsigned int lo = std::floor(fi);
+  unsigned int hi = std::min(vec.size() - 1.f, std::ceil(fi));
+  float u = fi - lo;  // The ratio at which hi and lo should mix.
+  return f(vec[lo]) * (1.f - u) + f(vec[hi]) * u;
 }
 
 template<typename T>
