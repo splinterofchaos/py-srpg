@@ -66,8 +66,13 @@ std::vector<glm::ivec2> adjacent_steps() {
   return {{1, 0}, {0, 1}, {-1, 0}, {0, -1}};
 }
 
-std::vector<Path> expand_walkable(Grid grid, glm::ivec2 start,
-                                  unsigned int max_dist) {
+std::vector<Path> expand_walkable(Grid grid, const Ecs& ecs,
+                                  glm::ivec2 start, unsigned int max_dist) {
+  std::unordered_set<glm::ivec2> taken_spaces;
+  for (const auto [unused_id, pos, unused_actor] :
+       ecs.read_all<GridPos, Actor>())
+    taken_spaces.insert(pos.pos);
+  
   std::deque<Path> edges = {{start}};
   std::unordered_set<glm::ivec2> visited;
   std::vector<Path> paths;
@@ -82,7 +87,8 @@ std::vector<Path> expand_walkable(Grid grid, glm::ivec2 start,
     for (glm::vec step : adjacent_steps()) {
       glm::ivec2 next_pos = step + path.back();
       auto [tile, in_grid] = grid.get(next_pos);
-      if (!in_grid || !tile.walkable) continue;
+      if (!in_grid || !tile.walkable || taken_spaces.contains(next_pos))
+        continue;
 
       Path new_path = path;
       new_path.push_back(next_pos);
@@ -124,7 +130,7 @@ Error run() {
 
   std::unordered_map<char, Tile> tile_types;
   tile_types['.'] = Tile{.walkable = true, .glyph = '.',
-                         .fg_color = glm::vec4(.5f, .5f, .5f, 1.f),
+                         .fg_color = glm::vec4(.23f, .23f, .23f, 1.f),
                          .bg_color = glm::vec4(.2f, .2f, .2f, 1.f)};
   tile_types['#'] = Tile{.walkable = false, .glyph = '#',
                          .fg_color = glm::vec4(.3f, .3f, .3f, 1.f),
@@ -152,7 +158,16 @@ Error run() {
     rc.center();
     player = ecs.write_new_entity(Transform{{5.f, 5.f}, -1},
                                   GridPos{{5, 5}},
-                                  rc);
+                                  rc, Actor{});
+  }
+
+  EntityId spider;
+  {
+    GlyphRenderConfig rc(font_map.get('s'), glm::vec4(0.f, 0.2f, 0.6f, 1.f));
+    rc.center();
+    spider = ecs.write_new_entity(Transform{{4.f, 4.f}, -1},
+                                  GridPos{{4, 4}},
+                                  rc, Actor{});
   }
 
   std::unique_ptr<Action> current_action;
@@ -200,8 +215,8 @@ Error run() {
 
     if (mouse_down && !current_action) {
       const GridPos& player_pos = ecs.read_or_panic<GridPos>(player);
-      std::vector<Path> possible_paths = expand_walkable(grid, player_pos.pos,
-                                                         5);
+      std::vector<Path> possible_paths = expand_walkable(grid, ecs,
+                                                         player_pos.pos, 5);
       auto it = std::find_if(possible_paths.begin(), possible_paths.end(),
                              [mouse_grid_pos](const Path& p) {
                                  return p.back() == glm::ivec2(mouse_grid_pos);

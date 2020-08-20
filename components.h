@@ -19,5 +19,12 @@ struct Transform {
   int z;
 };
 
-using Ecs = EntityComponentSystem<GridPos, Transform, GlyphRenderConfig>;
+// Identifies that an entity is an actor.
+struct Actor { };
+
+using Ecs = EntityComponentSystem<
+  GridPos,
+  Transform,
+  GlyphRenderConfig,
+  Actor>;
 
