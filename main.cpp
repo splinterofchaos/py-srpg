@@ -81,7 +81,7 @@ std::vector<Path> expand_walkable(Grid grid, const Ecs& ecs,
     edges.pop_front();
 
     if (!visited.insert(path.back()).second) continue;
-    paths.push_back(path);
+    if (path.back() != start) paths.push_back(path);
 
     if (path.size() + 1 >= max_dist) continue;
     for (glm::vec step : adjacent_steps()) {
@@ -171,6 +171,7 @@ Error run() {
   }
 
   std::unique_ptr<Action> current_action;
+  std::vector<Path> walkable_positions;
 
   bool keep_going = true;
   SDL_Event e;
@@ -213,16 +214,21 @@ Error run() {
 
     if (current_action && current_action->finished()) current_action.reset();
 
-    if (mouse_down && !current_action) {
+    if (!current_action && walkable_positions.empty()) {
       const GridPos& player_pos = ecs.read_or_panic<GridPos>(player);
-      std::vector<Path> possible_paths = expand_walkable(grid, ecs,
-                                                         player_pos.pos, 5);
-      auto it = std::find_if(possible_paths.begin(), possible_paths.end(),
+      walkable_positions = expand_walkable(grid, ecs, player_pos.pos, 5);
+    }
+
+    if (mouse_down && !current_action) {
+      auto it = std::find_if(walkable_positions.begin(),
+                             walkable_positions.end(),
                              [mouse_grid_pos](const Path& p) {
                                  return p.back() == glm::ivec2(mouse_grid_pos);
                              });
-      if (it != possible_paths.end())
+      if (it != walkable_positions.end()) {
         current_action = move_action(player, std::move(*it));
+        walkable_positions.clear();
+      }
     }
     mouse_down = false;
 
@@ -237,6 +243,11 @@ Error run() {
       glyph_shader.render_glyph(to_graphical_pos(transform) - camera_offset,
                                 TILE_SIZE, render_config);
     }
+
+    for (const Path& path : walkable_positions)
+      marker_shader.render_marker(
+          to_graphical_pos(path.back(), 0) - camera_offset,
+          TILE_SIZE, glm::vec4(0.1f, 0.2f, 0.4f, 0.5f));
 
     marker_shader.render_marker(
         to_graphical_pos(mouse_grid_pos, 0) - camera_offset,
