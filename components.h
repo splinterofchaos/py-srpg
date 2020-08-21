@@ -19,11 +19,18 @@ struct Transform {
   int z;
 };
 
+struct Stats {
+  unsigned int hp = 0, max_hp = 0;
+  unsigned int strength = 0;
+};
+
 // Identifies that an entity is an actor.
-struct Actor { };
+struct Actor {
+  std::string name;
+  Stats stats;
+};
 
 using Ecs = EntityComponentSystem<
-  std::string,  // name
   GridPos,
   Transform,
   GlyphRenderConfig,

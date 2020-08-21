@@ -60,6 +60,25 @@ typename Container::const_iterator lower_bound(const Container& c, const T& t,
   return std::lower_bound(c.begin(), c.end(), t, std::forward<F>(f));
 }
 
+template<typename Container, typename T, typename Transform>
+T reduce_by(const Container& c, T init, Transform&& transform) {
+  for (const auto& x : c) init += transform(x);
+  return init;
+}
+
+template<typename Container, typename T, typename Transform>
+T max_by(const Container& c, T init, Transform&& transform) {
+  for (const auto& x : c) init = std::max(init, transform(x));
+  return init;
+}
+
+template<typename F, typename X>
+auto part(F&& f, X&& x) {
+  return [f = std::forward<F>(f), x = std::forward<X>(x)]
+    (auto&&...y) { return f(std::forward<X>(x),
+                            std::forward<decltype(y)>(y)...); };
+}
+
 struct Identity {
   template<typename T>
   T operator()(T&& t) const { return std::forward<T>(t); }

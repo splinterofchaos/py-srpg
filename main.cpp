@@ -157,28 +157,43 @@ std::pair<EntityId, bool> actor_at(const Ecs& ecs, glm::ivec2 pos) {
   return {EntityId(), false};
 }
 
+float text_width(FontMap& font_map, std::string_view text) {
+  auto get_width =
+    [&font_map](char c) { return font_map.get(c).bottom_right.x; };
+  float w = reduce_by(text, 0.0f, get_width);
+  // There will be some trailing space at the start. Make it the same at the
+  // end.
+  if (text.size()) w += font_map.get(text[0]).top_left.x;
+  // Add spacing between the letters.
+  w += text.size() * TILE_SIZE * 0.1f;
+  return w;
+}
+
 // Print's an entity's description next to its location. The view of the entity
 // itself shall be unobstructed and the text will always be on screen.
 void render_entity_desc(Game& game, EntityId id) {
   GridPos grid_pos = game.ecs().read_or_panic<GridPos>(id);
 
-  const std::string* name;
-  if (game.ecs().read(id, &name) == EcsError::NOT_FOUND) {
-    static std::string not_found_name = "UNKNOWN";
-    name = &not_found_name;
+  const Actor* actor = nullptr;
+  game.ecs().read(id, &actor);
+
+  std::vector<std::string> lines;
+  if (actor) {
+    lines.push_back(actor->name);
+    lines.push_back(concat_strings("HP: ", std::to_string(actor->stats.max_hp),
+                                   "/", std::to_string(actor->stats.hp)));
+    lines.push_back(concat_strings("STR: ",
+                                   std::to_string(actor->stats.strength)));
+  } else {
+    lines.push_back("UNKNOWN");
   }
 
-  float w = 0.f;
-  for (unsigned int i = 0; i < name->size(); ++i) {
-    const Glyph& glyph = game.font_map().get(name->at(i));
-    w += glyph.bottom_right.x;
-    // Leave the same amount of trailing space as there is leading.
-    if (i == 0) w += glyph.top_left.x;
-  }
-  w += name->size() * TILE_SIZE * 0.1f;
+  auto get_width =
+    [&game](const std::string& s) { return text_width(game.font_map(), s); };
+  float w = max_by(lines, 0.0f, get_width);
 
   glm::vec2 start = glm::vec2(grid_pos.pos) + glm::vec2(1.f, 0.f);
-  glm::vec2 end = start + glm::vec2(w, 0.f);
+  glm::vec2 end = start + glm::vec2(w, -float(lines.size()) + 1.f);
   glm::vec2 center = (start + end) / 2.f;
   glm::vec3 graphical_center = game.to_graphical_pos(center, 0);
 
@@ -193,17 +208,20 @@ void render_entity_desc(Game& game, EntityId id) {
 
   game.marker_shader().render_marker(
       graphical_center,
-      TILE_SIZE, glm::vec4(0.f, 0.f, 0.f, .9f), glm::vec2(w, 1.f));
+      TILE_SIZE, glm::vec4(0.f, 0.f, 0.f, .9f),
+      glm::vec2(w, float(lines.size())));
 
-  float cursor = start.x + 0.5f;
-  for (char c : *name) {
-    glm::vec2 pos = glm::vec2(cursor, start.y);
-    const Glyph& glyph = game.font_map().get(c);
-    GlyphRenderConfig rc(glyph, glm::vec4(1.f));
-    game.glyph_shader().render_glyph(game.to_graphical_pos(pos, 0.f),
-                                     TILE_SIZE, rc);
+  for (unsigned int i = 0; i < lines.size(); ++i) {
+    float cursor = start.x + 0.5f;
+    for (char c : lines[i]) {
+      glm::vec2 pos = glm::vec2(cursor, start.y - i);
+      const Glyph& glyph = game.font_map().get(c);
+      GlyphRenderConfig rc(glyph, glm::vec4(1.f));
+      game.glyph_shader().render_glyph(game.to_graphical_pos(pos, 0.f),
+                                       TILE_SIZE, rc);
 
-    cursor += glyph.bottom_right.x + TILE_SIZE * 0.1f;
+      cursor += glyph.bottom_right.x + TILE_SIZE * 0.1f;
+    }
   }
 }
 
@@ -249,10 +267,10 @@ Error run() {
     GlyphRenderConfig rc(game.font_map().get('@'),
                          glm::vec4(.9f, .6f, .1f, 1.f));
     rc.center();
-    player = game.ecs().write_new_entity(std::string("you"),
-                                         Transform{{5.f, 5.f}, -1},
+    Stats stats{.hp = 10, .max_hp = 10, .strength = 5};
+    player = game.ecs().write_new_entity(Transform{{5.f, 5.f}, -1},
                                          GridPos{{5, 5}},
-                                         rc, Actor{});
+                                         rc, Actor{"player", stats});
   }
 
   EntityId spider;
@@ -260,10 +278,10 @@ Error run() {
     GlyphRenderConfig rc(game.font_map().get('s'),
                          glm::vec4(0.f, 0.2f, 0.6f, 1.f));
     rc.center();
-    spider = game.ecs().write_new_entity(std::string("spider"),
-                                         Transform{{4.f, 4.f}, -1},
+    Stats stats{.hp = 10, .max_hp = 10, .strength = 5};
+    spider = game.ecs().write_new_entity(Transform{{4.f, 4.f}, -1},
                                          GridPos{{4, 4}},
-                                         rc, Actor{});
+                                         rc, Actor{"spider", stats});
   }
 
   std::unique_ptr<Action> current_action;
