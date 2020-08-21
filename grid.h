@@ -37,6 +37,12 @@ public:
     return {dummy_notreal, false};
   }
 
+  std::pair<const Tile&, bool> get(glm::ivec2 pos) const {
+    auto it = data_.find(pos);
+    if (it != data_.end()) return {it->second, true};
+    return {dummy_notreal, false};
+  }
+
   Tile& operator[](glm::ivec2 pos) {
     return data_.emplace(pos, dummy_notreal).first->second;
   }
