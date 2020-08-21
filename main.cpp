@@ -35,12 +35,12 @@ constexpr int WINDOW_WIDTH = 480;
 
 constexpr float TILE_SIZE = 0.1f;
 
-glm::vec3 to_graphical_pos(glm::vec2 pos, int z) {
-  return glm::vec3(pos.x * TILE_SIZE, pos.y * TILE_SIZE, z);
+glm::vec3 to_graphical_pos(glm::vec2 pos, int z, glm::vec3 camera_offset) {
+  return glm::vec3(pos.x * TILE_SIZE, pos.y * TILE_SIZE, z) - camera_offset;
 }
 
-glm::vec3 to_graphical_pos(const Transform& transform) {
-  return to_graphical_pos(transform.pos, transform.z);
+glm::vec3 to_graphical_pos(const Transform& transform, glm::vec3 camera_offset) {
+  return to_graphical_pos(transform.pos, transform.z, camera_offset);
 }
 
 using Time = std::chrono::high_resolution_clock::time_point;
@@ -134,15 +134,14 @@ void render_entity_desc(const Ecs& ecs,
   glm::vec2 start = glm::vec2(grid_pos.pos) + glm::vec2(1.f, 0.f);
   glm::vec2 end = start + glm::vec2(w, 0.f);
   glm::vec2 center = (start + end) / 2.f;
-  glm::vec3 graphical_center = to_graphical_pos(center, 0) - camera_offset;
+  glm::vec3 graphical_center = to_graphical_pos(center, 0, camera_offset);
 
   // Check that it's not overflowing offscreen. Maybe move it to the other
   // side of the entity whose information we're printing.
-  glm::vec3 graphical_end = to_graphical_pos(end, 0) - camera_offset;
+  glm::vec3 graphical_end = to_graphical_pos(end, 0, camera_offset);
   if (graphical_end.x > 1.f) {
     glm::vec2 offset = 2.f * (glm::vec2(grid_pos.pos) - center); 
-    graphical_center = to_graphical_pos(offset + center, 0) -
-                       camera_offset;
+    graphical_center = to_graphical_pos(offset + center, 0, camera_offset);
     start += offset;
 
   }
@@ -156,7 +155,7 @@ void render_entity_desc(const Ecs& ecs,
     glm::vec2 pos = glm::vec2(cursor, start.y);
     const Glyph& glyph = font_map.get(c);
     GlyphRenderConfig rc(glyph, glm::vec4(1.f));
-    glyph_shader.render_glyph(to_graphical_pos(pos, 0.f) - camera_offset,
+    glyph_shader.render_glyph(to_graphical_pos(pos, 0.f, camera_offset),
                               TILE_SIZE, rc);
 
     cursor += glyph.bottom_right.x + TILE_SIZE * 0.1f;
@@ -306,17 +305,17 @@ Error run() {
 
     for (const auto& [_, transform, render_config] :
          ecs.read_all<Transform, GlyphRenderConfig>()) {
-      glyph_shader.render_glyph(to_graphical_pos(transform) - camera_offset,
+      glyph_shader.render_glyph(to_graphical_pos(transform, camera_offset),
                                 TILE_SIZE, render_config);
     }
 
     for (const Path& path : walkable_positions)
       marker_shader.render_marker(
-          to_graphical_pos(path.back(), 0) - camera_offset,
+          to_graphical_pos(path.back(), 0, camera_offset),
           TILE_SIZE, glm::vec4(0.1f, 0.2f, 0.4f, 0.5f));
 
     marker_shader.render_marker(
-        to_graphical_pos(mouse_grid_pos, 0) - camera_offset,
+        to_graphical_pos(mouse_grid_pos, 0, camera_offset),
         TILE_SIZE, glm::vec4(0.1f, 0.3f, 0.6f, .5f));
 
     if (auto [id, found] = actor_at(ecs, mouse_grid_pos); found) {
