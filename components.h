@@ -23,6 +23,7 @@ struct Transform {
 struct Actor { };
 
 using Ecs = EntityComponentSystem<
+  std::string,  // name
   GridPos,
   Transform,
   GlyphRenderConfig,

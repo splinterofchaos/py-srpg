@@ -55,10 +55,10 @@ const char* const STARTING_GRID = R"(
 #............#
 #............#
 #....####....####
-#....#  #.......#
-#....#  #.......#
-#....####.......#
-#...............#
+#....#  #.......####
+#....#  #..........#
+#....####..........#
+#...............####
 #...............#
 #################)";
 
@@ -97,6 +97,70 @@ std::vector<Path> expand_walkable(Grid grid, const Ecs& ecs,
   }
 
   return paths;
+}
+
+std::pair<EntityId, bool> actor_at(const Ecs& ecs, glm::ivec2 pos) {
+  for (const auto [id, epos, unused_actor] :
+       ecs.read_all<GridPos, Actor>())
+    if (epos.pos == pos) return {id, true};
+  return {EntityId(), false};
+}
+
+// Print's an entity's description next to its location. The view of the entity
+// itself shall be unobstructed and the text will always be on screen.
+void render_entity_desc(const Ecs& ecs,
+                        const MarkerShaderProgram& marker_shader,
+                        const GlyphShaderProgram& glyph_shader,
+                        FontMap& font_map,
+                        glm::vec3 camera_offset,
+                        EntityId id) {
+  GridPos grid_pos = ecs.read_or_panic<GridPos>(id);
+
+  const std::string* name;
+  if (ecs.read(id, &name) == EcsError::NOT_FOUND) {
+    static std::string not_found_name = "UNKNOWN";
+    name = &not_found_name;
+  }
+
+  float w = 0.f;
+  for (unsigned int i = 0; i < name->size(); ++i) {
+    const Glyph& glyph = font_map.get(name->at(i));
+    w += glyph.bottom_right.x;
+    // Leave the same amount of trailing space as there is leading.
+    if (i == 0) w += glyph.top_left.x;
+  }
+  w += name->size() * TILE_SIZE * 0.1f;
+
+  glm::vec2 start = glm::vec2(grid_pos.pos) + glm::vec2(1.f, 0.f);
+  glm::vec2 end = start + glm::vec2(w, 0.f);
+  glm::vec2 center = (start + end) / 2.f;
+  glm::vec3 graphical_center = to_graphical_pos(center, 0) - camera_offset;
+
+  // Check that it's not overflowing offscreen. Maybe move it to the other
+  // side of the entity whose information we're printing.
+  glm::vec3 graphical_end = to_graphical_pos(end, 0) - camera_offset;
+  if (graphical_end.x > 1.f) {
+    glm::vec2 offset = 2.f * (glm::vec2(grid_pos.pos) - center); 
+    graphical_center = to_graphical_pos(offset + center, 0) -
+                       camera_offset;
+    start += offset;
+
+  }
+
+  marker_shader.render_marker(
+      graphical_center,
+      TILE_SIZE, glm::vec4(0.f, 0.f, 0.f, .9f), glm::vec2(w, 1.f));
+
+  float cursor = start.x + 0.5f;
+  for (char c : *name) {
+    glm::vec2 pos = glm::vec2(cursor, start.y);
+    const Glyph& glyph = font_map.get(c);
+    GlyphRenderConfig rc(glyph, glm::vec4(1.f));
+    glyph_shader.render_glyph(to_graphical_pos(pos, 0.f) - camera_offset,
+                              TILE_SIZE, rc);
+
+    cursor += glyph.bottom_right.x + TILE_SIZE * 0.1f;
+  }
 }
 
 Error run() {
@@ -156,7 +220,8 @@ Error run() {
   {
     GlyphRenderConfig rc(font_map.get('@'), glm::vec4(.9f, .6f, .1f, 1.f));
     rc.center();
-    player = ecs.write_new_entity(Transform{{5.f, 5.f}, -1},
+    player = ecs.write_new_entity(std::string("you"),
+                                  Transform{{5.f, 5.f}, -1},
                                   GridPos{{5, 5}},
                                   rc, Actor{});
   }
@@ -165,7 +230,8 @@ Error run() {
   {
     GlyphRenderConfig rc(font_map.get('s'), glm::vec4(0.f, 0.2f, 0.6f, 1.f));
     rc.center();
-    spider = ecs.write_new_entity(Transform{{4.f, 4.f}, -1},
+    spider = ecs.write_new_entity(std::string("spider"),
+                                  Transform{{4.f, 4.f}, -1},
                                   GridPos{{4, 4}},
                                   rc, Actor{});
   }
@@ -252,6 +318,11 @@ Error run() {
     marker_shader.render_marker(
         to_graphical_pos(mouse_grid_pos, 0) - camera_offset,
         TILE_SIZE, glm::vec4(0.1f, 0.3f, 0.6f, .5f));
+
+    if (auto [id, found] = actor_at(ecs, mouse_grid_pos); found) {
+      render_entity_desc(ecs, marker_shader, glyph_shader, font_map,
+                         camera_offset, id);
+    }
 
     gfx.swap_buffers();
 

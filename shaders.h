@@ -55,7 +55,7 @@ class GlyphShaderProgram {
 public:
   Error init();
   void render_glyph(glm::vec3 pos, float size,
-                    const GlyphRenderConfig& config);
+                    const GlyphRenderConfig& config) const;
 };
 
 // Markers are drawn over most other elements and can denote tiles to which an
@@ -67,9 +67,11 @@ class MarkerShaderProgram {
   GLint vertex_pos_attr_ = -1;
   GLint transform_uniform_ = -1;
   GLint color_uniform_ = -1;
+  GLint stretch_uniform_ = -1;
 
 public:
   Error init();
 
-  void render_marker(glm::vec3 pos, float size, glm::vec4 color);
+  void render_marker(glm::vec3 pos, float size, glm::vec4 color,
+                     glm::vec2 stretch = glm::vec2(1.f, 1.f)) const;
 };

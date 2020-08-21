@@ -77,8 +77,8 @@ Error GlyphShaderProgram::init() {
          program_.uniform_location("bottom_right", top_right_uniform_);
 }
 
-void GlyphShaderProgram::render_glyph(glm::vec3 pos, float size,
-                                      const GlyphRenderConfig& render_config) {
+void GlyphShaderProgram::render_glyph(
+    glm::vec3 pos, float size, const GlyphRenderConfig& render_config) const {
   program_.use();
 
   glBindTexture(GL_TEXTURE_2D, render_config.texture);
@@ -112,10 +112,11 @@ Error MarkerShaderProgram::init() {
   verts.add_source(R"(
     #version 140
     in vec3 vertex_pos;
+    uniform vec2 stretch;
     uniform mat4 transform;
 
     void main() {
-      gl_Position = transform * vec4(vertex_pos, 1);
+      gl_Position = transform * vec4(vertex_pos * vec3(stretch, 1), 1);
     }
   )");
   if (Error e = verts.compile(); !e.ok) return e;
@@ -139,15 +140,18 @@ Error MarkerShaderProgram::init() {
 
   return program_.attribute_location("vertex_pos", vertex_pos_attr_) &&
          program_.uniform_location("transform", transform_uniform_) &&
-         program_.uniform_location("color", color_uniform_);
+         program_.uniform_location("color", color_uniform_) &&
+         program_.uniform_location("stretch", stretch_uniform_);
 }
 
 void MarkerShaderProgram::render_marker(glm::vec3 pos, float size,
-                                        glm::vec4 color) {
+                                        glm::vec4 color,
+                                        glm::vec2 stretch) const {
   program_.use();
 
   gl::bindBuffer(GL_ARRAY_BUFFER, vbo_);
 
+  gl::uniform2v(stretch_uniform_, 1, glm::value_ptr(stretch));
   gl::uniform4v(color_uniform_, 1, glm::value_ptr(color));
 
   gl::enableVertexAttribArray(vertex_pos_attr_);
