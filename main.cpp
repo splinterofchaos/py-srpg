@@ -35,11 +35,12 @@ constexpr int WINDOW_WIDTH = 480;
 
 constexpr float TILE_SIZE = 0.1f;
 
-glm::vec3 to_graphical_pos(glm::vec2 pos, int z, glm::vec3 camera_offset) {
-  return glm::vec3(pos.x * TILE_SIZE, pos.y * TILE_SIZE, z) - camera_offset;
+glm::vec3 to_graphical_pos(glm::vec2 pos, int z, glm::vec2 camera_offset) {
+  return glm::vec3(pos.x * TILE_SIZE, pos.y * TILE_SIZE, z) -
+         glm::vec3(camera_offset, 0.f);
 }
 
-glm::vec3 to_graphical_pos(const Transform& transform, glm::vec3 camera_offset) {
+glm::vec3 to_graphical_pos(const Transform& transform, glm::vec2 camera_offset) {
   return to_graphical_pos(transform.pos, transform.z, camera_offset);
 }
 
@@ -112,7 +113,7 @@ void render_entity_desc(const Ecs& ecs,
                         const MarkerShaderProgram& marker_shader,
                         const GlyphShaderProgram& glyph_shader,
                         FontMap& font_map,
-                        glm::vec3 camera_offset,
+                        glm::vec2 camera_offset,
                         EntityId id) {
   GridPos grid_pos = ecs.read_or_panic<GridPos>(id);
 
@@ -181,7 +182,7 @@ Error run() {
   FontMap font_map;
   if (Error e = font_map.init("font/LeagueMono-Bold.ttf"); !e.ok) return e;
 
-  glm::vec3 camera_offset(0.95f, 0.95f, 0.f);
+  glm::vec2 camera_offset(0.95f, 0.95f);
 
   GLuint vbo_elems[] = {0, 1, 2,
                         2, 3, 0};
@@ -270,12 +271,10 @@ Error run() {
     // convert it to a grid-a-fied screen position.
     int mouse_x, mouse_y;
     SDL_GetMouseState(&mouse_x, &mouse_y);
-    glm::vec3 mouse_screen_pos(float(mouse_x * 2) / WINDOW_WIDTH - 1,
-                               float(-mouse_y * 2) / WINDOW_HEIGHT + 1,
-                               0.f);
-    glm::ivec3 mouse_grid_pos =
-      glm::ivec3((mouse_screen_pos + TILE_SIZE/2) / TILE_SIZE +
-                 camera_offset / TILE_SIZE);
+    glm::vec2 mouse_screen_pos(float(mouse_x * 2) / WINDOW_WIDTH - 1,
+                               float(-mouse_y * 2) / WINDOW_HEIGHT + 1);
+    glm::ivec2 mouse_grid_pos =
+      (mouse_screen_pos + TILE_SIZE/2) / TILE_SIZE + camera_offset / TILE_SIZE;
 
     if (current_action && current_action->finished()) current_action.reset();
 
