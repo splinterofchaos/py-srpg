@@ -44,8 +44,15 @@ class StopWatch {
 public:
   template<typename Rep, typename Period>
   StopWatch(std::chrono::duration<Rep, Period> target)
-    : duration_waited_(0), target_duration_(target)
-  {
+      : started_(false), duration_waited_(0) {
+    set_duration(target);
+  }
+
+  StopWatch() { }
+
+  template<typename Rep, typename Period>
+  void set_duration(std::chrono::duration<Rep, Period> target) {
+    target_duration_ = cast(target);
   }
 
   void start() { started_ = true; }

@@ -5,7 +5,7 @@
 #include "components.h"
 #include "timer.h"
 
-using Path = std::vector<glm::ivec2>;
+using Path = std::vector<glm::vec2>;
 
 // An "action" encompasses a change of state of the game. It handled both the
 // animations and state effects of that action.
@@ -18,21 +18,28 @@ class Action {
   StopWatch stop_watch_;  // Records the amount of time for this animation.
 
 protected:
-  virtual void impl(Ecs& ecs) = 0;
+  virtual void impl(Ecs& ecs, std::chrono::milliseconds) = 0;
 
 public:
   Action(StopWatch stop_watch) : stop_watch_(stop_watch) {
     stop_watch_.start();
   }
 
-  float ratio_finished() { return stop_watch_.ratio_consumed(); }
+  Action() { }
 
-  bool finished() { return stop_watch_.finished(); }
+  float ratio_finished() const { return stop_watch_.ratio_consumed(); }
+
+  virtual bool finished() const { return stop_watch_.finished(); }
 
   void run(Ecs& ecs, std::chrono::milliseconds dt) {
     stop_watch_.consume(dt);
-    impl(ecs);
+    impl(ecs, dt);
   }
 };
 
-std::unique_ptr<Action> move_action(EntityId actor, Path path);
+// If change_final_position is true, sets the actor's grid position to
+// path.back() at the end. Otherwise, the effect is merely graphical.
+std::unique_ptr<Action> move_action(EntityId actor, Path path,
+                                    bool change_final_position = true);
+std::unique_ptr<Action> mele_action(const Ecs& ecs, EntityId attacker,
+                                    EntityId defender, Path path);

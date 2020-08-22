@@ -132,11 +132,11 @@ std::vector<Path> expand_walkable(const Game& game,
     edges.pop_front();
 
     if (!visited.insert(path.back()).second) continue;
-    if (path.back() != start) paths.push_back(path);
+    if (glm::ivec2(path.back()) != start) paths.push_back(path);
 
     if (path.size() + 1 >= max_dist) continue;
-    for (glm::vec step : adjacent_steps()) {
-      glm::ivec2 next_pos = step + path.back();
+    for (glm::ivec2 step : adjacent_steps()) {
+      glm::vec2 next_pos = glm::vec2(step) + path.back();
       auto [tile, in_grid] = game.grid().get(next_pos);
       if (!in_grid || !tile.walkable || taken_spaces.contains(next_pos))
         continue;
@@ -155,6 +155,32 @@ std::pair<EntityId, bool> actor_at(const Ecs& ecs, glm::ivec2 pos) {
        ecs.read_all<GridPos, Actor>())
     if (epos.pos == pos) return {id, true};
   return {EntityId(), false};
+}
+
+
+struct PossibleAttack {
+  Path path;
+  EntityId defender;
+  glm::ivec2 defender_pos;
+};
+
+std::vector<PossibleAttack> expand_attacks(const Ecs& ecs,
+                                           glm::ivec2 start,
+                                           const std::vector<Path>& paths) {
+  std::vector<PossibleAttack> possible_attacks;
+  for (glm::ivec2 step : adjacent_steps()) {
+    glm::ivec2 pos = step + start;
+    auto [id, is_there] = actor_at(ecs, pos);
+    if (is_there) possible_attacks.push_back({{}, id, pos});
+  }
+  for (const Path& path : paths) {
+    for (glm::ivec2 step : adjacent_steps()) {
+      glm::ivec2 pos = step + glm::ivec2(path.back());
+      auto [id, is_there] = actor_at(ecs, pos);
+      if (is_there) possible_attacks.push_back({path, id, pos});
+    }
+  }
+  return possible_attacks;
 }
 
 float text_width(FontMap& font_map, std::string_view text) {
@@ -286,6 +312,7 @@ Error run() {
 
   std::unique_ptr<Action> current_action;
   std::vector<Path> walkable_positions;
+  std::vector<PossibleAttack> attackable_positions;
 
   bool keep_going = true;
   SDL_Event e;
@@ -329,18 +356,35 @@ Error run() {
     if (!current_action && walkable_positions.empty()) {
       const GridPos& player_pos = game.ecs().read_or_panic<GridPos>(player);
       walkable_positions = expand_walkable(game, player_pos.pos, 5);
+      attackable_positions = expand_attacks(game.ecs(), player_pos.pos,
+                                            walkable_positions);
+    }
+
+    if (mouse_down && !current_action) {
+      auto it = std::find_if(attackable_positions.begin(),
+                             attackable_positions.end(),
+                             [mouse_grid_pos](const PossibleAttack& atk) {
+                                 return atk.defender_pos == mouse_grid_pos;
+                             });
+      if (it != attackable_positions.end()) {
+        current_action = mele_action(game.ecs(), player, it->defender, it->path);
+      }
     }
 
     if (mouse_down && !current_action) {
       auto it = std::find_if(walkable_positions.begin(),
                              walkable_positions.end(),
                              [mouse_grid_pos](const Path& p) {
-                                 return p.back() == mouse_grid_pos;
+                                 return glm::ivec2(p.back()) == mouse_grid_pos;
                              });
       if (it != walkable_positions.end()) {
         current_action = move_action(player, std::move(*it));
-        walkable_positions.clear();
       }
+    }
+
+    if (current_action) {
+      walkable_positions.clear();
+      attackable_positions.clear();
     }
     mouse_down = false;
 
