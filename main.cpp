@@ -157,7 +157,6 @@ std::pair<EntityId, bool> actor_at(const Ecs& ecs, glm::ivec2 pos) {
   return {EntityId(), false};
 }
 
-
 struct PossibleAttack {
   Path path;
   EntityId defender;

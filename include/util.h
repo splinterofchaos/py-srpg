@@ -72,6 +72,13 @@ T max_by(const Container& c, T init, Transform&& transform) {
   return init;
 }
 
+template<typename F, typename X>
+auto part(F&& f, X&& x) {
+  return [f = std::forward<F>(f), x = std::forward<X>(x)]
+    (auto&&...y) { return f(std::forward<X>(x),
+                            std::forward<decltype(y)>(y)...); };
+}
+
 struct Identity {
   template<typename T>
   T operator()(T&& t) const { return std::forward<T>(t); }
