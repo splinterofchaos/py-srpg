@@ -98,6 +98,7 @@ public:
       if (attack_->finished()) state_ = RETREATING;
     } else if (state_ == RETREATING) {
       recoil_->run(ecs, dt);
+      if (recoil_->finished()) stop_short();
     }
 
     if (finished()) {
@@ -112,8 +113,6 @@ public:
       transform->pos = final_pos_;
     }
   }
-
-  bool finished() const override { return recoil_->finished(); }
 };
 
 std::unique_ptr<Action> mele_action(const Ecs& ecs, EntityId attacker,

@@ -17,19 +17,23 @@ using Path = std::vector<glm::vec2>;
 class Action {
   StopWatch stop_watch_;  // Records the amount of time for this animation.
 
+  bool stop_short_ = false;
+
 protected:
   virtual void impl(Ecs& ecs, std::chrono::milliseconds) = 0;
 
 public:
   Action(StopWatch stop_watch) : stop_watch_(stop_watch) {
     stop_watch_.start();
+    stop_short_ = false;
   }
 
   Action() { }
 
   float ratio_finished() const { return stop_watch_.ratio_consumed(); }
 
-  virtual bool finished() const { return stop_watch_.finished(); }
+  void stop_short() { stop_short_ = true; }
+  bool finished() const { return stop_short_ || stop_watch_.finished(); }
 
   void run(Ecs& ecs, std::chrono::milliseconds dt) {
     stop_watch_.consume(dt);

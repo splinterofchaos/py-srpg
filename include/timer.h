@@ -69,7 +69,9 @@ public:
     if (started_) duration_waited_ += cast(dt);
   }
 
-  bool finished() const { return duration_waited_ >= target_duration_; }
+  bool finished() const {
+    return started_ && duration_waited_ >= target_duration_;
+  }
 
   float ratio_consumed() const {
     if (!started_) return 0;
