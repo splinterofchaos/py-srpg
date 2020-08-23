@@ -61,6 +61,7 @@ class MeleAction : public Action {
   // Landing position after mover_.
   glm::vec2 final_pos_;
   EntityId attacker_;
+  EntityId defender_;
 
   enum State { MOVING_TO_ATTACK_POSITION,
                ATTACKING,
@@ -79,6 +80,7 @@ public:
     }
 
     attacker_ = attacker;
+    defender_ = defender;
 
     glm::vec2 defender_pos = ecs.read_or_panic<GridPos>(defender).pos;
     // Where the attacker will thrust towards.
@@ -95,7 +97,27 @@ public:
       if (mover_->finished()) state_ = ATTACKING;
     } else if (state_ == ATTACKING) {
       attack_->run(ecs, dt);
-      if (attack_->finished()) state_ = RETREATING;
+      if (attack_->finished()) {
+        state_ = RETREATING;
+
+        Actor* defender_actor;
+        if (ecs.read(defender_, &defender_actor) != EcsError::OK) {
+          std::cerr << "Could not read defender's stats!" << std::endl;
+          return;
+        }
+
+        Actor* attacker_actor;
+        if (ecs.read(attacker_, &attacker_actor) != EcsError::OK) {
+          std::cerr << "Could not read defender's stats!" << std::endl;
+          return;
+        }
+
+        if (defender_actor->stats.hp < attacker_actor->stats.strength) {
+          defender_actor->stats.hp = 0;
+        } else {
+          defender_actor->stats.hp -= attacker_actor->stats.strength;
+        }
+      }
     } else if (state_ == RETREATING) {
       recoil_->run(ecs, dt);
       if (recoil_->finished()) stop_short();

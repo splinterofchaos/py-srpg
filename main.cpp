@@ -407,6 +407,10 @@ Error run() {
       }
     }
 
+    for (const auto& [id, actor] : game.ecs().read_all<Actor>())
+      if (actor.stats.hp == 0) game.ecs().mark_to_delete(id);
+    game.ecs().deleted_marked_ids();
+
     gl::clear();
 
     for (const auto& [_, transform, render_config] :
