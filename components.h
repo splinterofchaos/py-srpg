@@ -1,5 +1,7 @@
 #pragma once
 
+#include <memory>
+
 #include "ecs.h"
 #include "font.h"
 #include "shaders.h"
