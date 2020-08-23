@@ -296,7 +296,8 @@ Error run() {
     Stats stats{.hp = 10, .max_hp = 10, .strength = 5};
     player = game.ecs().write_new_entity(Transform{{5.f, 5.f}, -1},
                                          GridPos{{5, 5}},
-                                         rc, Actor{"player", stats});
+                                         rc, Actor{"player", stats},
+                                         ActorState::SETUP);
   }
 
   EntityId spider;
@@ -310,7 +311,7 @@ Error run() {
                                          rc, Actor{"spider", stats});
   }
 
-  std::unique_ptr<Action> current_action;
+  EntityId whose_turn = player;
   std::vector<Path> walkable_positions;
   std::vector<PossibleAttack> attackable_positions;
 
@@ -351,45 +352,59 @@ Error run() {
     glm::ivec2 mouse_grid_pos = (mouse_screen_pos + TILE_SIZE/2) / TILE_SIZE +
                                 game.camera_offset() / TILE_SIZE;
 
-    if (current_action && current_action->finished()) current_action.reset();
+    ActorState& whose_turn_state =
+      game.ecs().read_or_panic<ActorState>(whose_turn);
 
-    if (!current_action && walkable_positions.empty()) {
+    if (whose_turn_state == ActorState::SETUP) {
       const GridPos& player_pos = game.ecs().read_or_panic<GridPos>(player);
       walkable_positions = expand_walkable(game, player_pos.pos, 5);
       attackable_positions = expand_attacks(game.ecs(), player_pos.pos,
                                             walkable_positions);
+      whose_turn_state = ActorState::DECIDING;
     }
 
-    if (mouse_down && !current_action) {
+    if (mouse_down && whose_turn_state == ActorState::DECIDING) {
       auto it = std::find_if(attackable_positions.begin(),
                              attackable_positions.end(),
                              [mouse_grid_pos](const PossibleAttack& atk) {
                                  return atk.defender_pos == mouse_grid_pos;
                              });
       if (it != attackable_positions.end()) {
-        current_action = mele_action(game.ecs(), player, it->defender, it->path);
+        game.ecs().write(whose_turn,
+                         mele_action(game.ecs(), player, it->defender,
+                                     it->path),
+                         Ecs::CREATE_OR_UPDATE);
+        whose_turn_state = ActorState::TAKING_TURN;
       }
     }
 
-    if (mouse_down && !current_action) {
+    if (mouse_down && whose_turn_state == ActorState::DECIDING) {
       auto it = std::find_if(walkable_positions.begin(),
                              walkable_positions.end(),
                              [mouse_grid_pos](const Path& p) {
                                  return glm::ivec2(p.back()) == mouse_grid_pos;
                              });
       if (it != walkable_positions.end()) {
-        current_action = move_action(player, std::move(*it));
+        game.ecs().write(whose_turn, move_action(player, std::move(*it)),
+                         Ecs::CREATE_OR_UPDATE);
+        whose_turn_state = ActorState::TAKING_TURN;
       }
     }
 
-    if (current_action) {
+    if (whose_turn_state == ActorState::TAKING_TURN) {
       walkable_positions.clear();
       attackable_positions.clear();
     }
     mouse_down = false;
 
-    if (current_action) {
-      current_action->run(game.ecs(), dt);
+    for (auto [id, action] : game.ecs().read_all<ActionPtr>()) {
+      if (!action) continue;
+      action->run(game.ecs(), dt);
+      if (id == whose_turn && action->finished()) {
+        action.reset();
+        // TODO: When we implement turn taking, this should be "WAITING".
+        whose_turn_state = ActorState::SETUP;
+      }
     }
 
     gl::clear();

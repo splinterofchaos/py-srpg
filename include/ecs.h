@@ -436,7 +436,8 @@ public:
 
   template<typename U>
   void erase_component(EntityId id) {
-    get_store<U>().find_erase(id, &ComponentData<U>::id);
+    auto key = [](const ComponentData<U>& cd) { return cd.id; };
+    get_store<U>().find_erase(id, key);
   }
 
   void erase(EntityId id) {

@@ -24,6 +24,15 @@ struct Stats {
   unsigned int strength = 0;
 };
 
+// Actions depend on the ECS so forward declare it so it can be a component.
+class Action;
+using ActionPtr = std::unique_ptr<Action>;
+
+enum ActorState {
+  SETUP, DECIDING, TAKING_TURN, WAITING,
+  N_ACTOR_STATES
+};
+
 // Identifies that an entity is an actor.
 struct Actor {
   std::string name;
@@ -34,5 +43,7 @@ using Ecs = EntityComponentSystem<
   GridPos,
   Transform,
   GlyphRenderConfig,
-  Actor>;
+  Actor,
+  ActionPtr,
+  ActorState>;
 
