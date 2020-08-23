@@ -206,8 +206,8 @@ void render_entity_desc(Game& game, EntityId id) {
   std::vector<std::string> lines;
   if (actor) {
     lines.push_back(actor->name);
-    lines.push_back(concat_strings("HP: ", std::to_string(actor->stats.max_hp),
-                                   "/", std::to_string(actor->stats.hp)));
+    lines.push_back(concat_strings("HP: ", std::to_string(actor->stats.hp),
+                                   "/", std::to_string(actor->stats.max_hp)));
     lines.push_back(concat_strings("STR: ",
                                    std::to_string(actor->stats.strength)));
   } else {
