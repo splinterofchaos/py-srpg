@@ -15,6 +15,34 @@ static float path_distance(const Path& path) {
   return dist;
 }
 
+class SequnceAction : public Action {
+  std::vector<std::unique_ptr<Action>> sequence_;
+  unsigned int current_ = 0;
+  
+public:
+  template<typename...Actions>
+  SequnceAction(Actions&&...actions) {
+    (sequence_.push_back(std::forward<Actions>(actions)), ...);
+  }
+
+  void impl(Game& game, std::chrono::milliseconds dt,
+            std::vector<std::function<void()>>& deferred_events) {
+    if (current_ >= sequence_.size()) {
+      stop_short();
+      return;
+    }
+
+    sequence_[current_]->run(game, dt, deferred_events);
+    if (sequence_[current_]->finished()) ++current_;
+    if (current_ >= sequence_.size()) stop_short();
+  }
+};
+
+template<typename...Actions>
+std::unique_ptr<Action> sequance_action(Actions&&...actions) {
+  return std::make_unique<SequnceAction>(std::forward<Actions>(actions)...);
+}
+
 class MoveAction : public Action {
   EntityId actor_;
   Path path_;
@@ -29,10 +57,11 @@ public:
         path_(std::move(path)),
         change_final_position_(change_final_position) { }
 
-  void impl(Ecs& ecs, std::chrono::milliseconds) override {
+  void impl(Game& game, std::chrono::milliseconds,
+            std::vector<std::function<void()>>&) override {
     GridPos* grid_pos = nullptr;
     Transform* transform = nullptr;
-    if (EcsError e = ecs.read(actor_, &transform, &grid_pos);
+    if (EcsError e = game.ecs().read(actor_, &transform, &grid_pos);
         e != EcsError::OK) {
       std::cerr << "MoveAction(): got error from ECS: " << int(e);
       return;
@@ -53,6 +82,7 @@ std::unique_ptr<Action> move_action(EntityId actor, Path path,
   return std::make_unique<MoveAction>(actor, path, change_final_position);
 }
 
+// TODO: This can just be a sequence.
 class MeleAction : public Action {
   std::unique_ptr<Action> mover_;
   std::unique_ptr<Action> attack_;
@@ -91,42 +121,71 @@ public:
                           false  /* change_final_position */);
   }
 
-  void impl(Ecs& ecs, std::chrono::milliseconds dt) override {
+  void impl(Game& game, std::chrono::milliseconds dt,
+            std::vector<std::function<void()>>& deferred_events) override {
     if (state_ == MOVING_TO_ATTACK_POSITION) {
-      mover_->run(ecs, dt);
+      mover_->run(game, dt, deferred_events);
       if (mover_->finished()) state_ = ATTACKING;
     } else if (state_ == ATTACKING) {
-      attack_->run(ecs, dt);
+      attack_->run(game, dt, deferred_events);
       if (attack_->finished()) {
         state_ = RETREATING;
 
         Actor* defender_actor;
-        if (ecs.read(defender_, &defender_actor) != EcsError::OK) {
-          std::cerr << "Could not read defender's stats!" << std::endl;
+        GridPos* defender_pos;
+        if (game.ecs().read(defender_, &defender_actor, &defender_pos) !=
+            EcsError::OK) {
+          std::cerr << "Could not read defender's stats or position!"
+                    << std::endl;
           return;
         }
 
         Actor* attacker_actor;
-        if (ecs.read(attacker_, &attacker_actor) != EcsError::OK) {
+        if (game.ecs().read(attacker_, &attacker_actor) != EcsError::OK) {
           std::cerr << "Could not read defender's stats!" << std::endl;
           return;
         }
 
-        if (defender_actor->stats.hp < attacker_actor->stats.strength) {
-          defender_actor->stats.hp = 0;
-        } else {
-          defender_actor->stats.hp -= attacker_actor->stats.strength;
-        }
+        int damage =
+          defender_actor->stats.hp < attacker_actor->stats.strength ?
+          defender_actor->stats.hp : attacker_actor->stats.strength;
+
+        // We could kill the entity off here as a deferred event, but we may
+        // have to check that entities don't die of non-combat related causes
+        // anyway so let's not bother.
+        defender_actor->stats.hp -= damage;
+
+        // Spawn a "-X" to appear over the defender.
+        deferred_events.push_back([damage, defender_pos, &game] {
+            GridPos x_pos{defender_pos->pos + glm::ivec2(0, 1)};
+            Transform x_transform{glm::vec2(x_pos.pos), 1};
+            // TODO: Obviously, we want to support multi-digit damage.
+            GlyphRenderConfig rc(game.font_map().get('0' + damage),
+                                 glm::vec4(8.f, 0.f, 0.f, 1.f));
+            rc.center();
+            EntityId damage_text =
+                game.ecs().write_new_entity(x_pos, x_transform, rc);
+            auto float_up = move_action(
+                damage_text, {x_pos.pos, x_pos.pos + glm::ivec2(0, 1)});
+            auto expire = generic_action(
+                [damage_text]
+                (Game& game, float, std::vector<std::function<void()>>&) {
+                  game.ecs().mark_to_delete(damage_text);
+                });
+            auto seq = sequance_action(std::move(float_up), std::move(expire));
+            game.ecs().write(damage_text, std::move(seq), Ecs::CREATE_ENTRY);
+        });
+
       }
     } else if (state_ == RETREATING) {
-      recoil_->run(ecs, dt);
+      recoil_->run(game, dt, deferred_events);
       if (recoil_->finished()) stop_short();
     }
 
     if (finished()) {
       GridPos* grid_pos = nullptr;
       Transform* transform = nullptr;
-      if (ecs.read(attacker_, &grid_pos, &transform) != EcsError::OK) {
+      if (game.ecs().read(attacker_, &grid_pos, &transform) != EcsError::OK) {
         std::cerr << "Could not read attacker's grid pos and transform!"
                   << std::endl;
         return;

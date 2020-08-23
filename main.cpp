@@ -336,15 +336,19 @@ Error run() {
     }
     mouse_down = false;
 
+    // See Action documentation for why this exists.
+    std::vector<std::function<void()>> deferred_events;
     for (auto [id, action] : game.ecs().read_all<ActionPtr>()) {
       if (!action) continue;
-      action->run(game.ecs(), dt);
+      action->run(game, dt, deferred_events);
       if (id == whose_turn && action->finished()) {
         action.reset();
         // TODO: When we implement turn taking, this should be "WAITING".
         whose_turn_state = ActorState::SETUP;
       }
     }
+
+    for (std::function<void()>& f : deferred_events) f();
 
     for (const auto& [id, actor] : game.ecs().read_all<Actor>())
       if (actor.stats.hp == 0) game.ecs().mark_to_delete(id);

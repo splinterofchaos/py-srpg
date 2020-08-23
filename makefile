@@ -36,11 +36,12 @@ obj/math.o : include/math.h include/math.cpp
 obj/grid.o : grid.h grid.cpp
 	${COMPILER} ${OPS} -c grid.cpp -o obj/grid.o
 
-obj/action.o : action.h action.cpp components.h include/timer.h include/util.h
-	${COMPILER} ${OPS} -c action.cpp -o obj/action.o
-
 obj/game.o : game.h game.cpp components.h font.h grid.h shaders.h
 	${COMPILER} ${OPS} -c game.cpp -o obj/game.o
+
+obj/action.o : action.h action.cpp components.h game.h include/timer.h \
+						   include/util.h
+	${COMPILER} ${OPS} -c action.cpp -o obj/action.o
 
 obj/main.o : main.cpp include/*.h *.h
 	${COMPILER} ${OPS} -c main.cpp -o obj/main.o
