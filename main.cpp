@@ -156,20 +156,16 @@ void render_entity_desc(Game& game, EntityId id) {
   auto get_width =
     [&game](const std::string& s) { return text_width(game.font_map(), s); };
   float w = max_by(lines, 0.0f, get_width);
+  float h = lines.size() - 1.f;
 
   glm::vec2 start = glm::vec2(grid_pos.pos) + glm::vec2(1.f, 0.f);
-  glm::vec2 end = start + glm::vec2(w, -float(lines.size()) + 1.f);
+  if (start.x + w > game.bottom_right_screen_tile().x)
+    start.x -= 2.f + w;
+  start.y = std::max(start.y, game.bottom_right_screen_tile().y + h);
+
+  glm::vec2 end = start + glm::vec2(w, -h);
   glm::vec2 center = (start + end) / 2.f;
   glm::vec3 graphical_center = game.to_graphical_pos(center, 0);
-
-  // Check that it's not overflowing offscreen. Maybe move it to the other
-  // side of the entity whose information we're printing.
-  glm::vec3 graphical_end = game.to_graphical_pos(end, 0);
-  if (graphical_end.x > 1.f) {
-    glm::vec2 offset = 2.f * (glm::vec2(grid_pos.pos) - center); 
-    graphical_center = game.to_graphical_pos(offset + center, 0);
-    start += offset;
-  }
 
   game.marker_shader().render_marker(
       graphical_center,
@@ -177,9 +173,9 @@ void render_entity_desc(Game& game, EntityId id) {
       glm::vec2(w, float(lines.size())));
 
   for (unsigned int i = 0; i < lines.size(); ++i) {
-    float cursor = start.x + 0.5f;
+    float cursor = center.x - w/2.f + 0.5f;
     for (char c : lines[i]) {
-      glm::vec2 pos = glm::vec2(cursor, start.y - i);
+      glm::vec2 pos = glm::vec2(cursor, center.y + h/2.f - i);
       const Glyph& glyph = game.font_map().get(c);
       GlyphRenderConfig rc(glyph, glm::vec4(1.f));
       game.glyph_shader().render_glyph(game.to_graphical_pos(pos, 0.f),

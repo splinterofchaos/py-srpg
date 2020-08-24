@@ -15,3 +15,4 @@ void Game::set_grid(Grid grid) {
   }
   grid_ = std::move(grid);
 }
+

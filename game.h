@@ -43,6 +43,22 @@ public:
   glm::vec3 to_graphical_pos(const Transform& transform) const {
     return to_graphical_pos(transform.pos, transform.z);
   }
+
+  glm::ivec2 top_left_screen_tile() const {
+    // If to_graphical_pos(p) == <-1, 1>, then
+    // pos.x * TILE_SIZE - camera_offset_.x = -1
+    // solve for pos.x:
+    int x = glm::ceil((camera_offset_.x - 1.f) / TILE_SIZE);
+    // For y, it's: pos.y * TILE_SIZE - camera_offset_.y = 1
+    int y = glm::floor((camera_offset_.y + 1.f) / TILE_SIZE);
+    return {x, y};
+  }
+
+  glm::ivec2 bottom_right_screen_tile() const {
+    int x = glm::floor((camera_offset_.x + 1.f) / TILE_SIZE);
+    int y = glm::ceil((camera_offset_.y - 1.f) / TILE_SIZE);
+    return {x, y};
+  }
 };
 
 
