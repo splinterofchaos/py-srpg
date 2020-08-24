@@ -60,6 +60,13 @@ typename Container::const_iterator lower_bound(const Container& c, const T& t,
   return std::lower_bound(c.begin(), c.end(), t, std::forward<F>(f));
 }
 
+template<typename Container, typename Compare>
+void sort(Container& c, Compare&& cmp) {
+  using std::begin;
+  using std::end;
+  std::sort(begin(c), end(c), std::forward<Compare>(cmp));
+}
+
 template<typename Container, typename T, typename Transform>
 T reduce_by(const Container& c, T init, Transform&& transform) {
   for (const auto& x : c) init += transform(x);

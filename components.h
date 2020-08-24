@@ -24,6 +24,7 @@ struct Transform {
 struct Stats {
   unsigned int hp = 0, max_hp = 0;
   unsigned int strength = 0;
+  unsigned int speed = 0;
 };
 
 // Actions depend on the ECS so forward declare it so it can be a component.
@@ -41,11 +42,16 @@ struct Actor {
   Stats stats;
 };
 
+// Any entity that wants to have a turn taking actions must have an Energy that
+// represents how soon it can act.
+struct Energy { int value = 0; };
+
 using Ecs = EntityComponentSystem<
   GridPos,
   Transform,
   GlyphRenderConfig,
   Actor,
   ActionPtr,
-  ActorState>;
+  ActorState,
+  Energy>;
 

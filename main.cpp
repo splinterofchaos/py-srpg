@@ -190,6 +190,46 @@ void render_entity_desc(Game& game, EntityId id) {
   }
 }
 
+// When an actor wants to take a turn, its "SPD" or "speed" stat contributes to
+// its initial "energy" which then accrues over time. One tick, one energy. The
+// entity with the most energy, or more than a given threshold, shall go next
+// and then have its energy reverted to the value of its speed. Ties are won by
+// the entity with the smallest ID.
+//
+// At least one tick shall pass between turns. If an entity's energy is above
+// the threshold, after its turn, its energy becomes the overflow plus its
+// speed.
+//
+// The goal is that an entity with twice the speed of another shall move
+// roughly twice as often.
+EntityId pick_next(Ecs& ecs) {
+  constexpr int THRESHHOLD = 1000;
+
+  std::vector<std::pair<EntityId, Energy*>> energies;
+  for (auto [id, energy] : ecs.read_all<Energy>())
+    energies.emplace_back(id, &energy);
+
+  if (energies.empty()) return EntityId();
+  
+  auto cmp = [](const auto& id_energy_a, const auto& id_energy_b) {
+    return std::make_pair(id_energy_a.second->value, id_energy_a.first) <
+           std::make_pair(id_energy_b.second->value, id_energy_b.first);
+  };
+  sort(energies, cmp);
+
+  unsigned int energy_taken =
+    std::max(1, THRESHHOLD - energies.back().second->value);
+  for (auto& id_energy : energies) id_energy.second->value += energy_taken;
+
+
+  const auto& [id, energy] = energies.back();
+  energy->value -= THRESHHOLD;
+  energy->value += ecs.read_or_panic<Actor>(id).stats.speed;
+
+  ecs.write(id, ActorState::SETUP, Ecs::CREATE_OR_UPDATE);
+  return id;
+}
+
 Error run() {
   Graphics gfx;
   if (Error e = gfx.init(WINDOW_WIDTH, WINDOW_HEIGHT); !e.ok) return e;
@@ -232,10 +272,11 @@ Error run() {
     GlyphRenderConfig rc(game.font_map().get('@'),
                          glm::vec4(.9f, .6f, .1f, 1.f));
     rc.center();
-    Stats stats{.hp = 10, .max_hp = 10, .strength = 5};
+    Stats stats{.hp = 10, .max_hp = 10, .strength = 5, .speed = 10};
     player = game.ecs().write_new_entity(Transform{{5.f, 5.f}, -1},
                                          GridPos{{5, 5}},
                                          rc, Actor{"player", stats},
+                                         Energy{10},
                                          ActorState::SETUP);
   }
 
@@ -244,15 +285,19 @@ Error run() {
     GlyphRenderConfig rc(game.font_map().get('s'),
                          glm::vec4(0.f, 0.2f, 0.6f, 1.f));
     rc.center();
-    Stats stats{.hp = 10, .max_hp = 10, .strength = 5};
+    Stats stats{.hp = 10, .max_hp = 10, .strength = 5, .speed = 8};
     spider = game.ecs().write_new_entity(Transform{{4.f, 4.f}, -1},
                                          GridPos{{4, 4}},
+                                         Energy{8},
                                          rc, Actor{"spider", stats});
   }
 
-  EntityId whose_turn = player;
+  EntityId whose_turn;
   std::vector<Path> walkable_positions;
   std::vector<PossibleAttack> attackable_positions;
+  bool turn_over = true;
+  bool did_move = false;
+  bool did_action = false;
 
   bool keep_going = true;
   SDL_Event e;
@@ -291,18 +336,33 @@ Error run() {
     glm::ivec2 mouse_grid_pos = (mouse_screen_pos + TILE_SIZE/2) / TILE_SIZE +
                                 game.camera_offset() / TILE_SIZE;
 
+    if (turn_over || !game.ecs().is_active(whose_turn)) {
+      whose_turn = pick_next(game.ecs());
+      if (whose_turn.id == EntityId::NOT_AN_ID)
+        return Error("No one left alive");
+
+      std::cout << "it is now the turn of " << game.ecs().read_or_panic<Actor>(whose_turn).name << std::endl;
+
+      turn_over = false;
+      did_move = false;
+      did_action = false;
+    }
+
     ActorState& whose_turn_state =
       game.ecs().read_or_panic<ActorState>(whose_turn);
 
     if (whose_turn_state == ActorState::SETUP) {
-      const GridPos& player_pos = game.ecs().read_or_panic<GridPos>(player);
-      walkable_positions = expand_walkable(game, player_pos.pos, 5);
-      attackable_positions = expand_attacks(game.ecs(), player_pos.pos,
-                                            walkable_positions);
+      const GridPos& grid_pos = game.ecs().read_or_panic<GridPos>(whose_turn);
+      if (!did_move)
+        walkable_positions = expand_walkable(game, grid_pos.pos, 5);
+      if (!did_action)
+        attackable_positions = expand_attacks(game.ecs(), grid_pos.pos,
+                                              walkable_positions);
       whose_turn_state = ActorState::DECIDING;
     }
 
-    if (mouse_down && whose_turn_state == ActorState::DECIDING) {
+    if (mouse_down && whose_turn_state == ActorState::DECIDING &&
+        !did_action) {
       auto it = std::find_if(attackable_positions.begin(),
                              attackable_positions.end(),
                              [mouse_grid_pos](const PossibleAttack& atk) {
@@ -310,22 +370,26 @@ Error run() {
                              });
       if (it != attackable_positions.end()) {
         game.ecs().write(whose_turn,
-                         mele_action(game.ecs(), player, it->defender,
+                         mele_action(game.ecs(), whose_turn, it->defender,
                                      it->path),
                          Ecs::CREATE_OR_UPDATE);
+        did_action = true;
+        did_move |= !it->path.empty();
         whose_turn_state = ActorState::TAKING_TURN;
       }
     }
 
-    if (mouse_down && whose_turn_state == ActorState::DECIDING) {
+    if (mouse_down && whose_turn_state == ActorState::DECIDING &&
+        !did_move) {
       auto it = std::find_if(walkable_positions.begin(),
                              walkable_positions.end(),
                              [mouse_grid_pos](const Path& p) {
                                  return glm::ivec2(p.back()) == mouse_grid_pos;
                              });
       if (it != walkable_positions.end()) {
-        game.ecs().write(whose_turn, move_action(player, std::move(*it)),
+        game.ecs().write(whose_turn, move_action(whose_turn, std::move(*it)),
                          Ecs::CREATE_OR_UPDATE);
+        did_move = true;
         whose_turn_state = ActorState::TAKING_TURN;
       }
     }
@@ -343,9 +407,15 @@ Error run() {
       action->run(game, dt, deferred_events);
       if (id == whose_turn && action->finished()) {
         action.reset();
-        // TODO: When we implement turn taking, this should be "WAITING".
         whose_turn_state = ActorState::SETUP;
       }
+    }
+
+    // The next frame, a new ID will be chosen to take their turn.
+    if (whose_turn_state == ActorState::SETUP &&
+        (turn_over || (did_move && did_action))) {
+      whose_turn_state = ActorState::WAITING;
+      turn_over = true;
     }
 
     for (std::function<void()>& f : deferred_events) f();
