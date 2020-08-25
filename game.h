@@ -15,7 +15,8 @@ class Game {
 
   MarkerShaderProgram marker_shader_;
   GlyphShaderProgram glyph_shader_;
-  FontMap font_map_;
+  FontMap font_map_;       // Normal font for in-game entities.
+  FontMap text_font_map_;  // Font for text rendering.
   glm::vec2 camera_offset_ = glm::vec2(0.95f, 0.95f);
 
 public:
@@ -32,6 +33,9 @@ public:
 
   FontMap& font_map() { return font_map_; }
   const FontMap& font_map() const { return font_map_; }
+
+  FontMap& text_font_map() { return text_font_map_; }
+  const FontMap& text_font_map() const { return text_font_map_; }
 
   const glm::vec2& camera_offset() const { return camera_offset_; }
 
