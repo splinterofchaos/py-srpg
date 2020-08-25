@@ -15,7 +15,8 @@ class Game {
 
   MarkerShaderProgram marker_shader_;
   GlyphShaderProgram glyph_shader_;
-  FontMap font_map_;
+  FontMap font_map_;       // Normal font for in-game entities.
+  FontMap text_font_map_;  // Font for text rendering.
   glm::vec2 camera_offset_ = glm::vec2(0.95f, 0.95f);
 
 public:
@@ -33,6 +34,9 @@ public:
   FontMap& font_map() { return font_map_; }
   const FontMap& font_map() const { return font_map_; }
 
+  FontMap& text_font_map() { return text_font_map_; }
+  const FontMap& text_font_map() const { return text_font_map_; }
+
   const glm::vec2& camera_offset() const { return camera_offset_; }
 
   glm::vec3 to_graphical_pos(glm::vec2 pos, int z) const {
@@ -42,6 +46,22 @@ public:
 
   glm::vec3 to_graphical_pos(const Transform& transform) const {
     return to_graphical_pos(transform.pos, transform.z);
+  }
+
+  glm::ivec2 top_left_screen_tile() const {
+    // If to_graphical_pos(p) == <-1, 1>, then
+    // pos.x * TILE_SIZE - camera_offset_.x = -1
+    // solve for pos.x:
+    int x = glm::ceil((camera_offset_.x - 1.f) / TILE_SIZE);
+    // For y, it's: pos.y * TILE_SIZE - camera_offset_.y = 1
+    int y = glm::floor((camera_offset_.y + 1.f) / TILE_SIZE);
+    return {x, y};
+  }
+
+  glm::ivec2 bottom_right_screen_tile() const {
+    int x = glm::floor((camera_offset_.x + 1.f) / TILE_SIZE);
+    int y = glm::ceil((camera_offset_.y - 1.f) / TILE_SIZE);
+    return {x, y};
   }
 };
 

@@ -3,7 +3,8 @@
 Error Game::init() {
   return glyph_shader_.init() &&
          marker_shader_.init() &&
-         font_map_.init("font/LeagueMono-Bold.ttf");
+         font_map_.init("font/LeagueMono-Bold.ttf") &&
+         text_font_map_.init("font/LeagueMono-Regular.ttf");
 }
 
 void Game::set_grid(Grid grid) {
@@ -15,3 +16,4 @@ void Game::set_grid(Grid grid) {
   }
   grid_ = std::move(grid);
 }
+
