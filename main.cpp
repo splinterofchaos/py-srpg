@@ -41,6 +41,10 @@ Time now() {
   return std::chrono::high_resolution_clock::now();
 }
 
+std::ostream& operator<<(std::ostream& os, glm::ivec2 v) {
+  return os << '<' << v.x << ", " << v.y << '>';
+}
+
 const char* const STARTING_GRID = R"(
 ##############
 #............#
@@ -52,10 +56,6 @@ const char* const STARTING_GRID = R"(
 #...............####
 #...............#
 #################)";
-
-std::vector<glm::ivec2> adjacent_steps() {
-  return {{1, 0}, {0, 1}, {-1, 0}, {0, -1}};
-}
 
 std::vector<Path> expand_walkable(const Game& game,
                                   glm::ivec2 start, unsigned int max_dist) {
@@ -230,6 +230,106 @@ EntityId pick_next(Ecs& ecs) {
   return id;
 }
 
+struct DijkstraNode {
+  glm::ivec2 prev;
+  unsigned int dist;
+  EntityId entity;
+
+  DijkstraNode(EntityId entity)
+      : entity(entity) {
+    prev = {0, 0};
+    dist = std::numeric_limits<int>::max();
+  }
+
+  DijkstraNode() : DijkstraNode(EntityId()) { }
+};
+
+class DijkstraGrid {
+  std::unordered_map<glm::ivec2, DijkstraNode> nodes_;
+
+public:
+  void generate(const Game& game, glm::ivec2 source);
+
+  DijkstraNode& at(glm::ivec2 pos) { return nodes_.at(pos); }
+  const DijkstraNode& at(glm::ivec2 pos) const { return nodes_.at(pos); }
+
+  auto begin() { return nodes_.begin(); }
+  auto begin() const { return nodes_.begin(); }
+  auto end() { return nodes_.end(); }
+  auto end() const { return nodes_.end(); }
+};
+
+static glm::ivec2 min_node(
+    const std::unordered_map<glm::ivec2, DijkstraNode>& nodes,
+    const std::unordered_set<glm::ivec2>& Q) {
+  glm::ivec2 min_pos;
+  unsigned int min_dist = std::numeric_limits<int>::max();
+  for (const glm::ivec2& pos : Q) {
+    if (nodes.at(pos).dist < min_dist) {
+      min_pos = pos;
+      min_dist = nodes.at(pos).dist;
+    }
+  }
+
+  return min_pos;
+}
+
+void DijkstraGrid::generate(const Game& game, glm::ivec2 source) {
+  nodes_.clear();
+  for (const auto& [pos, tile] : game.grid()) {
+    if (!tile.walkable) continue;
+    auto [entity, entity_exists] = actor_at(game.ecs(), pos);
+    // We want paths to nodes with entities on them, but we do not want to
+    // expand them or paths would go right through!
+    if (!entity) Q.insert(pos);
+
+    nodes_.emplace(pos, DijkstraNode(entity));
+  }
+  nodes_[source].dist = 0;
+  Q.insert(source);
+
+  while (!Q.empty()) {
+    glm::ivec2 pos = min_node(nodes_, Q);
+    Q.erase(pos);
+
+    DijkstraNode& node = nodes_.at(pos);
+
+    for (glm::ivec2 next_pos : adjacent_positions(pos)) {
+      auto next_node = nodes_.find(next_pos);
+      if (next_node == nodes_.end()) continue;
+
+      unsigned int alt = node.dist + 1;
+      if (alt < next_node->second.dist) {
+        next_node->second.dist = alt;
+        next_node->second.prev = pos;
+      }
+    }
+  }
+}
+
+std::vector<glm::ivec2> ipath_to(const DijkstraGrid& dijkstra,
+                                 glm::ivec2 pos) {
+  const DijkstraNode* node = &dijkstra.at(pos);
+
+  std::vector<glm::ivec2> path;
+  path.resize(node->dist + 1);
+  path[node->dist] = pos;
+  while (node->dist) {
+    pos = node->prev;
+    node = &dijkstra.at(pos);
+    path[node->dist] = pos;
+  }
+
+  return path;
+}
+
+std::vector<glm::vec2> path_to(const DijkstraGrid& dijkstra, glm::ivec2 pos) {
+  auto ipath = ipath_to(dijkstra, pos);
+  std::vector<glm::vec2> path(ipath.begin(), ipath.end());
+  return path;
+}
+
+
 Error run() {
   Graphics gfx;
   if (Error e = gfx.init(WINDOW_WIDTH, WINDOW_HEIGHT); !e.ok) return e;
@@ -293,8 +393,7 @@ Error run() {
   }
 
   EntityId whose_turn;
-  std::vector<Path> walkable_positions;
-  std::vector<PossibleAttack> attackable_positions;
+  DijkstraGrid dijkstra;
   bool turn_over = true;
   bool did_move = false;
   bool did_action = false;
@@ -353,51 +452,34 @@ Error run() {
 
     if (whose_turn_state == ActorState::SETUP) {
       const GridPos& grid_pos = game.ecs().read_or_panic<GridPos>(whose_turn);
-      if (!did_move)
-        walkable_positions = expand_walkable(game, grid_pos.pos, 5);
-      if (!did_action)
-        attackable_positions = expand_attacks(game.ecs(), grid_pos.pos,
-                                              walkable_positions);
+      dijkstra.generate(game, grid_pos.pos);
       whose_turn_state = ActorState::DECIDING;
     }
 
-    if (mouse_down && whose_turn_state == ActorState::DECIDING &&
-        !did_action) {
-      auto it = std::find_if(attackable_positions.begin(),
-                             attackable_positions.end(),
-                             [mouse_grid_pos](const PossibleAttack& atk) {
-                                 return atk.defender_pos == mouse_grid_pos;
-                             });
-      if (it != attackable_positions.end()) {
+    auto [defender, defender_exists] = actor_at(game.ecs(), mouse_grid_pos);
+
+    if (defender_exists && mouse_down &&
+        whose_turn_state == ActorState::DECIDING && !did_action) {
+      const DijkstraNode& dnode = dijkstra.at(mouse_grid_pos);
+      if (dnode.dist == 1 || !did_move) {
+        Path path = dnode.dist > 1 ? path_to(dijkstra, dnode.prev) : Path{};
         game.ecs().write(whose_turn,
-                         mele_action(game.ecs(), whose_turn, it->defender,
-                                     it->path),
+                         mele_action(game.ecs(), whose_turn, defender, path),
                          Ecs::CREATE_OR_UPDATE);
         did_action = true;
-        did_move |= !it->path.empty();
+        did_move |= !path.empty();
         whose_turn_state = ActorState::TAKING_TURN;
       }
     }
 
-    if (mouse_down && whose_turn_state == ActorState::DECIDING &&
-        !did_move) {
-      auto it = std::find_if(walkable_positions.begin(),
-                             walkable_positions.end(),
-                             [mouse_grid_pos](const Path& p) {
-                                 return glm::ivec2(p.back()) == mouse_grid_pos;
-                             });
-      if (it != walkable_positions.end()) {
-        game.ecs().write(whose_turn, move_action(whose_turn, std::move(*it)),
-                         Ecs::CREATE_OR_UPDATE);
-        did_move = true;
-        whose_turn_state = ActorState::TAKING_TURN;
-      }
+    if (!defender_exists && mouse_down &&
+        whose_turn_state == ActorState::DECIDING && !did_move) {
+      auto action = move_action(whose_turn, path_to(dijkstra, mouse_grid_pos));
+      game.ecs().write(whose_turn, std::move(action), Ecs::CREATE_OR_UPDATE);
+      did_move = true;
+      whose_turn_state = ActorState::TAKING_TURN;
     }
 
-    if (whose_turn_state == ActorState::TAKING_TURN) {
-      walkable_positions.clear();
-      attackable_positions.clear();
-    }
     mouse_down = false;
 
     // See Action documentation for why this exists.
@@ -432,16 +514,18 @@ Error run() {
                                        TILE_SIZE, render_config);
     }
 
-    for (const Path& path : walkable_positions)
+    if (!did_move) for (const auto& [pos, node] : dijkstra) {
+      if (node.dist > 5) continue;
       game.marker_shader().render_marker(
-          game.to_graphical_pos(path.back(), 0),
+          game.to_graphical_pos(pos, 0),
           TILE_SIZE, glm::vec4(0.1f, 0.2f, 0.4f, 0.5f));
+    }
 
     game.marker_shader().render_marker(
         game.to_graphical_pos(mouse_grid_pos, 0),
         TILE_SIZE, glm::vec4(0.1f, 0.3f, 0.6f, .5f));
 
-    if (auto [id, found] = actor_at(game.ecs(), mouse_grid_pos); found) {
+    if (auto [id, exists] = actor_at(game.ecs(), mouse_grid_pos); exists) {
       render_entity_desc(game, id);
     }
 

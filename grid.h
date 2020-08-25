@@ -2,6 +2,7 @@
 
 #include <string_view>
 #include <unordered_map>
+#include <vector>
 
 #include <glm/vec2.hpp>
 #include <glm/vec4.hpp>
@@ -55,3 +56,6 @@ public:
 
 Grid grid_from_string(std::string_view grid_s,
                       const std::unordered_map<char, Tile>& tile_types);
+
+std::vector<glm::ivec2> adjacent_steps();
+std::vector<glm::ivec2> adjacent_positions(glm::ivec2);

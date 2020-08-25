@@ -1,5 +1,8 @@
 #include "grid.h"
 
+#include <limits>
+#include <unordered_set>
+
 Grid grid_from_string(std::string_view grid_s,
                       const std::unordered_map<char, Tile>& tile_types) {
   // Due to a slight oddity, our Y-axis has "up" as positive and down as
@@ -22,4 +25,14 @@ Grid grid_from_string(std::string_view grid_s,
   }
 
   return grid;
+}
+
+std::vector<glm::ivec2> adjacent_steps() {
+  return {{1, 0}, {0, 1}, {-1, 0}, {0, -1}};
+}
+
+std::vector<glm::ivec2> adjacent_positions(glm::ivec2 p) {
+  std::vector<glm::ivec2> adj = adjacent_steps();
+  for (glm::ivec2& v : adj) v += p;
+  return adj;
 }

@@ -19,6 +19,8 @@ enum class EcsError {
 struct EntityId {
   static constexpr unsigned int NOT_AN_ID = 0;
   unsigned int id = NOT_AN_ID;
+
+  explicit operator bool() const { return id != NOT_AN_ID; }
 };
 
 constexpr bool operator < (EntityId a, EntityId b) { return a.id < b.id; }
