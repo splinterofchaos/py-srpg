@@ -205,26 +205,26 @@ void render_entity_desc(Game& game, EntityId id) {
 EntityId pick_next(Ecs& ecs) {
   constexpr int THRESHHOLD = 1000;
 
-  std::vector<std::pair<EntityId, Energy*>> energies;
-  for (auto [id, energy] : ecs.read_all<Energy>())
-    energies.emplace_back(id, &energy);
+  std::vector<std::pair<EntityId, int*>> energies;
+  for (auto [id, agent] : ecs.read_all<Agent>())
+    energies.emplace_back(id, &agent.energy);
 
   if (energies.empty()) return EntityId();
   
   auto cmp = [](const auto& id_energy_a, const auto& id_energy_b) {
-    return std::make_pair(id_energy_a.second->value, id_energy_a.first) <
-           std::make_pair(id_energy_b.second->value, id_energy_b.first);
+    return std::make_pair(*id_energy_a.second, id_energy_a.first) <
+           std::make_pair(*id_energy_b.second, id_energy_b.first);
   };
   sort(energies, cmp);
 
   unsigned int energy_taken =
-    std::max(1, THRESHHOLD - energies.back().second->value);
-  for (auto& id_energy : energies) id_energy.second->value += energy_taken;
+    std::max(1, THRESHHOLD - *energies.back().second);
+  for (auto& id_energy : energies) *id_energy.second += energy_taken;
 
 
   const auto& [id, energy] = energies.back();
-  energy->value -= THRESHHOLD;
-  energy->value += ecs.read_or_panic<Actor>(id).stats.speed;
+  *energy -= THRESHHOLD;
+  *energy += ecs.read_or_panic<Actor>(id).stats.speed;
 
   ecs.write(id, ActorState::SETUP, Ecs::CREATE_OR_UPDATE);
   return id;
@@ -378,7 +378,7 @@ Error run() {
     player = game.ecs().write_new_entity(Transform{{5.f, 5.f}, -1},
                                          GridPos{{5, 5}},
                                          rc, Actor{"player", stats},
-                                         Energy{10},
+                                         Agent{10},
                                          ActorState::SETUP);
   }
 
@@ -390,7 +390,7 @@ Error run() {
     Stats stats{.hp = 10, .max_hp = 10, .strength = 5, .speed = 8};
     spider = game.ecs().write_new_entity(Transform{{4.f, 4.f}, -1},
                                          GridPos{{4, 4}},
-                                         Energy{8},
+                                         Agent{8},
                                          rc, Actor{"spider", stats});
   }
 

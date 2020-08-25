@@ -42,9 +42,10 @@ struct Actor {
   Stats stats;
 };
 
-// Any entity that wants to have a turn taking actions must have an Energy that
-// represents how soon it can act.
-struct Energy { int value = 0; };
+// The agent controls when an actor gets to take its turn and how.
+struct Agent {
+  int energy = 0;
+};
 
 using Ecs = EntityComponentSystem<
   GridPos,
@@ -53,5 +54,5 @@ using Ecs = EntityComponentSystem<
   Actor,
   ActionPtr,
   ActorState,
-  Energy>;
+  Agent>;
 
