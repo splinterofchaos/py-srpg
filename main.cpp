@@ -276,6 +276,8 @@ static glm::ivec2 min_node(
 
 void DijkstraGrid::generate(const Game& game, glm::ivec2 source) {
   nodes_.clear();
+
+  std::unordered_set<glm::ivec2> Q;
   for (const auto& [pos, tile] : game.grid()) {
     if (!tile.walkable) continue;
     auto [entity, entity_exists] = actor_at(game.ecs(), pos);
