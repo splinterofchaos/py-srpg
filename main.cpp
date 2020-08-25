@@ -246,12 +246,17 @@ struct DijkstraNode {
 
 class DijkstraGrid {
   std::unordered_map<glm::ivec2, DijkstraNode> nodes_;
+  glm::ivec2 source_;
 
 public:
   void generate(const Game& game, glm::ivec2 source);
 
+  const glm::ivec2& source() const { return source_; }
+
   DijkstraNode& at(glm::ivec2 pos) { return nodes_.at(pos); }
   const DijkstraNode& at(glm::ivec2 pos) const { return nodes_.at(pos); }
+
+  bool contains(glm::ivec2 p) { return nodes_.contains(p); }
 
   auto begin() { return nodes_.begin(); }
   auto begin() const { return nodes_.begin(); }
@@ -276,6 +281,8 @@ static glm::ivec2 min_node(
 
 void DijkstraGrid::generate(const Game& game, glm::ivec2 source) {
   nodes_.clear();
+
+  source_ = source;
 
   std::unordered_set<glm::ivec2> Q;
   for (const auto& [pos, tile] : game.grid()) {
@@ -331,6 +338,18 @@ std::vector<glm::vec2> path_to(const DijkstraGrid& dijkstra, glm::ivec2 pos) {
   return path;
 }
 
+std::pair<glm::ivec2, EntityId> nearest_player(const DijkstraGrid& dijkstra) {
+  const DijkstraNode* min_node = nullptr;
+  glm::ivec2 min_pos;
+  for (const auto& [pos, node] : dijkstra) {
+    if (node.entity && pos != dijkstra.source() &&
+        (!min_node || node.dist < min_node->dist)) {
+      min_node = &node;
+      min_pos = pos;
+    }
+  }
+  return {min_pos, min_node ? min_node->entity : EntityId()};
+}
 
 Error run() {
   Graphics gfx;
@@ -378,7 +397,7 @@ Error run() {
     player = game.ecs().write_new_entity(Transform{{5.f, 5.f}, -1},
                                          GridPos{{5, 5}},
                                          rc, Actor{"player", stats},
-                                         Agent{10},
+                                         Agent{10, Team::PLAYER},
                                          ActorState::SETUP);
   }
 
@@ -390,7 +409,7 @@ Error run() {
     Stats stats{.hp = 10, .max_hp = 10, .strength = 5, .speed = 8};
     spider = game.ecs().write_new_entity(Transform{{4.f, 4.f}, -1},
                                          GridPos{{4, 4}},
-                                         Agent{8},
+                                         Agent{8, Team::CPU},
                                          rc, Actor{"spider", stats});
   }
 
@@ -451,6 +470,8 @@ Error run() {
 
     ActorState& whose_turn_state =
       game.ecs().read_or_panic<ActorState>(whose_turn);
+    Agent& whose_turn_agent =
+      game.ecs().read_or_panic<Agent>(whose_turn);
 
     if (whose_turn_state == ActorState::SETUP) {
       const GridPos& grid_pos = game.ecs().read_or_panic<GridPos>(whose_turn);
@@ -458,15 +479,26 @@ Error run() {
       whose_turn_state = ActorState::DECIDING;
     }
 
-    auto [defender, defender_exists] = actor_at(game.ecs(), mouse_grid_pos);
+    bool act = mouse_down;
+    glm::ivec2 action_pos = mouse_grid_pos;
+    if (whose_turn_agent.team == Team::CPU) {
+      if (!did_action) {
+        auto [pos, _] = nearest_player(dijkstra);
+        action_pos = pos;
+        act = true;
+      } else {
+        turn_over = true;
+      }
+    }
 
-    if (defender_exists && mouse_down &&
-        whose_turn_state == ActorState::DECIDING && !did_action) {
-      const DijkstraNode& dnode = dijkstra.at(mouse_grid_pos);
-      if (dnode.dist == 1 || !did_move) {
+    if (act && whose_turn_state == ActorState::DECIDING &&
+        dijkstra.contains(action_pos)) {
+      const DijkstraNode& dnode = dijkstra.at(action_pos);
+      if (dnode.entity && (dnode.dist == 1 || (!did_move && dnode.dist < 6))) {
         Path path = dnode.dist > 1 ? path_to(dijkstra, dnode.prev) : Path{};
         game.ecs().write(whose_turn,
-                         mele_action(game.ecs(), whose_turn, defender, path),
+                         mele_action(game.ecs(), whose_turn, dnode.entity,
+                                     path),
                          Ecs::CREATE_OR_UPDATE);
         did_action = true;
         did_move |= !path.empty();
@@ -474,12 +506,15 @@ Error run() {
       }
     }
 
-    if (!defender_exists && mouse_down &&
-        whose_turn_state == ActorState::DECIDING && !did_move) {
-      auto action = move_action(whose_turn, path_to(dijkstra, mouse_grid_pos));
-      game.ecs().write(whose_turn, std::move(action), Ecs::CREATE_OR_UPDATE);
-      did_move = true;
-      whose_turn_state = ActorState::TAKING_TURN;
+    if (act && whose_turn_state == ActorState::DECIDING && !did_move &&
+        dijkstra.contains(action_pos)) {
+      const DijkstraNode& dnode = dijkstra.at(action_pos);
+      if (!dnode.entity && dnode.dist < 5) {
+        auto action = move_action(whose_turn, path_to(dijkstra, action_pos));
+        game.ecs().write(whose_turn, std::move(action), Ecs::CREATE_OR_UPDATE);
+        did_move = true;
+        whose_turn_state = ActorState::TAKING_TURN;
+      }
     }
 
     mouse_down = false;

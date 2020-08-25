@@ -42,9 +42,13 @@ struct Actor {
   Stats stats;
 };
 
+enum class Team { PLAYER, CPU };
+
 // The agent controls when an actor gets to take its turn and how.
 struct Agent {
   int energy = 0;
+
+  Team team;
 };
 
 using Ecs = EntityComponentSystem<
