@@ -250,6 +250,42 @@ struct UserInput {
   }
 };
 
+EntityId spawn_agent(Game& game, std::string name, const Stats& stats,
+                     glm::ivec2 pos, Team team) {
+  return game.ecs().write_new_entity(Transform{glm::vec2(pos), -1},
+                                     GridPos{pos},
+                                     Actor{std::move(name), stats},
+                                     Agent{int(stats.speed), team});
+}
+
+void make_human(Game& game, EntityId human) {
+  GlyphRenderConfig rc(game.font_map().get('@'),
+                       glm::vec4(.9f, .6f, .1f, 1.f));
+  rc.center();
+  game.ecs().write(human, std::vector{std::move(rc)}, Ecs::CREATE_OR_UPDATE);
+}
+
+void make_spider(Game& game, EntityId spider) {
+  // The shape we're making here:
+  // =|=
+  // =|=
+  constexpr glm::vec4 COLOR = glm::vec4(0.f, 0.2f, 0.6f, 1.f);
+  GlyphRenderConfig rc(game.font_map().get('='),
+                       COLOR);
+  rc.center();
+  std::vector<GlyphRenderConfig> rcs(4, rc);
+  rcs[0].offset = glm::vec3( 0.25f,  0.17f, 0.f);
+  rcs[1].offset = glm::vec3(-0.25f,  0.17f, 0.f);
+  rcs[2].offset = glm::vec3(-0.25f, -0.17f, 0.f);
+  rcs[3].offset = glm::vec3( 0.25f, -0.17f, 0.f);
+
+  rcs.emplace_back(game.font_map().get('|'), COLOR);
+  rcs.back().center();
+  rcs.back().offset_scale = 0.5f;
+
+  game.ecs().write(spider, std::move(rcs), Ecs::CREATE_OR_UPDATE);
+}
+
 Error run() {
   Graphics gfx;
   if (Error e = gfx.init(WINDOW_WIDTH, WINDOW_HEIGHT); !e.ok) return e;
@@ -287,44 +323,14 @@ Error run() {
   // are just used for rendering.
   game.set_grid(arena_grid({50, 50}, wall, floor));
 
-  EntityId player;
   {
-    GlyphRenderConfig rc(game.font_map().get('@'),
-                         glm::vec4(.9f, .6f, .1f, 1.f));
-    rc.center();
     Stats stats{.hp = 10, .max_hp = 10, .strength = 5, .speed = 10};
-    player = game.ecs().write_new_entity(Transform{{3.f, 3.f}, -1},
-                                         GridPos{{3, 3}},
-                                         std::vector{rc},
-                                         Actor{"player", stats},
-                                         Agent{10, Team::PLAYER},
-                                         ActorState::SETUP);
+    make_human(game, spawn_agent(game, "me!", stats, {3, 3}, Team::PLAYER));
   }
 
-  EntityId spider;
   {
-    // The shape we're making here:
-    // =|=
-    // =|=
-    constexpr glm::vec4 COLOR = glm::vec4(0.f, 0.2f, 0.6f, 1.f);
-    GlyphRenderConfig rc(game.font_map().get('='),
-                         COLOR);
-    rc.center();
-    std::vector<GlyphRenderConfig> rcs(4, rc);
-    rcs[0].offset = glm::vec3( 0.25f,  0.17f, 0.f);
-    rcs[1].offset = glm::vec3(-0.25f,  0.17f, 0.f);
-    rcs[2].offset = glm::vec3(-0.25f, -0.17f, 0.f);
-    rcs[3].offset = glm::vec3( 0.25f, -0.17f, 0.f);
-
-    rcs.emplace_back(game.font_map().get('|'), COLOR);
-    rcs.back().center();
-    rcs.back().offset_scale = 0.5f;
-
-    Stats stats{.hp = 10, .max_hp = 10, .strength = 5, .speed = 8};
-    spider = game.ecs().write_new_entity(Transform{{12.f, 12.f}, -1},
-                                         GridPos{{12, 12}},
-                                         Agent{8, Team::CPU},
-                                         rcs, Actor{"spider", stats});
+    Stats stats{.hp = 10, .max_hp = 10, .strength = 5, .speed = 5};
+    make_spider(game, spawn_agent(game, "spider", stats, {12, 12}, Team::CPU));
   }
 
   EntityId whose_turn;
