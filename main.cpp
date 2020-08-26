@@ -413,7 +413,7 @@ Error run() {
     if (act && whose_turn_state == ActorState::DECIDING && !did_action &&
         dijkstra.contains(action_pos)) {
       const DijkstraNode& dnode = dijkstra.at(action_pos);
-      if (dnode.entity && (dnode.dist == 1 || (!did_move && dnode.dist < 6))) {
+      if (dnode.entity && (dnode.dist == 1 || (!did_move && dnode.dist <= 6))) {
         Path path = dnode.dist > 1 ? path_to(dijkstra, dnode.prev) : Path{};
         game.ecs().write(whose_turn,
                          mele_action(game.ecs(), whose_turn, dnode.entity,
