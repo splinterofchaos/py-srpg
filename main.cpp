@@ -270,12 +270,12 @@ Error run() {
   gl::bufferData(GL_ELEMENT_ARRAY_BUFFER, vbo_elems, GL_STATIC_DRAW);
 
   std::unordered_map<char, Tile> tile_types;
-  tile_types['.'] = Tile{.walkable = true, .glyph = '.',
-                         .fg_color = glm::vec4(.23f, .23f, .23f, 1.f),
-                         .bg_color = glm::vec4(.2f, .2f, .2f, 1.f)};
-  tile_types['#'] = Tile{.walkable = false, .glyph = '#',
-                         .fg_color = glm::vec4(.3f, .3f, .3f, 1.f),
-                         .bg_color = glm::vec4(.1f, .1f, .1f, 1.f)};
+  Tile floor{.walkable = true, .glyph = '.',
+             .fg_color = glm::vec4(.23f, .23f, .23f, 1.f),
+             .bg_color = glm::vec4(.2f, .2f, .2f, 1.f)};
+  Tile wall{.walkable = false, .glyph = '#',
+            .fg_color = glm::vec4(.3f, .3f, .3f, 1.f),
+            .bg_color = glm::vec4(.1f, .1f, .1f, 1.f)};
 
   // Create the tiles.
   //
@@ -285,7 +285,7 @@ Error run() {
   // Also note that the grid represents actual tile data so we don't have to
   // search the ECS every time we want to check a tile. The entities themselves
   // are just used for rendering.
-  game.set_grid(grid_from_string(STARTING_GRID, tile_types));
+  game.set_grid(arena_grid({50, 50}, wall, floor));
 
   EntityId player;
   {

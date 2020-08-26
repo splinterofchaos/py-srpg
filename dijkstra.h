@@ -11,14 +11,6 @@ struct DijkstraNode {
   glm::ivec2 prev;
   unsigned int dist;
   EntityId entity;
-
-  DijkstraNode(EntityId entity)
-      : entity(entity) {
-    prev = {0, 0};
-    dist = std::numeric_limits<int>::max();
-  }
-
-  DijkstraNode() : DijkstraNode(EntityId()) { }
 };
 
 class DijkstraGrid {

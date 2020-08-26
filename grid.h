@@ -44,6 +44,9 @@ public:
     return {dummy_notreal, false};
   }
 
+  Tile& at(glm::ivec2 pos) { return get(pos).first; }
+  const Tile& at(glm::ivec2 pos) const { return get(pos).first; }
+
   Tile& operator[](glm::ivec2 pos) {
     return data_.emplace(pos, dummy_notreal).first->second;
   }
@@ -56,6 +59,8 @@ public:
 
 Grid grid_from_string(std::string_view grid_s,
                       const std::unordered_map<char, Tile>& tile_types);
+
+Grid arena_grid(glm::ivec2 dimensions, const Tile& wall, const Tile& floor);
 
 std::vector<glm::ivec2> adjacent_steps();
 std::vector<glm::ivec2> adjacent_positions(glm::ivec2);

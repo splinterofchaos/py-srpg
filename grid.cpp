@@ -27,6 +27,18 @@ Grid grid_from_string(std::string_view grid_s,
   return grid;
 }
 
+Grid arena_grid(glm::ivec2 dimensions, const Tile& wall, const Tile& floor) {
+  Grid grid;
+  for (int x = 0; x < dimensions.x; ++x) {
+    for (int y = 0; y < dimensions.y; ++y) {
+      bool on_edge = x == 0 || x == dimensions.x - 1 ||
+                     y == 0 || y == dimensions.y - 1;
+      grid[{x, y}] = on_edge ? wall : floor;
+    }
+  }
+  return grid;
+}
+
 std::vector<glm::ivec2> adjacent_steps() {
   return {{1, 0}, {0, 1}, {-1, 0}, {0, -1}};
 }

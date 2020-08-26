@@ -1,56 +1,31 @@
 #include "dijkstra.h"
 
-#include <unordered_set>
-
-static glm::ivec2 min_node(
-    const std::unordered_map<glm::ivec2, DijkstraNode>& nodes,
-    const std::unordered_set<glm::ivec2>& Q) {
-  glm::ivec2 min_pos;
-  unsigned int min_dist = std::numeric_limits<int>::max();
-  for (const glm::ivec2& pos : Q) {
-    if (nodes.at(pos).dist < min_dist) {
-      min_pos = pos;
-      min_dist = nodes.at(pos).dist;
-    }
-  }
-
-  return min_pos;
-}
+#include <deque>
 
 void DijkstraGrid::generate(const Game& game, glm::ivec2 source) {
   nodes_.clear();
 
   source_ = source;
 
-  std::unordered_set<glm::ivec2> Q;
-  for (const auto& [pos, tile] : game.grid()) {
-    if (!tile.walkable) continue;
-    auto [entity, entity_exists] = actor_at(game.ecs(), pos);
-    // We want paths to nodes with entities on them, but we do not want to
-    // expand them or paths would go right through!
-    if (!entity) Q.insert(pos);
-
-    nodes_.emplace(pos, DijkstraNode(entity));
-  }
-  nodes_[source].dist = 0;
-  Q.insert(source);
+  // Note that while we're creating a data structure that resembles the result
+  // of Dijkstra's algorithm, we're actually going to use flood fill because
+  // it's faster on simple 2D grids like this where all edge weights are the
+  // same.
+  struct QueNode { glm::ivec2 pos; glm::ivec2 prev; unsigned int dist; };
+  std::deque<QueNode> Q;
+  Q.push_back({source, {0, 0}, 0});
 
   while (!Q.empty()) {
-    glm::ivec2 pos = min_node(nodes_, Q);
-    Q.erase(pos);
+    auto [pos, prev, dist] = Q.front();
+    Q.pop_front();
 
-    DijkstraNode& node = nodes_.at(pos);
+    auto [tile, exists] = game.grid().get(pos);
+    if (!exists || !tile.walkable || nodes_.contains(pos)) continue;
 
-    for (glm::ivec2 next_pos : adjacent_positions(pos)) {
-      auto next_node = nodes_.find(next_pos);
-      if (next_node == nodes_.end()) continue;
+    nodes_[pos] = DijkstraNode{prev, dist, actor_at(game.ecs(), pos).first};
 
-      unsigned int alt = node.dist + 1;
-      if (alt < next_node->second.dist) {
-        next_node->second.dist = alt;
-        next_node->second.prev = pos;
-      }
-    }
+    for (glm::ivec2 next_pos : adjacent_positions(pos))
+      Q.push_back({next_pos, pos, dist + 1});
   }
 }
 
