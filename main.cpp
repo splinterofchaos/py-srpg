@@ -252,12 +252,11 @@ struct UserInput {
   }
 };
 
-EntityId spawn_agent(Game& game, std::string name, const Stats& stats,
-                     glm::ivec2 pos, Team team) {
+EntityId spawn_agent(Game& game, std::string name, glm::ivec2 pos, Team team) {
   return game.ecs().write_new_entity(Transform{glm::vec2(pos), -1},
                                      GridPos{pos},
-                                     Actor{std::move(name), stats},
-                                     Agent{int(stats.speed), team});
+                                     Actor{std::move(name), Stats()},
+                                     Agent{0, team});
 }
 
 void make_human(Game& game, EntityId human) {
@@ -265,6 +264,10 @@ void make_human(Game& game, EntityId human) {
                        glm::vec4(.9f, .6f, .1f, 1.f));
   rc.center();
   game.ecs().write(human, std::vector{std::move(rc)}, Ecs::CREATE_OR_UPDATE);
+
+  Actor& actor = game.ecs().read_or_panic<Actor>(human);
+  actor.stats.speed += 5;
+  game.ecs().write(human, actor);
 }
 
 void make_spider(Game& game, EntityId spider) {
@@ -286,6 +289,10 @@ void make_spider(Game& game, EntityId spider) {
   rcs.back().offset_scale = 0.5f;
 
   game.ecs().write(spider, std::move(rcs), Ecs::CREATE_OR_UPDATE);
+
+  Actor& actor = game.ecs().read_or_panic<Actor>(spider);
+  actor.stats.speed -= 2;
+  game.ecs().write(spider, actor);
 }
 
 Error run() {
@@ -325,15 +332,8 @@ Error run() {
   // are just used for rendering.
   game.set_grid(arena_grid({50, 50}, wall, floor));
 
-  {
-    Stats stats{.hp = 10, .max_hp = 10, .move = 5, .strength = 5, .speed = 10};
-    make_human(game, spawn_agent(game, "me!", stats, {3, 3}, Team::PLAYER));
-  }
-
-  {
-    Stats stats{.hp = 10, .max_hp = 10, .move = 3, .strength = 5, .speed = 5};
-    make_spider(game, spawn_agent(game, "spider", stats, {12, 12}, Team::CPU));
-  }
+  make_human(game, spawn_agent(game, "me!", {3, 3}, Team::PLAYER));
+  make_spider(game, spawn_agent(game, "spider", {12, 12}, Team::CPU));
 
   EntityId whose_turn;
   DijkstraGrid dijkstra;

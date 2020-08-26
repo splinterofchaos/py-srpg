@@ -23,10 +23,10 @@ struct Transform {
 };
 
 struct Stats {
-  unsigned int hp = 0, max_hp = 0;
-  unsigned int move = 0;
-  unsigned int strength = 0;
-  unsigned int speed = 0;
+  unsigned int hp = 10, max_hp = 10;
+  unsigned int move = 5;
+  unsigned int strength = 5;
+  unsigned int speed = 5;
 };
 
 // Actions depend on the ECS so forward declare it so it can be a component.
