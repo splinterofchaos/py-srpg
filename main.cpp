@@ -351,6 +351,32 @@ std::pair<glm::ivec2, EntityId> nearest_player(const DijkstraGrid& dijkstra) {
   return {min_pos, min_node ? min_node->entity : EntityId()};
 }
 
+struct UserInput {
+  glm::ivec2 mouse_pos;
+  bool left_click;
+  // Inclusion in this set means that a key is pressed.
+  std::unordered_set<char> keys_pressed;
+
+  bool pressed(char c) { return keys_pressed.contains(c); }
+  void press(char c) { keys_pressed.insert(c); }
+
+  void reset(const Game& game) {
+    // The selector graphically represents what tile the mouse is hovering
+    // over. This might be a bit round-a-bout, but find where to place the
+    // selector on screen by finding its position on the grid. Later, we
+    // convert it to a grid-a-fied screen position.
+    int mouse_x, mouse_y;
+    SDL_GetMouseState(&mouse_x, &mouse_y);
+    glm::vec2 mouse_screen_pos(float(mouse_x * 2) / WINDOW_WIDTH - 1,
+                               float(-mouse_y * 2) / WINDOW_HEIGHT + 1);
+    mouse_pos = (mouse_screen_pos + TILE_SIZE/2) / TILE_SIZE +
+                game.camera_offset() / TILE_SIZE;
+
+    left_click = false;
+    keys_pressed.clear();
+  }
+};
+
 Error run() {
   Graphics gfx;
   if (Error e = gfx.init(WINDOW_WIDTH, WINDOW_HEIGHT); !e.ok) return e;
@@ -419,23 +445,21 @@ Error run() {
   bool did_move = false;
   bool did_action = false;
 
+  UserInput input;
+
   bool keep_going = true;
   SDL_Event e;
   Time t = now();
-  bool mouse_down = false;
-  while (keep_going) {
+  while (keep_going && !input.pressed('q')) {
+    input.reset(game);
+
     while (SDL_PollEvent(&e) != 0) {
       switch (e.type) {
-        case SDL_QUIT: keep_going = false;
-        case SDL_KEYDOWN: {
-          switch (e.key.keysym.sym) {
-            case 'q': keep_going = false;
-          }
-          break;
-        }
-        case SDL_MOUSEBUTTONDOWN:{
+        case SDL_QUIT: keep_going = false; break;
+        case SDL_KEYDOWN: input.press(e.key.keysym.sym); break;
+        case SDL_MOUSEBUTTONDOWN: {
           if (e.button.button == SDL_BUTTON_LEFT)
-            mouse_down = true;
+            input.left_click = true;
           break;
         }
       }
@@ -444,17 +468,6 @@ Error run() {
     Time new_time = now();
     Milliseconds dt =
       std::chrono::duration_cast<std::chrono::milliseconds>(new_time - t);
-
-    // The selector graphically represents what tile the mouse is hovering
-    // over. This might be a bit round-a-bout, but find where to place the
-    // selector on screen by finding its position on the grid. Later, we
-    // convert it to a grid-a-fied screen position.
-    int mouse_x, mouse_y;
-    SDL_GetMouseState(&mouse_x, &mouse_y);
-    glm::vec2 mouse_screen_pos(float(mouse_x * 2) / WINDOW_WIDTH - 1,
-                               float(-mouse_y * 2) / WINDOW_HEIGHT + 1);
-    glm::ivec2 mouse_grid_pos = (mouse_screen_pos + TILE_SIZE/2) / TILE_SIZE +
-                                game.camera_offset() / TILE_SIZE;
 
     if (turn_over || !game.ecs().is_active(whose_turn)) {
       whose_turn = pick_next(game.ecs());
@@ -479,8 +492,8 @@ Error run() {
       whose_turn_state = ActorState::DECIDING;
     }
 
-    bool act = mouse_down;
-    glm::ivec2 action_pos = mouse_grid_pos;
+    bool act;
+    glm::ivec2 action_pos;
     if (whose_turn_agent.team == Team::CPU) {
       if (!did_action) {
         auto [pos, _] = nearest_player(dijkstra);
@@ -489,6 +502,10 @@ Error run() {
       } else {
         turn_over = true;
       }
+    } else {
+      act = input.left_click;
+      action_pos = input.mouse_pos;
+      if (input.pressed(' ')) turn_over = true;
     }
 
     if (act && whose_turn_state == ActorState::DECIDING &&
@@ -516,8 +533,6 @@ Error run() {
         whose_turn_state = ActorState::TAKING_TURN;
       }
     }
-
-    mouse_down = false;
 
     // See Action documentation for why this exists.
     std::vector<std::function<void()>> deferred_events;
@@ -559,10 +574,10 @@ Error run() {
     }
 
     game.marker_shader().render_marker(
-        game.to_graphical_pos(mouse_grid_pos, 0),
+        game.to_graphical_pos(input.mouse_pos, 0),
         TILE_SIZE, glm::vec4(0.1f, 0.3f, 0.6f, .5f));
 
-    if (auto [id, exists] = actor_at(game.ecs(), mouse_grid_pos); exists) {
+    if (auto [id, exists] = actor_at(game.ecs(), input.mouse_pos); exists) {
       render_entity_desc(game, id);
     }
 
