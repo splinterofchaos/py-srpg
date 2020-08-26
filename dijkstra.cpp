@@ -71,16 +71,21 @@ glm::ivec2 rewind_until(const DijkstraGrid& dijkstra, glm::ivec2 pos,
   return pos;
 }
 
-std::pair<glm::ivec2, EntityId> nearest_player(const DijkstraGrid& dijkstra) {
+std::pair<const DijkstraNode*, glm::ivec2>
+nearest_enemy_location(const Game& game, const DijkstraGrid& dijkstra,
+                       EntityId my_id, Team my_team) {
   const DijkstraNode* min_node = nullptr;
   glm::ivec2 min_pos;
-  for (const auto& [pos, node] : dijkstra) {
-    if (node.entity && pos != dijkstra.source() &&
-        (!min_node || node.dist < min_node->dist)) {
-      min_node = &node;
-      min_pos = pos;
+  for (const auto& [id, gpos, agent] : game.ecs().read_all<GridPos, Agent>()) {
+    const glm::ivec2& pos = gpos.pos;
+    if (id != my_id && agent.team != my_team && pos != dijkstra.source()) {
+      const DijkstraNode& node = dijkstra.at(pos);
+      if (!min_node || node.dist < min_node->dist) {
+        min_node = &node;
+        min_pos = pos;
+      }
     }
   }
-  return {min_pos, min_node ? min_node->entity : EntityId()};
+  return {min_node, min_pos};
 }
 

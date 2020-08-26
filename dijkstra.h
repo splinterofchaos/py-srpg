@@ -48,5 +48,7 @@ glm::ivec2 rewind(const DijkstraGrid& dijkstra, glm::ivec2 pos,
 glm::ivec2 rewind_until(const DijkstraGrid& dijkstra, glm::ivec2 pos,
                         unsigned int n);
 
-// Returns the nearest attacking target for AI.
-std::pair<glm::ivec2, EntityId> nearest_player(const DijkstraGrid& dijkstra);
+// Returns the location of the closest attacking target for AI.
+std::pair<const DijkstraNode*, glm::ivec2>
+nearest_enemy_location(const Game& game, const DijkstraGrid& dijkstra,
+                       EntityId my_id, Team my_team);

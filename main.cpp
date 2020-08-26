@@ -293,8 +293,8 @@ Error run() {
                          glm::vec4(.9f, .6f, .1f, 1.f));
     rc.center();
     Stats stats{.hp = 10, .max_hp = 10, .strength = 5, .speed = 10};
-    player = game.ecs().write_new_entity(Transform{{5.f, 5.f}, -1},
-                                         GridPos{{5, 5}},
+    player = game.ecs().write_new_entity(Transform{{3.f, 3.f}, -1},
+                                         GridPos{{3, 3}},
                                          rc, Actor{"player", stats},
                                          Agent{10, Team::PLAYER},
                                          ActorState::SETUP);
@@ -306,8 +306,8 @@ Error run() {
                          glm::vec4(0.f, 0.2f, 0.6f, 1.f));
     rc.center();
     Stats stats{.hp = 10, .max_hp = 10, .strength = 5, .speed = 8};
-    spider = game.ecs().write_new_entity(Transform{{4.f, 4.f}, -1},
-                                         GridPos{{4, 4}},
+    spider = game.ecs().write_new_entity(Transform{{12.f, 12.f}, -1},
+                                         GridPos{{12, 12}},
                                          Agent{8, Team::CPU},
                                          rc, Actor{"spider", stats});
   }
@@ -369,13 +369,19 @@ Error run() {
     glm::ivec2 action_pos;
     if (whose_turn_state == ActorState::DECIDING) {
       if (whose_turn_agent.team == Team::CPU) {
-        if (!did_action) {
-          auto [pos, _] = nearest_player(dijkstra);
-          action_pos = pos;
+        // Move towards the player until in range.
+        if (!did_action && !did_move) {
+          auto [enemy_loc, pos] = nearest_enemy_location(
+              game, dijkstra, whose_turn, Team::CPU);
+          if (enemy_loc && enemy_loc->dist <= 5 + 1) {
+            action_pos = pos;
+          } else if (enemy_loc) {
+            action_pos = rewind_until(dijkstra, pos, 5);
+          }
           act = true;
-        } else {
-          turn_over = true;
         }
+
+        if (!act) turn_over = true;
       } else {
         act = input.left_click;
         action_pos = input.mouse_pos;
@@ -401,7 +407,7 @@ Error run() {
     if (act && whose_turn_state == ActorState::DECIDING && !did_move &&
         dijkstra.contains(action_pos)) {
       const DijkstraNode& dnode = dijkstra.at(action_pos);
-      if (!dnode.entity && dnode.dist < 5) {
+      if (!dnode.entity && dnode.dist <= 5) {
         auto action = move_action(whose_turn, path_to(dijkstra, action_pos));
         game.ecs().write(whose_turn, std::move(action), Ecs::CREATE_OR_UPDATE);
         did_move = true;
