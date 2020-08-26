@@ -312,7 +312,7 @@ public:
 
   template<typename T>
   static constexpr void assert_has_type() {
-    static_assert(any_is<T, Components...>());
+    static_assert(any_is<T, Components...>(), "Type not in components list.");
   }
 
   // Adds data to a component, although that the entity exists is taken for
@@ -355,6 +355,7 @@ public:
 
   template<typename T>
   EcsError read(EntityId id, const T** out) const {
+    assert_has_type<T>();
     auto [found, it] = find_component<T>(id);
     if (!found) return EcsError::NOT_FOUND;
     *out = &it->data;
@@ -369,6 +370,7 @@ public:
   // Unsafe version of read that ignores NOT_FOUND errors.
   template<typename T>
   const T& read_or_panic(EntityId id) const {
+    assert_has_type<T>();
     auto [found, it] = find_component<T>(id);
     if (!found) {
       std::cerr << "Exiting because of entity not found." << std::endl;
@@ -382,14 +384,10 @@ public:
     return const_this()->read(id, const_cast<const T**>(out));
   }
 
-  template<typename T>
-  void read_or_panic(EntityId id, T** out) {
-    *out = &read_or_panic<T>(id);
-  }
-
   // Unsafe version of read that ignores NOT_FOUND errors.
   template<typename T>
   T& read_or_panic(EntityId id) {
+    assert_has_type<T>();
     auto [found, it] = find_component<T>(id);
     if (!found) {
       std::cerr << "Exiting because of entity not found." << std::endl;
