@@ -383,7 +383,7 @@ Error run() {
       }
     }
 
-    if (act && whose_turn_state == ActorState::DECIDING &&
+    if (act && whose_turn_state == ActorState::DECIDING && !did_action &&
         dijkstra.contains(action_pos)) {
       const DijkstraNode& dnode = dijkstra.at(action_pos);
       if (dnode.entity && (dnode.dist == 1 || (!did_move && dnode.dist < 6))) {
