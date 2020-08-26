@@ -365,20 +365,22 @@ Error run() {
       whose_turn_state = ActorState::DECIDING;
     }
 
-    bool act;
+    bool act = false;
     glm::ivec2 action_pos;
-    if (whose_turn_agent.team == Team::CPU) {
-      if (!did_action) {
-        auto [pos, _] = nearest_player(dijkstra);
-        action_pos = pos;
-        act = true;
+    if (whose_turn_state == ActorState::DECIDING) {
+      if (whose_turn_agent.team == Team::CPU) {
+        if (!did_action) {
+          auto [pos, _] = nearest_player(dijkstra);
+          action_pos = pos;
+          act = true;
+        } else {
+          turn_over = true;
+        }
       } else {
-        turn_over = true;
+        act = input.left_click;
+        action_pos = input.mouse_pos;
+        if (input.pressed(' ')) turn_over = true;
       }
-    } else {
-      act = input.left_click;
-      action_pos = input.mouse_pos;
-      if (input.pressed(' ')) turn_over = true;
     }
 
     if (act && whose_turn_state == ActorState::DECIDING &&
@@ -415,6 +417,7 @@ Error run() {
       if (id == whose_turn && action->finished()) {
         action.reset();
         whose_turn_state = ActorState::SETUP;
+        std::cout << "whose_turn's finished" << std::endl;  
       }
     }
 
