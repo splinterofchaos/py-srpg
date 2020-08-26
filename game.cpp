@@ -1,5 +1,9 @@
 #include "game.h"
 
+bool Turn::over() const {
+  return did_pass || (did_move && did_action);
+}
+
 Error Game::init() {
   return glyph_shader_.init() &&
          marker_shader_.init() &&

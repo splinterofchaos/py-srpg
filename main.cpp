@@ -337,9 +337,6 @@ Error run() {
 
   EntityId whose_turn;
   DijkstraGrid dijkstra;
-  bool turn_over = true;
-  bool did_move = false;
-  bool did_action = false;
 
   UserInput input;
 
@@ -365,16 +362,14 @@ Error run() {
     Milliseconds dt =
       std::chrono::duration_cast<std::chrono::milliseconds>(new_time - t);
 
-    if (turn_over || !game.ecs().is_active(whose_turn)) {
+    if (game.turn().over() || !game.ecs().is_active(whose_turn)) {
       whose_turn = pick_next(game.ecs());
       if (whose_turn.id == EntityId::NOT_AN_ID)
         return Error("No one left alive");
 
       std::cout << "it is now the turn of " << game.ecs().read_or_panic<Actor>(whose_turn).name << std::endl;
 
-      turn_over = false;
-      did_move = false;
-      did_action = false;
+      game.turn().reset();
     }
 
     ActorState& whose_turn_state =
@@ -395,7 +390,7 @@ Error run() {
     if (whose_turn_state == ActorState::DECIDING) {
       if (whose_turn_agent.team == Team::CPU) {
         // Move towards the player until in range.
-        if (!did_action && !did_move) {
+        if (!game.turn().did_action && !game.turn().did_move) {
           auto [enemy_loc, pos] = nearest_enemy_location(
               game, dijkstra, whose_turn, Team::CPU);
           if (enemy_loc && enemy_loc->dist <=
@@ -408,38 +403,39 @@ Error run() {
           act = true;
         }
 
-        if (!act) turn_over = true;
+        if (!act) game.turn().did_pass = true;
       } else {
         act = input.left_click;
         action_pos = input.mouse_pos;
-        if (input.pressed(' ')) turn_over = true;
+        if (input.pressed(' ')) game.turn().did_pass = true;
       }
     }
 
-    if (act && whose_turn_state == ActorState::DECIDING && !did_action &&
-        dijkstra.contains(action_pos)) {
+    if (act && whose_turn_state == ActorState::DECIDING &&
+        !game.turn().did_action && dijkstra.contains(action_pos)) {
       const DijkstraNode& dnode = dijkstra.at(action_pos);
       if (dnode.entity &&
           (dnode.dist == 1 ||
-           (!did_move && dnode.dist <= whose_turn_actor.stats.move + 1))) {
+           (!game.turn().did_move &&
+            dnode.dist <= whose_turn_actor.stats.move + 1))) {
         Path path = dnode.dist > 1 ? path_to(dijkstra, dnode.prev) : Path{};
         game.ecs().write(whose_turn,
                          mele_action(game.ecs(), whose_turn, dnode.entity,
                                      path),
                          Ecs::CREATE_OR_UPDATE);
-        did_action = true;
-        did_move |= !path.empty();
+        game.turn().did_action = true;
+        game.turn().did_move |= !path.empty();
         whose_turn_state = ActorState::TAKING_TURN;
       }
     }
 
-    if (act && whose_turn_state == ActorState::DECIDING && !did_move &&
-        dijkstra.contains(action_pos)) {
+    if (act && whose_turn_state == ActorState::DECIDING &&
+        !game.turn().did_move && dijkstra.contains(action_pos)) {
       const DijkstraNode& dnode = dijkstra.at(action_pos);
       if (!dnode.entity && dnode.dist <= whose_turn_actor.stats.move) {
         auto action = move_action(whose_turn, path_to(dijkstra, action_pos));
         game.ecs().write(whose_turn, std::move(action), Ecs::CREATE_OR_UPDATE);
-        did_move = true;
+        game.turn().did_move = true;
         whose_turn_state = ActorState::TAKING_TURN;
       }
     }
@@ -457,10 +453,8 @@ Error run() {
     }
 
     // The next frame, a new ID will be chosen to take their turn.
-    if (whose_turn_state == ActorState::SETUP &&
-        (turn_over || (did_move && did_action))) {
+    if (whose_turn_state == ActorState::SETUP && game.turn().over()) {
       whose_turn_state = ActorState::WAITING;
-      turn_over = true;
     }
 
     for (std::function<void()>& f : deferred_events) f();
@@ -479,7 +473,7 @@ Error run() {
       }
     }
 
-    if (!did_move) for (const auto& [pos, node] : dijkstra) {
+    if (!game.turn().did_move) for (const auto& [pos, node] : dijkstra) {
       if (node.dist > whose_turn_actor.stats.move) continue;
       game.marker_shader().render_marker(
           game.to_graphical_pos(pos, 0),

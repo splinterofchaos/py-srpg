@@ -9,9 +9,23 @@
 
 constexpr inline float TILE_SIZE = 0.1f;
 
+struct Turn {
+  bool did_move = false;
+  bool did_action = false;
+  bool did_pass = false;
+  EntityId actor;
+
+  void reset() {
+    did_pass = did_action = did_move = false;
+  }
+
+  bool over() const;
+};
+
 class Game {
   Ecs ecs_;
   Grid grid_;
+  Turn turn_;  // represents the current entitie's turn.
 
   MarkerShaderProgram marker_shader_;
   GlyphShaderProgram glyph_shader_;
@@ -27,6 +41,9 @@ public:
 
   Ecs& ecs() { return ecs_; }
   const Ecs& ecs() const { return ecs_; }
+
+  Turn& turn() { return turn_; }
+  const Turn& turn() const { return turn_; }
 
   const MarkerShaderProgram& marker_shader() const { return marker_shader_; }
   const GlyphShaderProgram& glyph_shader() const { return glyph_shader_; }
