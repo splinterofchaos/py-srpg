@@ -24,6 +24,7 @@ struct Transform {
 
 struct Stats {
   unsigned int hp = 0, max_hp = 0;
+  unsigned int move = 0;
   unsigned int strength = 0;
   unsigned int speed = 0;
 };

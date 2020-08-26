@@ -143,6 +143,8 @@ void render_entity_desc(Game& game, EntityId id) {
     lines.push_back(actor->name);
     lines.push_back(concat_strings("HP: ", std::to_string(actor->stats.hp),
                                    "/", std::to_string(actor->stats.max_hp)));
+    lines.push_back(concat_strings("MOV: ",
+                                   std::to_string(actor->stats.move)));
     lines.push_back(concat_strings("STR: ",
                                    std::to_string(actor->stats.strength)));
   } else {
@@ -324,12 +326,12 @@ Error run() {
   game.set_grid(arena_grid({50, 50}, wall, floor));
 
   {
-    Stats stats{.hp = 10, .max_hp = 10, .strength = 5, .speed = 10};
+    Stats stats{.hp = 10, .max_hp = 10, .move = 5, .strength = 5, .speed = 10};
     make_human(game, spawn_agent(game, "me!", stats, {3, 3}, Team::PLAYER));
   }
 
   {
-    Stats stats{.hp = 10, .max_hp = 10, .strength = 5, .speed = 5};
+    Stats stats{.hp = 10, .max_hp = 10, .move = 3, .strength = 5, .speed = 5};
     make_spider(game, spawn_agent(game, "spider", stats, {12, 12}, Team::CPU));
   }
 
@@ -377,7 +379,9 @@ Error run() {
 
     ActorState& whose_turn_state =
       game.ecs().read_or_panic<ActorState>(whose_turn);
-    Agent& whose_turn_agent =
+    const Actor& whose_turn_actor =
+      game.ecs().read_or_panic<Actor>(whose_turn);
+    const Agent& whose_turn_agent =
       game.ecs().read_or_panic<Agent>(whose_turn);
 
     if (whose_turn_state == ActorState::SETUP) {
@@ -394,10 +398,12 @@ Error run() {
         if (!did_action && !did_move) {
           auto [enemy_loc, pos] = nearest_enemy_location(
               game, dijkstra, whose_turn, Team::CPU);
-          if (enemy_loc && enemy_loc->dist <= 5 + 1) {
+          if (enemy_loc && enemy_loc->dist <=
+              whose_turn_actor.stats.move + 1) {
             action_pos = pos;
           } else if (enemy_loc) {
-            action_pos = rewind_until(dijkstra, pos, 5);
+            action_pos = rewind_until(dijkstra, pos,
+                                      whose_turn_actor.stats.move);
           }
           act = true;
         }
@@ -413,7 +419,9 @@ Error run() {
     if (act && whose_turn_state == ActorState::DECIDING && !did_action &&
         dijkstra.contains(action_pos)) {
       const DijkstraNode& dnode = dijkstra.at(action_pos);
-      if (dnode.entity && (dnode.dist == 1 || (!did_move && dnode.dist <= 6))) {
+      if (dnode.entity &&
+          (dnode.dist == 1 ||
+           (!did_move && dnode.dist <= whose_turn_actor.stats.move + 1))) {
         Path path = dnode.dist > 1 ? path_to(dijkstra, dnode.prev) : Path{};
         game.ecs().write(whose_turn,
                          mele_action(game.ecs(), whose_turn, dnode.entity,
@@ -428,7 +436,7 @@ Error run() {
     if (act && whose_turn_state == ActorState::DECIDING && !did_move &&
         dijkstra.contains(action_pos)) {
       const DijkstraNode& dnode = dijkstra.at(action_pos);
-      if (!dnode.entity && dnode.dist <= 5) {
+      if (!dnode.entity && dnode.dist <= whose_turn_actor.stats.move) {
         auto action = move_action(whose_turn, path_to(dijkstra, action_pos));
         game.ecs().write(whose_turn, std::move(action), Ecs::CREATE_OR_UPDATE);
         did_move = true;
@@ -472,7 +480,7 @@ Error run() {
     }
 
     if (!did_move) for (const auto& [pos, node] : dijkstra) {
-      if (node.dist > 5) continue;
+      if (node.dist > whose_turn_actor.stats.move) continue;
       game.marker_shader().render_marker(
           game.to_graphical_pos(pos, 0),
           TILE_SIZE, glm::vec4(0.1f, 0.2f, 0.4f, 0.5f));
