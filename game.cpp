@@ -17,3 +17,10 @@ void Game::set_grid(Grid grid) {
   grid_ = std::move(grid);
 }
 
+std::pair<EntityId, bool> actor_at(const Ecs& ecs, glm::ivec2 pos) {
+  for (const auto [id, epos, unused_actor] :
+       ecs.read_all<GridPos, Actor>())
+    if (epos.pos == pos) return {id, true};
+  return {EntityId(), false};
+}
+

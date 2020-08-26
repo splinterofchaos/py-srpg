@@ -43,9 +43,12 @@ obj/action.o : action.h action.cpp components.h game.h include/timer.h \
 						   include/util.h
 	${COMPILER} ${OPS} -c action.cpp -o obj/action.o
 
+obj/dijkstra.o : dijkstra.* game.h
+	${COMPILER} ${OPS} -c dijkstra.cpp -o obj/dijkstra.o
+
 obj/main.o : main.cpp include/*.h *.h
 	${COMPILER} ${OPS} -c main.cpp -o obj/main.o
 
 obj/run : obj/main.o obj/graphics.o obj/shaders.o obj/font.o obj/math.o \
-					obj/action.o obj/grid.o obj/game.o
+					obj/action.o obj/grid.o obj/game.o obj/dijkstra.o
 	${COMPILER} ${OPS} obj/*.o -lSDL2 -lfreetype -lGL -lGLEW -lGLU -o obj/run

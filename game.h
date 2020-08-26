@@ -65,4 +65,4 @@ public:
   }
 };
 
-
+std::pair<EntityId, bool> actor_at(const Ecs& ecs, glm::ivec2 pos);
