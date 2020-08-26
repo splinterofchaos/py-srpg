@@ -20,10 +20,10 @@ class SequnceAction : public Action {
   unsigned int current_ = 0;
   
 public:
-  template<typename...Actions>
-  SequnceAction(Actions&&...actions) {
-    (sequence_.push_back(std::forward<Actions>(actions)), ...);
-  }
+  SequnceAction() { }
+
+  SequnceAction(std::vector<std::unique_ptr<Action>> s)
+      : sequence_(std::move(s)) { }
 
   void push_back(std::unique_ptr<Action> a) {
     sequence_.push_back(std::move(a));
@@ -41,11 +41,6 @@ public:
     if (current_ >= sequence_.size()) stop_short();
   }
 };
-
-template<typename...Actions>
-std::unique_ptr<Action> sequance_action(Actions&&...actions) {
-  return std::make_unique<SequnceAction>(std::forward<Actions>(actions)...);
-}
 
 class MoveAction : public Action {
   EntityId actor_;
@@ -161,5 +156,10 @@ std::unique_ptr<Action> mele_action(const Ecs& ecs, EntityId attacker,
   s.push_back(std::move(thrust));
   s.push_back(std::move(deal_damage));
   s.push_back(std::move(recoil));
+  return std::make_unique<SequnceAction>(std::move(s));
+}
+
+std::unique_ptr<Action> sequance_action(
+    std::vector<std::unique_ptr<Action>> s) {
   return std::make_unique<SequnceAction>(std::move(s));
 }

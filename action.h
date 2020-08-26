@@ -87,3 +87,14 @@ std::unique_ptr<Action> mele_action(const Ecs& ecs, EntityId attacker,
                                     EntityId defender, Path path);
 std::unique_ptr<Action> expire_action(EntityId id,
                                       std::chrono::milliseconds expiry);
+
+std::unique_ptr<Action> sequance_action(
+    std::vector<std::unique_ptr<Action>> s);
+
+template<typename...Actions>
+std::unique_ptr<Action> sequance_action(Actions&&...actions) {
+  std::vector<std::unique_ptr<Action>> s;
+  (s.push_back(std::forward<Actions>(actions)), ...);
+  return sequance_action(std::move(s));
+}
+

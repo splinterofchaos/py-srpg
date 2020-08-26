@@ -381,6 +381,7 @@ Error run() {
 
     if (whose_turn_state == ActorState::SETUP) {
       const GridPos& grid_pos = game.ecs().read_or_panic<GridPos>(whose_turn);
+      std::cout << "Generating new dijkstra" << std::endl;
       dijkstra.generate(game, grid_pos.pos);
       whose_turn_state = ActorState::DECIDING;
     }
@@ -419,9 +420,13 @@ Error run() {
            (!game.turn().did_move &&
             dnode.dist <= whose_turn_actor.stats.move + 1))) {
         Path path = dnode.dist > 1 ? path_to(dijkstra, dnode.prev) : Path{};
+        game.turn().waiting = true;
+        auto action = sequance_action(
+            mele_action(game.ecs(), whose_turn, dnode.entity, path),
+            generic_action([&waiting = game.turn().waiting] (const auto&...)
+                           { waiting = false; }));
         game.ecs().write(whose_turn,
-                         mele_action(game.ecs(), whose_turn, dnode.entity,
-                                     path),
+                         std::move(action),
                          Ecs::CREATE_OR_UPDATE);
         game.turn().did_action = true;
         game.turn().did_move |= !path.empty();
@@ -433,7 +438,11 @@ Error run() {
         !game.turn().did_move && dijkstra.contains(action_pos)) {
       const DijkstraNode& dnode = dijkstra.at(action_pos);
       if (!dnode.entity && dnode.dist <= whose_turn_actor.stats.move) {
-        auto action = move_action(whose_turn, path_to(dijkstra, action_pos));
+        game.turn().waiting = true;
+        auto action = sequance_action(
+            move_action(whose_turn, path_to(dijkstra, action_pos)),
+            generic_action([&waiting = game.turn().waiting] (const auto&...)
+                           { waiting = false; }));
         game.ecs().write(whose_turn, std::move(action), Ecs::CREATE_OR_UPDATE);
         game.turn().did_move = true;
         whose_turn_state = ActorState::TAKING_TURN;
@@ -450,11 +459,6 @@ Error run() {
         whose_turn_state = ActorState::SETUP;
         std::cout << "whose_turn's finished" << std::endl;  
       }
-    }
-
-    // The next frame, a new ID will be chosen to take their turn.
-    if (whose_turn_state == ActorState::SETUP && game.turn().over()) {
-      whose_turn_state = ActorState::WAITING;
     }
 
     for (std::function<void()>& f : deferred_events) f();

@@ -15,8 +15,11 @@ struct Turn {
   bool did_pass = false;
   EntityId actor;
 
+  // True if we're waiting for some action to complete.
+  bool waiting = false;
+
   void reset() {
-    did_pass = did_action = did_move = false;
+    waiting = did_pass = did_action = did_move = false;
   }
 
   bool over() const;
