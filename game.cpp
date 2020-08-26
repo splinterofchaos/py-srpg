@@ -12,7 +12,7 @@ void Game::set_grid(Grid grid) {
     GlyphRenderConfig rc(font_map_.get(tile.glyph), tile.fg_color,
                          tile.bg_color);
     rc.center();
-    ecs().write_new_entity(Transform{pos, 0}, rc);
+    ecs().write_new_entity(Transform{pos, 0}, std::vector{rc});
   }
   grid_ = std::move(grid);
 }

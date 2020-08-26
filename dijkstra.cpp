@@ -1,5 +1,7 @@
 #include "dijkstra.h"
 
+#include "game.h"
+
 #include <deque>
 
 void DijkstraGrid::generate(const Game& game, glm::ivec2 source) {

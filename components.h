@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <vector>
 
 #include "ecs.h"
 #include "font.h"
@@ -54,7 +55,7 @@ struct Agent {
 using Ecs = EntityComponentSystem<
   GridPos,
   Transform,
-  GlyphRenderConfig,
+  std::vector<GlyphRenderConfig>,
   Actor,
   ActionPtr,
   ActorState,

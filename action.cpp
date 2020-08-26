@@ -141,7 +141,8 @@ std::unique_ptr<Action> mele_action(const Ecs& ecs, EntityId attacker,
                                  glm::vec4(8.f, 0.f, 0.f, 1.f));
             rc.center();
             EntityId damage_text =
-                game.ecs().write_new_entity(x_pos, x_transform, rc);
+                game.ecs().write_new_entity(x_pos, x_transform,
+                                            std::vector{rc});
             auto float_up = move_action(
                 damage_text, {x_pos.pos, x_pos.pos + glm::ivec2(0, 1)});
             auto expire = generic_action(

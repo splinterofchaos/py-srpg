@@ -20,6 +20,9 @@ struct GlyphRenderConfig {
   glm::vec2 top_left, bottom_right;
   glm::vec4 fg_color, bg_color;
 
+  glm::vec3 offset = glm::vec3(0.f, 0.f, 0.f);
+  float offset_scale = 1.f;
+
   GlyphRenderConfig() = default;
   GlyphRenderConfig(const Glyph& glyph, glm::vec4 fg_color,
                     glm::vec4 bg_color = glm::vec4())

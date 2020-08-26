@@ -99,8 +99,10 @@ void GlyphShaderProgram::render_glyph(
   gl::vertexAttribPointer<float>(tex_coord_attr_, 2, GL_FALSE,
                                  &Vertex::tex_coord);
 
+  pos += render_config.offset * size;
   glUniformMatrix4fv(transform_uniform_, 1, GL_FALSE,
-                     glm::value_ptr(transformation(pos, 0, size)));
+                     glm::value_ptr(transformation(
+                             pos, 0, size * render_config.offset_scale)));
 
   gl::drawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 }

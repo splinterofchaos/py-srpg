@@ -295,21 +295,36 @@ Error run() {
     Stats stats{.hp = 10, .max_hp = 10, .strength = 5, .speed = 10};
     player = game.ecs().write_new_entity(Transform{{3.f, 3.f}, -1},
                                          GridPos{{3, 3}},
-                                         rc, Actor{"player", stats},
+                                         std::vector{rc},
+                                         Actor{"player", stats},
                                          Agent{10, Team::PLAYER},
                                          ActorState::SETUP);
   }
 
   EntityId spider;
   {
-    GlyphRenderConfig rc(game.font_map().get('s'),
-                         glm::vec4(0.f, 0.2f, 0.6f, 1.f));
+    // The shape we're making here:
+    // =|=
+    // =|=
+    constexpr glm::vec4 COLOR = glm::vec4(0.f, 0.2f, 0.6f, 1.f);
+    GlyphRenderConfig rc(game.font_map().get('='),
+                         COLOR);
     rc.center();
+    std::vector<GlyphRenderConfig> rcs(4, rc);
+    rcs[0].offset = glm::vec3( 0.25f,  0.17f, 0.f);
+    rcs[1].offset = glm::vec3(-0.25f,  0.17f, 0.f);
+    rcs[2].offset = glm::vec3(-0.25f, -0.17f, 0.f);
+    rcs[3].offset = glm::vec3( 0.25f, -0.17f, 0.f);
+
+    rcs.emplace_back(game.font_map().get('|'), COLOR);
+    rcs.back().center();
+    rcs.back().offset_scale = 0.5f;
+
     Stats stats{.hp = 10, .max_hp = 10, .strength = 5, .speed = 8};
     spider = game.ecs().write_new_entity(Transform{{12.f, 12.f}, -1},
                                          GridPos{{12, 12}},
                                          Agent{8, Team::CPU},
-                                         rc, Actor{"spider", stats});
+                                         rcs, Actor{"spider", stats});
   }
 
   EntityId whose_turn;
@@ -442,10 +457,12 @@ Error run() {
 
     gl::clear();
 
-    for (const auto& [_, transform, render_config] :
-         game.ecs().read_all<Transform, GlyphRenderConfig>()) {
-      game.glyph_shader().render_glyph(game.to_graphical_pos(transform),
-                                       TILE_SIZE, render_config);
+    for (const auto& [_, transform, render_configs] :
+         game.ecs().read_all<Transform, std::vector<GlyphRenderConfig>>()) {
+      for (const GlyphRenderConfig& rc : render_configs) {
+        game.glyph_shader().render_glyph(game.to_graphical_pos(transform),
+                                         TILE_SIZE, rc);
+      }
     }
 
     if (!did_move) for (const auto& [pos, node] : dijkstra) {
