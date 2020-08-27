@@ -292,6 +292,7 @@ void make_spider(Game& game, EntityId spider) {
 
   Actor& actor = game.ecs().read_or_panic<Actor>(spider);
   actor.stats.speed -= 2;
+  actor.stats.range = 3;
   game.ecs().write(spider, actor);
 }
 
@@ -395,7 +396,7 @@ Error run() {
           auto [enemy_loc, pos] = nearest_enemy_location(
               game, dijkstra, whose_turn, Team::CPU);
           if (enemy_loc && enemy_loc->dist <=
-              whose_turn_actor.stats.move + 1) {
+              whose_turn_actor.stats.move + whose_turn_actor.stats.range) {
             action_pos = pos;
           } else if (enemy_loc) {
             action_pos = rewind_until(dijkstra, pos,
@@ -418,8 +419,16 @@ Error run() {
       if (dnode.entity &&
           (dnode.dist == 1 ||
            (!game.turn().did_move &&
-            dnode.dist <= whose_turn_actor.stats.move + 1))) {
-        Path path = dnode.dist > 1 ? path_to(dijkstra, dnode.prev) : Path{};
+            dnode.dist <= whose_turn_actor.stats.move + 
+                          whose_turn_actor.stats.range))) {
+        Path path;
+        if (dnode.dist > whose_turn_actor.stats.range) {
+          unsigned int min_travel = dnode.dist - whose_turn_actor.stats.range;
+          glm::ivec2 move_to = rewind_until(dijkstra, dnode.prev, min_travel);
+          path = path_to(dijkstra, move_to);
+
+        }
+
         game.turn().waiting = true;
         auto action = sequance_action(
             mele_action(game.ecs(), whose_turn, dnode.entity, path),
@@ -437,7 +446,8 @@ Error run() {
     if (act && whose_turn_state == ActorState::DECIDING &&
         !game.turn().did_move && dijkstra.contains(action_pos)) {
       const DijkstraNode& dnode = dijkstra.at(action_pos);
-      if (!dnode.entity && dnode.dist <= whose_turn_actor.stats.move) {
+      if (!dnode.entity &&
+          dnode.dist <= whose_turn_actor.stats.move) {
         game.turn().waiting = true;
         auto action = sequance_action(
             move_action(whose_turn, path_to(dijkstra, action_pos)),

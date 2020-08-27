@@ -94,7 +94,8 @@ std::unique_ptr<Action> mele_action(const Ecs& ecs, EntityId attacker,
 
   glm::vec2 defender_pos = ecs.read_or_panic<GridPos>(defender).pos;
   // Where the attacker will thrust towards.
-  glm::vec2 thrust_pos = (defender_pos - final_pos) * 0.3f + final_pos;
+  glm::vec2 thrust_pos = glm::normalize(defender_pos - final_pos) * 0.3f +
+                         final_pos;
 
   auto thrust = move_action(attacker, {final_pos, thrust_pos});
   auto recoil = move_action(attacker, {thrust_pos, final_pos});
