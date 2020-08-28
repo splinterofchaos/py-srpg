@@ -119,9 +119,10 @@ std::unique_ptr<Action> mele_action(const Ecs& ecs, EntityId attacker,
           return;
         }
 
-        int damage =
-          defender_actor->stats.hp < attacker_actor->stats.strength ?
-          defender_actor->stats.hp : attacker_actor->stats.strength;
+        int damage = std::min(attacker_actor->stats.strength -
+                              defender_actor->stats.defense,
+                              defender_actor->stats.hp);
+        damage = std::max(damage, 1);
 
         // We could kill the entity off here as a deferred event, but we may
         // have to check that entities don't die of non-combat related causes

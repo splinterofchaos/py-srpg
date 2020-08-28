@@ -26,6 +26,7 @@ struct Stats {
   unsigned int hp = 10, max_hp = 10;
   unsigned int move = 5;
   unsigned int range = 1;
+  unsigned int defense = 3;
   unsigned int strength = 5;
   unsigned int speed = 5;
 };

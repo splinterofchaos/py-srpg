@@ -147,6 +147,8 @@ void render_entity_desc(Game& game, EntityId id) {
                                    std::to_string(actor->stats.move)));
     lines.push_back(concat_strings("STR: ",
                                    std::to_string(actor->stats.strength)));
+    lines.push_back(concat_strings("DEF: ",
+                                   std::to_string(actor->stats.defense)));
   } else {
     lines.push_back("UNKNOWN");
   }
