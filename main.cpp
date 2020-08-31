@@ -296,6 +296,33 @@ void make_spider(Game& game, EntityId spider) {
   game.ecs().write(spider, actor);
 }
 
+struct Decision {
+  enum Type {
+    WAIT,
+    PASS,
+    MOVE_TO,
+    ATTACK_ENTITY,
+    N_TYPES
+  } type = WAIT;
+
+  union {
+    glm::ivec2 move_to;
+    EntityId attack_target;
+  };
+
+  Decision() : type(WAIT) { }
+};
+
+std::vector<EntityId> enemies_in_range(const Ecs& ecs, Team team,
+                                       glm::ivec2 pos, unsigned int range) {
+  std::vector<EntityId> enemies;
+  for (const auto& [id, grid_pos, agent] : ecs.read_all<GridPos, Agent>()) {
+    if (agent.team != team && manh_dist(pos, grid_pos.pos) <= range)
+      enemies.push_back(id);
+  }
+  return enemies;
+}
+
 Error run() {
   Graphics gfx;
   if (Error e = gfx.init(WINDOW_WIDTH, WINDOW_HEIGHT); !e.ok) return e;
@@ -387,76 +414,79 @@ Error run() {
       whose_turn_state = ActorState::DECIDING;
     }
 
-    bool act = false;
-    glm::ivec2 action_pos;
+    Decision decision;
     if (whose_turn_state == ActorState::DECIDING) {
       if (whose_turn_agent.team == Team::CPU) {
-        // Move towards the player until in range.
-        if (!game.turn().did_action && !game.turn().did_move) {
+        if (!game.turn().did_action) {
+          std::vector<EntityId> enemies =
+            enemies_in_range(game.ecs(), whose_turn_agent.team,
+                             game.ecs().read_or_panic<GridPos>(whose_turn).pos,
+                             whose_turn_actor.stats.range);
+          if (enemies.size()) {
+            decision.type = Decision::ATTACK_ENTITY;
+            decision.attack_target = enemies.front();
+          }
+        }
+
+        if (decision.type == Decision::WAIT && !game.turn().did_action &&
+            !game.turn().did_move) {
           auto [enemy_loc, pos] = nearest_enemy_location(
               game, dijkstra, whose_turn, Team::CPU);
-          if (enemy_loc && enemy_loc->dist <=
-              whose_turn_actor.stats.move + whose_turn_actor.stats.range) {
-            action_pos = pos;
-          } else if (enemy_loc) {
-            action_pos = rewind_until(dijkstra, pos,
-                                      whose_turn_actor.stats.move);
+          if (enemy_loc) {
+            decision.type = Decision::MOVE_TO;
+            decision.move_to = rewind_until(dijkstra, pos,
+                                            whose_turn_actor.stats.move);
           }
-          act = true;
         }
 
-        if (!act) game.turn().did_pass = true;
-      } else {
-        act = input.left_click;
-        action_pos = input.mouse_pos;
-        if (input.pressed(' ')) game.turn().did_pass = true;
+        if (decision.type == Decision::WAIT) decision.type = Decision::PASS;
+      } else if (whose_turn_agent.team == Team::PLAYER && input.left_click) {
+        glm::ivec2 pos = game.ecs().read_or_panic<GridPos>(whose_turn).pos;
+        auto [id, exists] = actor_at(game.ecs(), input.mouse_pos);
+        if (pos == input.mouse_pos) {
+          decision.type = Decision::PASS;
+        } else if (exists &&
+                   manh_dist(input.mouse_pos, pos) <=
+                   whose_turn_actor.stats.range) {
+          decision.type = Decision::ATTACK_ENTITY;
+          decision.attack_target = id;
+        } else if (!exists && manh_dist(pos, input.mouse_pos) <=
+                                        whose_turn_actor.stats.move) {
+          decision.type = Decision::MOVE_TO;
+          decision.move_to = input.mouse_pos;
+        }
       }
     }
 
-    if (act && whose_turn_state == ActorState::DECIDING &&
-        !game.turn().did_action && dijkstra.contains(action_pos)) {
-      const DijkstraNode& dnode = dijkstra.at(action_pos);
-      if (dnode.entity &&
-          (dnode.dist == 1 ||
-           (!game.turn().did_move &&
-            dnode.dist <= whose_turn_actor.stats.move + 
-                          whose_turn_actor.stats.range))) {
-        Path path;
-        if (dnode.dist > whose_turn_actor.stats.range) {
-          unsigned int min_travel = dnode.dist - whose_turn_actor.stats.range;
-          glm::ivec2 move_to = rewind_until(dijkstra, dnode.prev, min_travel);
-          path = path_to(dijkstra, move_to);
-
-        }
-
-        game.turn().waiting = true;
-        auto action = sequance_action(
-            mele_action(game.ecs(), whose_turn, dnode.entity, path),
-            generic_action([&waiting = game.turn().waiting] (const auto&...)
-                           { waiting = false; }));
-        game.ecs().write(whose_turn,
-                         std::move(action),
-                         Ecs::CREATE_OR_UPDATE);
-        game.turn().did_action = true;
-        game.turn().did_move |= !path.empty();
-        whose_turn_state = ActorState::TAKING_TURN;
-      }
-    }
-
-    if (act && whose_turn_state == ActorState::DECIDING &&
-        !game.turn().did_move && dijkstra.contains(action_pos)) {
-      const DijkstraNode& dnode = dijkstra.at(action_pos);
-      if (!dnode.entity &&
-          dnode.dist <= whose_turn_actor.stats.move) {
-        game.turn().waiting = true;
-        auto action = sequance_action(
-            move_action(whose_turn, path_to(dijkstra, action_pos)),
-            generic_action([&waiting = game.turn().waiting] (const auto&...)
-                           { waiting = false; }));
-        game.ecs().write(whose_turn, std::move(action), Ecs::CREATE_OR_UPDATE);
-        game.turn().did_move = true;
-        whose_turn_state = ActorState::TAKING_TURN;
-      }
+    if (whose_turn_state == ActorState::DECIDING &&
+        decision.type == Decision::PASS) {
+      game.turn().did_pass = true;
+    } else if (whose_turn_state == ActorState::DECIDING &&
+               decision.type == Decision::WAIT) {
+      // noop
+    } else if (whose_turn_state == ActorState::DECIDING &&
+               decision.type == Decision::MOVE_TO) {
+      auto action = sequance_action(
+          move_action(whose_turn, path_to(dijkstra, decision.move_to)),
+          generic_action([&waiting = game.turn().waiting] (const auto&...)
+                         { waiting = false; }));
+      game.ecs().write(whose_turn,
+                       std::move(action),
+                       Ecs::CREATE_OR_UPDATE);
+      game.turn().did_move = true;
+      whose_turn_state = ActorState::TAKING_TURN;
+    } else if (whose_turn_state == ActorState::DECIDING &&
+               decision.type == Decision::ATTACK_ENTITY) {
+      auto action = sequance_action(
+          mele_action(game.ecs(), whose_turn,
+                      decision.attack_target, Path()),
+          generic_action([&waiting = game.turn().waiting] (const auto&...)
+                         { waiting = false; }));
+      game.ecs().write(whose_turn,
+                       std::move(action),
+                       Ecs::CREATE_OR_UPDATE);
+      game.turn().did_action = true;
+      whose_turn_state = ActorState::TAKING_TURN;
     }
 
     // See Action documentation for why this exists.

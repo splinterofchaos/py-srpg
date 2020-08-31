@@ -10,6 +10,11 @@ template<typename Vec> Vec just_y(Vec v) { v.x = 0; return v; }
 template<typename Vec> Vec flip_x(Vec v) { v.x = -v.x; return v; }
 template<typename Vec> Vec flip_y(Vec v) { v.y = -v.y; return v; }
 
+template<typename Vec2>
+unsigned int manh_dist(Vec2 a, Vec2 b) {
+  return glm::abs(a.x - b.x) + glm::abs(a.y - b.y);
+}
+
 // Returns the Z-axis part of a 3D cross product.
 float cross2(const glm::vec3& a, const glm::vec3& b);
 
