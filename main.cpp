@@ -149,6 +149,7 @@ void render_entity_desc(Game& game, EntityId id) {
                                    std::to_string(actor->stats.strength)));
     lines.push_back(concat_strings("DEF: ",
                                    std::to_string(actor->stats.defense)));
+    if (actor->status.slowed) lines.push_back("slowed");
   } else {
     lines.push_back("UNKNOWN");
   }
@@ -205,13 +206,13 @@ EntityId pick_next(Ecs& ecs) {
 
   struct AgentRef {
     EntityId id;
-    unsigned int speed;
+    const Actor& actor;
     int* energy;
   };
 
   std::vector<AgentRef> agents;
   for (auto [id, actor, agent] : ecs.read_all<Actor, Agent>())
-    agents.push_back({id, actor.stats.speed, &agent.energy});
+    agents.push_back({id, actor, &agent.energy});
 
   if (agents.empty()) return EntityId();
 
@@ -219,7 +220,7 @@ EntityId pick_next(Ecs& ecs) {
   EntityId max_id;
   while (!max_agent || *max_agent->energy < THRESHHOLD) {
     for (AgentRef& a : agents) {
-      *a.energy += a.speed;
+      *a.energy += a.actor.stats.speed * (a.actor.status.slowed ? 0.5f : 1.f);
       if (!max_agent || *a.energy > *max_agent->energy) {
         max_agent = &a;
       }
@@ -263,7 +264,7 @@ struct UserInput {
 EntityId spawn_agent(Game& game, std::string name, glm::ivec2 pos, Team team) {
   return game.ecs().write_new_entity(Transform{glm::vec2(pos), -1},
                                      GridPos{pos},
-                                     Actor{std::move(name), Stats()},
+                                     Actor(std::move(name), Stats()),
                                      Agent{0, team});
 }
 
@@ -301,6 +302,7 @@ void make_spider(Game& game, EntityId spider) {
   Actor& actor = game.ecs().read_or_panic<Actor>(spider);
   actor.stats.speed -= 2;
   actor.stats.range = 3;
+  actor.embue.slowed = true;
   game.ecs().write(spider, actor);
 }
 

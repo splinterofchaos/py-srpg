@@ -119,6 +119,8 @@ std::unique_ptr<Action> mele_action(const Ecs& ecs, EntityId attacker,
           return;
         }
 
+        defender_actor->status = attacker_actor->embue;
+
         int damage = std::min(attacker_actor->stats.strength -
                               defender_actor->stats.defense,
                               defender_actor->stats.hp);

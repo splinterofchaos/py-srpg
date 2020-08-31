@@ -40,10 +40,21 @@ enum ActorState {
   N_ACTOR_STATES
 };
 
+struct StatusEffect {
+  bool slowed = false;
+};
+
 // Identifies that an entity is an actor.
 struct Actor {
   std::string name;
   Stats stats;
+
+  StatusEffect status;
+  StatusEffect embue;
+
+  Actor(std::string name, Stats stats)
+      : name(std::move(name)), stats(stats) {
+  }
 };
 
 enum class Team { PLAYER, CPU };
