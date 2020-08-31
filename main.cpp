@@ -203,29 +203,35 @@ void render_entity_desc(Game& game, EntityId id) {
 EntityId pick_next(Ecs& ecs) {
   constexpr int THRESHHOLD = 1000;
 
-  std::vector<std::pair<EntityId, int*>> energies;
-  for (auto [id, agent] : ecs.read_all<Agent>())
-    energies.emplace_back(id, &agent.energy);
-
-  if (energies.empty()) return EntityId();
-  
-  auto cmp = [](const auto& id_energy_a, const auto& id_energy_b) {
-    return std::make_pair(*id_energy_a.second, id_energy_a.first) <
-           std::make_pair(*id_energy_b.second, id_energy_b.first);
+  struct AgentRef {
+    EntityId id;
+    unsigned int speed;
+    int* energy;
   };
-  sort(energies, cmp);
 
-  unsigned int energy_taken =
-    std::max(1, THRESHHOLD - *energies.back().second);
-  for (auto& id_energy : energies) *id_energy.second += energy_taken;
+  std::vector<AgentRef> agents;
+  for (auto [id, actor, agent] : ecs.read_all<Actor, Agent>())
+    agents.push_back({id, actor.stats.speed, &agent.energy});
 
+  if (agents.empty()) return EntityId();
 
-  const auto& [id, energy] = energies.back();
-  *energy -= THRESHHOLD;
-  *energy += ecs.read_or_panic<Actor>(id).stats.speed;
+  AgentRef* max_agent = nullptr;
+  EntityId max_id;
+  while (!max_agent || *max_agent->energy < THRESHHOLD) {
+    for (AgentRef& a : agents) {
+      *a.energy += a.speed;
+      if (!max_agent || *a.energy > *max_agent->energy) {
+        max_agent = &a;
+      }
+    }
+  }
 
-  ecs.write(id, ActorState::SETUP, Ecs::CREATE_OR_UPDATE);
-  return id;
+  if (!max_agent) return EntityId();
+
+  *max_agent->energy -= THRESHHOLD;
+  
+  ecs.write(max_agent->id, ActorState::SETUP, Ecs::CREATE_OR_UPDATE);
+  return max_agent->id;
 }
 
 struct UserInput {
@@ -413,6 +419,7 @@ Error run() {
       const GridPos& grid_pos = game.ecs().read_or_panic<GridPos>(whose_turn);
       std::cout << "Generating new dijkstra" << std::endl;
       dijkstra.generate(game, grid_pos.pos);
+      std::cout << "generated" << std::endl;
       whose_turn_state = ActorState::DECIDING;
     }
 
