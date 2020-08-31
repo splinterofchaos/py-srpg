@@ -445,7 +445,7 @@ Error run() {
         auto [id, exists] = actor_at(game.ecs(), input.mouse_pos);
         if (pos == input.mouse_pos) {
           decision.type = Decision::PASS;
-        } else if (exists &&
+        } else if (exists && !game.turn().did_action &&
                    manh_dist(input.mouse_pos, pos) <=
                    whose_turn_actor.stats.range) {
           decision.type = Decision::ATTACK_ENTITY;
