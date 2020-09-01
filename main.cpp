@@ -290,7 +290,6 @@ void make_human(Game& game, EntityId human) {
   game.ecs().write(human, std::vector{std::move(rc)}, Ecs::CREATE_OR_UPDATE);
 
   Actor& actor = game.ecs().read_or_panic<Actor>(human);
-  actor.stats.speed += 5;
   game.ecs().write(human, actor);
 }
 
@@ -386,8 +385,14 @@ Error run() {
   // are just used for rendering.
   game.set_grid(arena_grid({50, 50}, wall, floor));
 
-  make_human(game, spawn_agent(game, "me!", {3, 3}, Team::PLAYER));
+  make_human(game, spawn_agent(game, "Joe", {3, 3}, Team::PLAYER));
+  make_human(game, spawn_agent(game, "Joa", {4, 3}, Team::PLAYER));
+  make_human(game, spawn_agent(game, "Jor", {5, 3}, Team::PLAYER));
+
   make_spider(game, spawn_agent(game, "spider", {12, 12}, Team::CPU));
+  make_spider(game, spawn_agent(game, "spiider", {10, 12}, Team::CPU));
+  make_spider(game, spawn_agent(game, "spidery", {10, 10}, Team::CPU));
+
 
   EntityId whose_turn;
   DijkstraGrid dijkstra;
