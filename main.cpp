@@ -473,6 +473,7 @@ Error run() {
         if (pos == input.mouse_pos) {
           decision.type = Decision::PASS;
         } else if (exists && !game.turn().did_action &&
+                   game.ecs().read_or_panic<Agent>(id).team != Team::PLAYER &&
                    manh_dist(input.mouse_pos, pos) <=
                    whose_turn_actor.stats.range) {
           decision.type = Decision::ATTACK_ENTITY;
