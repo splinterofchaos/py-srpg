@@ -462,12 +462,16 @@ Error run() {
 
         if (decision.type == Decision::WAIT && !game.turn().did_action &&
             !game.turn().did_move) {
-          auto [enemy_loc, pos] = nearest_enemy_location(
-              game, dijkstra, whose_turn, Team::CPU);
+          auto [enemy_loc, enemy_pos] = nearest_enemy_location(
+              game, dijkstra, whose_turn, whose_turn_agent.team);
           if (enemy_loc) {
             decision.type = Decision::MOVE_TO;
-            decision.move_to = rewind_until(dijkstra, pos,
-                                            whose_turn_actor.stats.move);
+            decision.move_to = rewind_until(
+                dijkstra, enemy_pos,
+                [&](glm::ivec2 pos, const DijkstraNode& node) {
+                    return pos != enemy_pos &&
+                        node.dist <= whose_turn_actor.stats.move;
+                });
           }
         }
 

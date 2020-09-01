@@ -64,16 +64,6 @@ glm::ivec2 rewind(const DijkstraGrid& dijkstra, glm::ivec2 pos,
   return pos;
 }
 
-glm::ivec2 rewind_until(const DijkstraGrid& dijkstra, glm::ivec2 pos,
-                        unsigned int n) {
-  const DijkstraNode* node = &dijkstra.at(pos);
-  while (node->dist > n) {
-    pos = node->prev;
-    node = &dijkstra.at(pos);
-  }
-  return pos;
-}
-
 std::pair<const DijkstraNode*, glm::ivec2>
 nearest_enemy_location(const Game& game, const DijkstraGrid& dijkstra,
                        EntityId my_id, Team my_team) {

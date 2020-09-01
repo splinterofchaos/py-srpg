@@ -45,8 +45,17 @@ glm::ivec2 rewind(const DijkstraGrid& dijkstra, glm::ivec2 pos,
                   unsigned int n);
 
 // Roll down the dijkstra graph to get a point no further from source() than n.
+template<typename Pred>
 glm::ivec2 rewind_until(const DijkstraGrid& dijkstra, glm::ivec2 pos,
-                        unsigned int n);
+                        Pred pred) {
+  const DijkstraNode* node = &dijkstra.at(pos);
+  while (node->dist > 0 && !pred(pos, *node)) {
+    pos = node->prev;
+    node = &dijkstra.at(pos);
+  }
+
+  return pos;
+}
 
 // Returns the location of the closest attacking target for AI.
 std::pair<const DijkstraNode*, glm::ivec2>
