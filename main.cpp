@@ -551,11 +551,16 @@ Error run() {
     }
 
     if (!game.turn().did_move) for (const auto& [pos, node] : dijkstra) {
-      if (node.dist > whose_turn_actor.stats.move) continue;
-      game.marker_shader().render_marker(
-          game.to_graphical_pos(pos, 0),
-          TILE_SIZE, glm::vec4(0.1f, 0.2f, 0.4f, 0.5f));
+      if (!node.dist || node.dist > whose_turn_actor.stats.move) continue;
+      glm::vec4 color = node.dist ? glm::vec4(0.1f, 0.2f, 0.4f, 0.5f)
+                                  : glm::vec4(1.f, 1.f, 1.f, 0.3f);
+      game.marker_shader().render_marker(game.to_graphical_pos(pos, 0),
+                                         TILE_SIZE, color);
     }
+    game.marker_shader().render_marker(
+        game.to_graphical_pos(
+            game.ecs().read_or_panic<Transform>(whose_turn)),
+        TILE_SIZE, glm::vec4(1.f, 1.f, 1.f, 0.1f));
 
     game.marker_shader().render_marker(
         game.to_graphical_pos(input.mouse_pos, 0),
