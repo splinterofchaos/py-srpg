@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <iterator>
 #include <tuple>
 #include <vector>
 
@@ -65,6 +66,13 @@ void sort(Container& c, Compare&& cmp) {
   using std::begin;
   using std::end;
   std::sort(begin(c), end(c), std::forward<Compare>(cmp));
+}
+
+template<typename DstContainer, typename SrcContainer>
+void copy_to(DstContainer& dst, const SrcContainer& src) {
+  using std::begin;
+  using std::end;
+  std::copy(begin(src), end(src), std::back_inserter(dst));
 }
 
 template<typename Container, typename T, typename Transform>

@@ -41,6 +41,9 @@ enum ActorState {
 };
 
 struct StatusEffect {
+  // The number of game ticks for this effect to be around. If in Actor::embue,
+  // this relates to how many ticks it will take to expire.
+  int ticks_left;
   bool slowed = false;
 };
 
@@ -49,7 +52,7 @@ struct Actor {
   std::string name;
   Stats stats;
 
-  StatusEffect status;
+  std::vector<StatusEffect> statuses;
   StatusEffect embue;
 
   Actor(std::string name, Stats stats)
