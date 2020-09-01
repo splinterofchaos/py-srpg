@@ -280,7 +280,7 @@ EntityId spawn_agent(Game& game, std::string name, glm::ivec2 pos, Team team) {
   return game.ecs().write_new_entity(Transform{glm::vec2(pos), -1},
                                      GridPos{pos},
                                      Actor(std::move(name), Stats()),
-                                     Agent{0, team});
+                                     Agent(team));
 }
 
 void make_human(Game& game, EntityId human) {

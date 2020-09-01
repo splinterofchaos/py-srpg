@@ -64,9 +64,17 @@ enum class Team { PLAYER, CPU };
 
 // The agent controls when an actor gets to take its turn and how.
 struct Agent {
+  // TODO: When an agent is attacked, it should lose energy, but it should also
+  // build "breaking" which, when full, would allow that unit to act
+  // immediately.
   int energy = 0;
+  int breaking = 0;
 
   Team team;
+
+  Agent(Team team) {
+    this->team = team;
+  }
 };
 
 using Ecs = EntityComponentSystem<
