@@ -26,8 +26,9 @@ void DijkstraGrid::generate(const Game& game, glm::ivec2 source) {
 
     nodes_[pos] = DijkstraNode{prev, dist, actor_at(game.ecs(), pos).first};
 
-    for (glm::ivec2 next_pos : adjacent_positions(pos))
-      Q.push_back({next_pos, pos, dist + 1});
+    if (pos == source || !nodes_[pos].entity)
+      for (glm::ivec2 next_pos : adjacent_positions(pos))
+        Q.push_back({next_pos, pos, dist + 1});
   }
 }
 
