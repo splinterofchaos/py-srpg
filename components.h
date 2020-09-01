@@ -26,6 +26,7 @@ struct Stats {
   unsigned int hp = 10, max_hp = 10;
   unsigned int move = 5;
   unsigned int range = 1;
+  unsigned int defense = 3;
   unsigned int strength = 5;
   unsigned int speed = 5;
 };
@@ -39,10 +40,24 @@ enum ActorState {
   N_ACTOR_STATES
 };
 
+struct StatusEffect {
+  // The number of game ticks for this effect to be around. If in Actor::embue,
+  // this relates to how many ticks it will take to expire.
+  int ticks_left;
+  bool slowed = false;
+};
+
 // Identifies that an entity is an actor.
 struct Actor {
   std::string name;
   Stats stats;
+
+  std::vector<StatusEffect> statuses;
+  StatusEffect embue;
+
+  Actor(std::string name, Stats stats)
+      : name(std::move(name)), stats(stats) {
+  }
 };
 
 enum class Team { PLAYER, CPU };

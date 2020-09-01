@@ -147,6 +147,15 @@ void render_entity_desc(Game& game, EntityId id) {
                                    std::to_string(actor->stats.move)));
     lines.push_back(concat_strings("STR: ",
                                    std::to_string(actor->stats.strength)));
+    lines.push_back(concat_strings("DEF: ",
+                                   std::to_string(actor->stats.defense)));
+
+    std::unordered_set<std::string> stat_effs;
+    for (const StatusEffect& eff : actor->statuses) {
+      if (eff.slowed) stat_effs.emplace("slowed");
+    }
+
+    copy_to(lines, stat_effs);
   } else {
     lines.push_back("UNKNOWN");
   }
@@ -187,10 +196,10 @@ void render_entity_desc(Game& game, EntityId id) {
 }
 
 // When an actor wants to take a turn, its "SPD" or "speed" stat contributes to
-// its initial "energy" which then accrues over time. One tick, one energy. The
-// entity with the most energy, or more than a given threshold, shall go next
-// and then have its energy reverted to the value of its speed. Ties are won by
-// the entity with the smallest ID.
+// its initial "energy" which then accrues over time. One tick, speed energy.
+// The entity with the most energy after any has more than ENERGY_REQUIRED
+// shall go next and then have its energy reverted to the value of its speed.
+// Ties are won by the entity with the smallest ID.
 //
 // At least one tick shall pass between turns. If an entity's energy is above
 // the threshold, after its turn, its energy becomes the overflow plus its
@@ -198,32 +207,47 @@ void render_entity_desc(Game& game, EntityId id) {
 //
 // The goal is that an entity with twice the speed of another shall move
 // roughly twice as often.
-EntityId pick_next(Ecs& ecs) {
-  constexpr int THRESHHOLD = 1000;
+constexpr int ENERGY_REQUIRED = 1000;
 
-  std::vector<std::pair<EntityId, int*>> energies;
-  for (auto [id, agent] : ecs.read_all<Agent>())
-    energies.emplace_back(id, &agent.energy);
-
-  if (energies.empty()) return EntityId();
-  
-  auto cmp = [](const auto& id_energy_a, const auto& id_energy_b) {
-    return std::make_pair(*id_energy_a.second, id_energy_a.first) <
-           std::make_pair(*id_energy_b.second, id_energy_b.first);
+EntityId advance_until_next_turn(Ecs& ecs) {
+  struct AgentRef {
+    EntityId id;
+    Actor& actor;
+    int* energy;
   };
-  sort(energies, cmp);
 
-  unsigned int energy_taken =
-    std::max(1, THRESHHOLD - *energies.back().second);
-  for (auto& id_energy : energies) *id_energy.second += energy_taken;
+  std::vector<AgentRef> agents;
+  for (auto [id, actor, agent] : ecs.read_all<Actor, Agent>())
+    agents.push_back({id, actor, &agent.energy});
 
+  if (agents.empty()) return EntityId();
 
-  const auto& [id, energy] = energies.back();
-  *energy -= THRESHHOLD;
-  *energy += ecs.read_or_panic<Actor>(id).stats.speed;
+  AgentRef* max_agent = nullptr;
+  EntityId max_id;
+  while (!max_agent || *max_agent->energy < ENERGY_REQUIRED) {
+    for (AgentRef& a : agents) {
+      unsigned int speed = a.actor.stats.speed;
 
-  ecs.write(id, ActorState::SETUP, Ecs::CREATE_OR_UPDATE);
-  return id;
+      // Expire status effects.
+      for (StatusEffect& eff : a.actor.statuses) {
+        --eff.ticks_left;
+        if (eff.slowed) speed /= 2;
+      }
+      std::erase_if(
+          a.actor.statuses,
+          [](const StatusEffect& eff) { return eff.ticks_left <= 0; });
+
+      *a.energy += speed;
+      if (!max_agent || *a.energy > *max_agent->energy) max_agent = &a;
+    }
+  }
+
+  if (!max_agent) return EntityId();
+
+  *max_agent->energy -= ENERGY_REQUIRED;
+  
+  ecs.write(max_agent->id, ActorState::SETUP, Ecs::CREATE_OR_UPDATE);
+  return max_agent->id;
 }
 
 struct UserInput {
@@ -255,7 +279,7 @@ struct UserInput {
 EntityId spawn_agent(Game& game, std::string name, glm::ivec2 pos, Team team) {
   return game.ecs().write_new_entity(Transform{glm::vec2(pos), -1},
                                      GridPos{pos},
-                                     Actor{std::move(name), Stats()},
+                                     Actor(std::move(name), Stats()),
                                      Agent{0, team});
 }
 
@@ -293,6 +317,8 @@ void make_spider(Game& game, EntityId spider) {
   Actor& actor = game.ecs().read_or_panic<Actor>(spider);
   actor.stats.speed -= 2;
   actor.stats.range = 3;
+  actor.embue.slowed = true;
+  actor.embue.ticks_left = ENERGY_REQUIRED / 5;
   game.ecs().write(spider, actor);
 }
 
@@ -391,7 +417,7 @@ Error run() {
       std::chrono::duration_cast<std::chrono::milliseconds>(new_time - t);
 
     if (game.turn().over() || !game.ecs().is_active(whose_turn)) {
-      whose_turn = pick_next(game.ecs());
+      whose_turn = advance_until_next_turn(game.ecs());
       if (whose_turn.id == EntityId::NOT_AN_ID)
         return Error("No one left alive");
 
@@ -411,6 +437,7 @@ Error run() {
       const GridPos& grid_pos = game.ecs().read_or_panic<GridPos>(whose_turn);
       std::cout << "Generating new dijkstra" << std::endl;
       dijkstra.generate(game, grid_pos.pos);
+      std::cout << "generated" << std::endl;
       whose_turn_state = ActorState::DECIDING;
     }
 
