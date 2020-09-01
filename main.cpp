@@ -507,6 +507,7 @@ Error run() {
                        std::move(action),
                        Ecs::CREATE_OR_UPDATE);
       game.turn().did_move = true;
+      game.turn().waiting = true;
       whose_turn_state = ActorState::TAKING_TURN;
     } else if (whose_turn_state == ActorState::DECIDING &&
                decision.type == Decision::ATTACK_ENTITY) {
@@ -519,6 +520,7 @@ Error run() {
                        std::move(action),
                        Ecs::CREATE_OR_UPDATE);
       game.turn().did_action = true;
+      game.turn().waiting = true;
       whose_turn_state = ActorState::TAKING_TURN;
     }
 
