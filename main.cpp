@@ -457,6 +457,11 @@ Error run() {
       game.ecs().read_or_panic<Actor>(whose_turn);
     const Agent& whose_turn_agent =
       game.ecs().read_or_panic<Agent>(whose_turn);
+    const Transform& whose_turn_trans =
+      game.ecs().read_or_panic<Transform>(whose_turn);
+
+    game.camera_offset() = glm::vec2(whose_turn_trans.pos.x * TILE_SIZE,
+                                     whose_turn_trans.pos.y * TILE_SIZE);
 
     if (whose_turn_state == ActorState::SETUP) {
       const GridPos& grid_pos = game.ecs().read_or_panic<GridPos>(whose_turn);

@@ -57,6 +57,7 @@ public:
   FontMap& text_font_map() { return text_font_map_; }
   const FontMap& text_font_map() const { return text_font_map_; }
 
+  glm::vec2& camera_offset() { return camera_offset_; }
   const glm::vec2& camera_offset() const { return camera_offset_; }
 
   glm::vec3 to_graphical_pos(glm::vec2 pos, int z) const {
