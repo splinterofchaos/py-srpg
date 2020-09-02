@@ -321,6 +321,26 @@ void make_spider(Game& game, EntityId spider) {
   game.ecs().write(spider, actor);
 }
 
+void make_bat(Game& game, EntityId bat) {
+  // It should look like this: ^O^
+  constexpr glm::vec4 COLOR = glm::vec4(0.f, 0.2f, 0.6f, 1.f);
+  GlyphRenderConfig wing_rc(game.font_map().get('^'), COLOR);
+  wing_rc.center();
+
+  std::vector<GlyphRenderConfig> rcs(2, wing_rc);
+  rcs[0].offset = glm::vec3( 0.3f, 0.1f, 0.f);
+  rcs[1].offset = glm::vec3(-0.3f, 0.1f, 0.f);
+
+  rcs.push_back(GlyphRenderConfig(game.font_map().get('o'), COLOR));
+  rcs.back().center();
+
+  game.ecs().write(bat, std::move(rcs), Ecs::CREATE_OR_UPDATE);
+
+  Actor& actor = game.ecs().read_or_panic<Actor>(bat);
+  actor.stats.speed += 2;
+  game.ecs().write(bat, actor);
+}
+
 struct Decision {
   enum Type {
     WAIT,
@@ -391,7 +411,7 @@ Error run() {
 
   make_spider(game, spawn_agent(game, "spider", {12, 12}, Team::CPU));
   make_spider(game, spawn_agent(game, "spiider", {10, 12}, Team::CPU));
-  make_spider(game, spawn_agent(game, "spidery", {10, 10}, Team::CPU));
+  make_bat(game, spawn_agent(game, "bat", {10, 10}, Team::CPU));
 
 
   EntityId whose_turn;
