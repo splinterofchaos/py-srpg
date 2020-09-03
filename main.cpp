@@ -358,6 +358,29 @@ struct Decision {
   Decision() : type(WAIT) { }
 };
 
+Decision player_decision(const Game& game, EntityId id, const UserInput& input) {
+  Decision decision;
+  if (!input.left_click) return decision;
+
+  glm::ivec2 pos = game.ecs().read_or_panic<GridPos>(id).pos;
+  auto [enemy, exists] = actor_at(game.ecs(), input.mouse_pos);
+
+  const Actor& actor = game.ecs().read_or_panic<Actor>(id);
+  if (pos == input.mouse_pos) {
+    decision.type = Decision::PASS;
+  } else if (exists && !game.turn().did_action &&
+             game.ecs().read_or_panic<Agent>(enemy).team != Team::PLAYER &&
+             manh_dist(input.mouse_pos, pos) <= actor.stats.range) {
+    decision.type = Decision::ATTACK_ENTITY;
+    decision.attack_target = enemy;
+  } else if (!exists && manh_dist(pos, input.mouse_pos) <= actor.stats.move) {
+    decision.type = Decision::MOVE_TO;
+    decision.move_to = input.mouse_pos;
+  }
+
+  return decision;
+}
+
 std::vector<EntityId> enemies_in_range(const Ecs& ecs, Team team,
                                        glm::ivec2 pos, unsigned int range) {
   std::vector<EntityId> enemies;
@@ -366,6 +389,44 @@ std::vector<EntityId> enemies_in_range(const Ecs& ecs, Team team,
       enemies.push_back(id);
   }
   return enemies;
+}
+
+Decision cpu_decision(const Game& game, const DijkstraGrid& dijkstra,
+                      EntityId id) {
+  Decision decision;
+
+  const Agent& agent = game.ecs().read_or_panic<Agent>(id);
+  const Actor& actor = game.ecs().read_or_panic<Actor>(id);
+
+  if (!game.turn().did_action) {
+    std::vector<EntityId> enemies =
+      enemies_in_range(game.ecs(), agent.team,
+                       game.ecs().read_or_panic<GridPos>(id).pos,
+                       actor.stats.range);
+    if (enemies.size()) {
+      decision.type = Decision::ATTACK_ENTITY;
+      decision.attack_target = enemies.front();
+    }
+  }
+
+  if (decision.type == Decision::WAIT && !game.turn().did_action &&
+      !game.turn().did_move) {
+    auto [enemy_loc, enemy_pos] = nearest_enemy_location(game, dijkstra, id,
+                                                         agent.team);
+    if (enemy_loc) {
+      decision.type = Decision::MOVE_TO;
+      decision.move_to = rewind_until(
+          dijkstra, enemy_pos,
+          [&](glm::ivec2 pos, const DijkstraNode& node) {
+          return pos != enemy_pos &&
+          node.dist <= actor.stats.move;
+          });
+    }
+  }
+
+  if (decision.type == Decision::WAIT) decision.type = Decision::PASS;
+
+  return decision;
 }
 
 Error run() {
@@ -473,49 +534,9 @@ Error run() {
     Decision decision;
     if (whose_turn_state == ActorState::DECIDING) {
       if (whose_turn_agent.team == Team::CPU) {
-        if (!game.turn().did_action) {
-          std::vector<EntityId> enemies =
-            enemies_in_range(game.ecs(), whose_turn_agent.team,
-                             game.ecs().read_or_panic<GridPos>(whose_turn).pos,
-                             whose_turn_actor.stats.range);
-          if (enemies.size()) {
-            decision.type = Decision::ATTACK_ENTITY;
-            decision.attack_target = enemies.front();
-          }
-        }
-
-        if (decision.type == Decision::WAIT && !game.turn().did_action &&
-            !game.turn().did_move) {
-          auto [enemy_loc, enemy_pos] = nearest_enemy_location(
-              game, dijkstra, whose_turn, whose_turn_agent.team);
-          if (enemy_loc) {
-            decision.type = Decision::MOVE_TO;
-            decision.move_to = rewind_until(
-                dijkstra, enemy_pos,
-                [&](glm::ivec2 pos, const DijkstraNode& node) {
-                    return pos != enemy_pos &&
-                        node.dist <= whose_turn_actor.stats.move;
-                });
-          }
-        }
-
-        if (decision.type == Decision::WAIT) decision.type = Decision::PASS;
-      } else if (whose_turn_agent.team == Team::PLAYER && input.left_click) {
-        glm::ivec2 pos = game.ecs().read_or_panic<GridPos>(whose_turn).pos;
-        auto [id, exists] = actor_at(game.ecs(), input.mouse_pos);
-        if (pos == input.mouse_pos) {
-          decision.type = Decision::PASS;
-        } else if (exists && !game.turn().did_action &&
-                   game.ecs().read_or_panic<Agent>(id).team != Team::PLAYER &&
-                   manh_dist(input.mouse_pos, pos) <=
-                   whose_turn_actor.stats.range) {
-          decision.type = Decision::ATTACK_ENTITY;
-          decision.attack_target = id;
-        } else if (!exists && manh_dist(pos, input.mouse_pos) <=
-                                        whose_turn_actor.stats.move) {
-          decision.type = Decision::MOVE_TO;
-          decision.move_to = input.mouse_pos;
-        }
+        decision = cpu_decision(game, dijkstra, whose_turn);
+      } else if (whose_turn_agent.team == Team::PLAYER) {
+        decision = player_decision(game, whose_turn, input);
       }
     }
 
