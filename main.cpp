@@ -403,7 +403,7 @@ Error run() {
   // Also note that the grid represents actual tile data so we don't have to
   // search the ECS every time we want to check a tile. The entities themselves
   // are just used for rendering.
-  game.set_grid(arena_grid({50, 50}, wall, floor));
+  game.set_grid(arena_grid({24, 24}, wall, floor));
 
   make_human(game, spawn_agent(game, "Joe", {3, 3}, Team::PLAYER));
   make_human(game, spawn_agent(game, "Joa", {4, 3}, Team::PLAYER));
@@ -460,8 +460,7 @@ Error run() {
     const Transform& whose_turn_trans =
       game.ecs().read_or_panic<Transform>(whose_turn);
 
-    game.camera_offset() = glm::vec2(whose_turn_trans.pos.x * TILE_SIZE,
-                                     whose_turn_trans.pos.y * TILE_SIZE);
+    game.lerp_camera_toward(whose_turn_trans.pos, 0.001f, dt);
 
     if (whose_turn_state == ActorState::SETUP) {
       const GridPos& grid_pos = game.ecs().read_or_panic<GridPos>(whose_turn);
