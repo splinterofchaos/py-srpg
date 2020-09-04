@@ -43,8 +43,8 @@ void Game::smooth_camera_towards(glm::ivec2 pos,
   float t = camera_center_watch_.ratio_consumed();
   camera_offset_ = glm::mix(glm::vec2(camera_initial_offset_),
                             glm::vec2(camera_target_),
-                            glm::smoothstep(0.f, 1.f, glm::sqrt(t)));
-  camera_target_ *= TILE_SIZE;
+                            glm::smoothstep(0.f, 1.f, t));
+  camera_offset_ *= TILE_SIZE;
 }
 
 std::pair<EntityId, bool> actor_at(const Ecs& ecs, glm::ivec2 pos) {

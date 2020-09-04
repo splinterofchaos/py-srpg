@@ -39,8 +39,8 @@ class Game {
   FontMap text_font_map_;  // Font for text rendering.
 
   glm::vec2 camera_offset_ = glm::vec2(0.95f, 0.95f);
-  glm::vec2 camera_initial_offset_;
-  glm::vec2 camera_target_;
+  glm::vec2 camera_initial_offset_ = glm::vec2(0.f, 0.f);
+  glm::vec2 camera_target_ = glm::vec2(0.f, 0.f);
   StopWatch camera_center_watch_ = std::chrono::milliseconds(1000);
 
 public:
