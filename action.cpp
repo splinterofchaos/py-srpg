@@ -75,10 +75,62 @@ public:
   }
 };
 
-
 std::unique_ptr<Action> move_action(EntityId actor, Path path,
                                     bool change_final_position) {
   return std::make_unique<MoveAction>(actor, path, change_final_position);
+}
+
+std::unique_ptr<Action> hp_change_action(EntityId attacker, EntityId defender,
+                                         int change) {
+  return generic_action(
+      [attacker, defender, change]
+      (Game& game, float,
+       std::vector<std::function<void()>>& deferred_events) {
+        Actor* defender_actor;
+        GridPos* defender_pos;
+        if (game.ecs().read(defender, &defender_actor, &defender_pos) !=
+            EcsError::OK) {
+          std::cerr << "Could not read defender's stats or position!"
+                    << std::endl;
+          return;
+        }
+
+        Actor* attacker_actor;
+        if (game.ecs().read(attacker, &attacker_actor) != EcsError::OK) {
+          std::cerr << "Could not read defender's stats!" << std::endl;
+          return;
+        }
+
+        defender_actor->statuses.push_back(attacker_actor->embue);
+
+        // We could kill the entity off here as a deferred event, but we may
+        // have to check that entities don't die of non-combat related causes
+        // anyway so let's not bother.
+        defender_actor->stats.hp -= change;
+
+        // Spawn a "-X" to appear over the defender.
+        deferred_events.push_back([change, defender_pos, &game] {
+            GridPos x_pos{defender_pos->pos + glm::ivec2(0, 1)};
+            Transform x_transform{glm::vec2(x_pos.pos), 1};
+            // TODO: Obviously, we want to support multi-digit change.
+            GlyphRenderConfig rc(game.font_map().get('0' + change),
+                                 glm::vec4(8.f, 0.f, 0.f, 1.f));
+            rc.center();
+            EntityId damage_text =
+                game.ecs().write_new_entity(x_pos, x_transform,
+                                            std::vector{rc});
+            auto float_up = move_action(
+                damage_text, {x_pos.pos, x_pos.pos + glm::ivec2(0, 1)});
+            auto expire = generic_action(
+                [damage_text]
+                (Game& game, float, std::vector<std::function<void()>>&) {
+                  game.ecs().mark_to_delete(damage_text);
+                });
+            auto seq = sequance_action(std::move(float_up), std::move(expire));
+            game.ecs().write(damage_text, std::move(seq), Ecs::CREATE_ENTRY);
+        });
+      }
+  );
 }
 
 std::unique_ptr<Action> mele_action(const Ecs& ecs, EntityId attacker,
@@ -100,60 +152,15 @@ std::unique_ptr<Action> mele_action(const Ecs& ecs, EntityId attacker,
   auto thrust = move_action(attacker, {final_pos, thrust_pos});
   auto recoil = move_action(attacker, {thrust_pos, final_pos});
 
-  auto deal_damage = generic_action(
-      [attacker, defender]
-      (Game& game, float,
-       std::vector<std::function<void()>>& deferred_events) {
-        Actor* defender_actor;
-        GridPos* defender_pos;
-        if (game.ecs().read(defender, &defender_actor, &defender_pos) !=
-            EcsError::OK) {
-          std::cerr << "Could not read defender's stats or position!"
-                    << std::endl;
-          return;
-        }
+  const Actor& defender_actor = ecs.read_or_panic<Actor>(defender);
+  const Actor& attacker_actor = ecs.read_or_panic<Actor>(attacker);
 
-        Actor* attacker_actor;
-        if (game.ecs().read(attacker, &attacker_actor) != EcsError::OK) {
-          std::cerr << "Could not read defender's stats!" << std::endl;
-          return;
-        }
+  int damage = std::min(attacker_actor.stats.strength -
+                        defender_actor.stats.defense,
+                        defender_actor.stats.hp);
+  damage = std::max(damage, 1);
 
-        defender_actor->statuses.push_back(attacker_actor->embue);
-
-        int damage = std::min(attacker_actor->stats.strength -
-                              defender_actor->stats.defense,
-                              defender_actor->stats.hp);
-        damage = std::max(damage, 1);
-
-        // We could kill the entity off here as a deferred event, but we may
-        // have to check that entities don't die of non-combat related causes
-        // anyway so let's not bother.
-        defender_actor->stats.hp -= damage;
-
-        // Spawn a "-X" to appear over the defender.
-        deferred_events.push_back([damage, defender_pos, &game] {
-            GridPos x_pos{defender_pos->pos + glm::ivec2(0, 1)};
-            Transform x_transform{glm::vec2(x_pos.pos), 1};
-            // TODO: Obviously, we want to support multi-digit damage.
-            GlyphRenderConfig rc(game.font_map().get('0' + damage),
-                                 glm::vec4(8.f, 0.f, 0.f, 1.f));
-            rc.center();
-            EntityId damage_text =
-                game.ecs().write_new_entity(x_pos, x_transform,
-                                            std::vector{rc});
-            auto float_up = move_action(
-                damage_text, {x_pos.pos, x_pos.pos + glm::ivec2(0, 1)});
-            auto expire = generic_action(
-                [damage_text]
-                (Game& game, float, std::vector<std::function<void()>>&) {
-                  game.ecs().mark_to_delete(damage_text);
-                });
-            auto seq = sequance_action(std::move(float_up), std::move(expire));
-            game.ecs().write(damage_text, std::move(seq), Ecs::CREATE_ENTRY);
-        });
-      }
-  );
+  auto deal_damage = hp_change_action(attacker, defender, damage);
 
   SequnceAction s;
   if (move_to_position) s.push_back(std::move(move_to_position));
