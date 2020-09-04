@@ -36,8 +36,7 @@ void Game::set_camera_target(glm::vec2 pos) {
   camera_initial_offset_ = camera_offset_ / TILE_SIZE;
 }
 
-void Game::smooth_camera_towards(glm::ivec2 pos,
-                                 std::chrono::milliseconds ms) {
+void Game::smooth_camera_towards_target(std::chrono::milliseconds ms) {
   if (camera_center_watch_.finished()) return;
   camera_center_watch_.consume(ms);
   float t = camera_center_watch_.ratio_consumed();

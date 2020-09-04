@@ -70,7 +70,7 @@ public:
   void lerp_camera_toward(glm::ivec2 pos, float rate_per_ms,
                           std::chrono::milliseconds ms);
 
-  void smooth_camera_towards(glm::ivec2 pos, std::chrono::milliseconds ms);
+  void smooth_camera_towards_target(std::chrono::milliseconds ms);
 
   glm::vec2 to_camera_pos(glm::ivec2 pos) const {
     return glm::vec2(pos.x * TILE_SIZE, pos.y * TILE_SIZE);
