@@ -46,6 +46,10 @@ std::ostream& operator<<(std::ostream& os, glm::ivec2 v) {
   return os << '<' << v.x << ", " << v.y << '>';
 }
 
+std::ostream& operator<<(std::ostream& os, glm::vec2 v) {
+  return os << '<' << v.x << ", " << v.y << '>';
+}
+
 const char* const STARTING_GRID = R"(
 ##############
 #............#
@@ -460,7 +464,8 @@ Error run() {
     const Transform& whose_turn_trans =
       game.ecs().read_or_panic<Transform>(whose_turn);
 
-    game.lerp_camera_toward(whose_turn_trans.pos, 0.001f, dt);
+    game.set_camera_target(whose_turn_trans.pos);
+    game.smooth_camera_towards(whose_turn_trans.pos, dt);
 
     if (whose_turn_state == ActorState::SETUP) {
       const GridPos& grid_pos = game.ecs().read_or_panic<GridPos>(whose_turn);

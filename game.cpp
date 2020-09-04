@@ -24,7 +24,27 @@ void Game::set_grid(Grid grid) {
 void Game::lerp_camera_toward(glm::ivec2 pos, float rate_per_ms,
                               std::chrono::milliseconds ms) {
   glm::vec2 real_pos = glm::vec2(pos.x * TILE_SIZE, pos.y * TILE_SIZE);
-  camera_offset_ = glm::mix(camera_offset_, real_pos, rate_per_ms * ms.count());
+  camera_offset_ = glm::mix(camera_offset_, real_pos,
+                            rate_per_ms * ms.count());
+}
+
+void Game::set_camera_target(glm::vec2 pos) {
+  if (pos == camera_target_) return;
+  camera_target_ = pos;
+  camera_center_watch_.reset();
+  camera_center_watch_.start();
+  camera_initial_offset_ = camera_offset_ / TILE_SIZE;
+}
+
+void Game::smooth_camera_towards(glm::ivec2 pos,
+                                 std::chrono::milliseconds ms) {
+  if (camera_center_watch_.finished()) return;
+  camera_center_watch_.consume(ms);
+  float t = camera_center_watch_.ratio_consumed();
+  camera_offset_ = glm::mix(glm::vec2(camera_initial_offset_),
+                            glm::vec2(camera_target_),
+                            glm::smoothstep(0.f, 1.f, glm::sqrt(t)));
+  camera_target_ *= TILE_SIZE;
 }
 
 std::pair<EntityId, bool> actor_at(const Ecs& ecs, glm::ivec2 pos) {
