@@ -8,6 +8,7 @@
 #include "font.h"
 #include "grid.h"
 #include "shaders.h"
+#include "timer.h"
 
 constexpr inline float TILE_SIZE = 0.1f;
 
@@ -38,6 +39,9 @@ class Game {
   FontMap text_font_map_;  // Font for text rendering.
 
   glm::vec2 camera_offset_ = glm::vec2(0.95f, 0.95f);
+  glm::vec2 camera_initial_offset_ = glm::vec2(0.f, 0.f);
+  glm::vec2 camera_target_ = glm::vec2(0.f, 0.f);
+  StopWatch camera_center_watch_ = std::chrono::milliseconds(1000);
 
 public:
   Error init();
@@ -65,6 +69,14 @@ public:
 
   void lerp_camera_toward(glm::ivec2 pos, float rate_per_ms,
                           std::chrono::milliseconds ms);
+
+  void smooth_camera_towards_target(std::chrono::milliseconds ms);
+
+  glm::vec2 to_camera_pos(glm::ivec2 pos) const {
+    return glm::vec2(pos.x * TILE_SIZE, pos.y * TILE_SIZE);
+  }
+
+  void set_camera_target(glm::vec2 pos);
 
   glm::vec3 to_graphical_pos(glm::vec2 pos, int z) const {
     return glm::vec3(pos.x * TILE_SIZE, pos.y * TILE_SIZE, z) -

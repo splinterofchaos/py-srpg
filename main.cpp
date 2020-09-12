@@ -46,6 +46,10 @@ std::ostream& operator<<(std::ostream& os, glm::ivec2 v) {
   return os << '<' << v.x << ", " << v.y << '>';
 }
 
+std::ostream& operator<<(std::ostream& os, glm::vec2 v) {
+  return os << '<' << v.x << ", " << v.y << '>';
+}
+
 const char* const STARTING_GRID = R"(
 ##############
 #............#
@@ -510,6 +514,9 @@ Error run() {
       std::cout << "it is now the turn of " << game.ecs().read_or_panic<Actor>(whose_turn).name << std::endl;
 
       game.turn().reset();
+
+      game.set_camera_target(
+          game.ecs().read_or_panic<Transform>(whose_turn).pos);
     }
 
     ActorState& whose_turn_state =
@@ -520,8 +527,6 @@ Error run() {
       game.ecs().read_or_panic<Agent>(whose_turn);
     const Transform& whose_turn_trans =
       game.ecs().read_or_panic<Transform>(whose_turn);
-
-    game.lerp_camera_toward(whose_turn_trans.pos, 0.001f, dt);
 
     if (whose_turn_state == ActorState::SETUP) {
       const GridPos& grid_pos = game.ecs().read_or_panic<GridPos>(whose_turn);
@@ -548,6 +553,8 @@ Error run() {
       // noop
     } else if (whose_turn_state == ActorState::DECIDING &&
                decision.type == Decision::MOVE_TO) {
+      game.set_camera_target(decision.move_to);
+
       auto action = sequance_action(
           move_action(whose_turn, path_to(dijkstra, decision.move_to)),
           generic_action([&waiting = game.turn().waiting] (const auto&...)
@@ -560,11 +567,22 @@ Error run() {
       whose_turn_state = ActorState::TAKING_TURN;
     } else if (whose_turn_state == ActorState::DECIDING &&
                decision.type == Decision::ATTACK_ENTITY) {
+      // Set the camera at the midpoint between attacker and defender.
+      glm::vec2 attack_target_pos =
+        game.ecs().read_or_panic<Transform>(decision.attack_target).pos;
+      game.set_camera_target(glm::mix(whose_turn_trans.pos,
+                                      attack_target_pos,
+                                      0.5f));
+
+      // Do the mele, but afterwards, reset the camera and continue the turn.
       auto action = sequance_action(
           mele_action(game.ecs(), whose_turn,
                       decision.attack_target, Path()),
-          generic_action([&waiting = game.turn().waiting] (const auto&...)
-                         { waiting = false; }));
+          generic_action([&game, whose_turn] (const auto&...) {
+            game.set_camera_target(
+                game.ecs().read_or_panic<Transform>(whose_turn).pos);
+            game.turn().waiting = false;
+          }));
       game.ecs().write(whose_turn,
                        std::move(action),
                        Ecs::CREATE_OR_UPDATE);
@@ -592,6 +610,8 @@ Error run() {
     game.ecs().deleted_marked_ids();
 
     gl::clear();
+
+    game.smooth_camera_towards_target(dt);
 
     for (const auto& [_, transform, render_configs] :
          game.ecs().read_all<Transform, std::vector<GlyphRenderConfig>>()) {
