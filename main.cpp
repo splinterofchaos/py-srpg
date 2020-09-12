@@ -342,6 +342,9 @@ void make_bat(Game& game, EntityId bat) {
 
   Actor& actor = game.ecs().read_or_panic<Actor>(bat);
   actor.stats.speed += 2;
+  actor.stats.max_hp -= 3;
+  actor.stats.hp -= 3;
+  actor.lifesteal = true;
   game.ecs().write(bat, actor);
 }
 
