@@ -692,7 +692,7 @@ Error run() {
     if (previous_selected_tile != input.mouse_pos) {
       std::cout << "over new tile: " << input.mouse_pos << std::endl;
       previous_selected_tile = input.mouse_pos;
-      info_box_popup.deactivate_pool(game);
+      info_box_popup.clear(game);
       auto [id, exists] = actor_at(game.ecs(), input.mouse_pos);
       if (exists) info_box_popup.render_entity_desc(game, id);
     }
