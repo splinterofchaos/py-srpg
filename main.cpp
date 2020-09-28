@@ -149,6 +149,8 @@ void render_entity_desc(Game& game, EntityId id) {
                                    "/", std::to_string(actor->stats.max_hp)));
     lines.push_back(concat_strings("MOV: ",
                                    std::to_string(actor->stats.move)));
+    lines.push_back(concat_strings("SPD: ",
+                                   std::to_string(actor->stats.speed)));
     lines.push_back(concat_strings("STR: ",
                                    std::to_string(actor->stats.strength)));
     lines.push_back(concat_strings("DEF: ",
@@ -230,18 +232,8 @@ EntityId advance_until_next_turn(Ecs& ecs) {
   EntityId max_id;
   while (!max_agent || *max_agent->energy < ENERGY_REQUIRED) {
     for (AgentRef& a : agents) {
-      unsigned int speed = a.actor.stats.speed;
-
-      // Expire status effects.
-      for (StatusEffect& eff : a.actor.statuses) {
-        --eff.ticks_left;
-        if (eff.slowed) speed /= 2;
-      }
-      std::erase_if(
-          a.actor.statuses,
-          [](const StatusEffect& eff) { return eff.ticks_left <= 0; });
-
-      *a.energy += speed;
+      a.actor.expire_statuses();
+      *a.energy += a.actor.stats.speed;
       if (!max_agent || *a.energy > *max_agent->energy) max_agent = &a;
     }
   }

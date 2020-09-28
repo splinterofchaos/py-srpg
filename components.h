@@ -51,13 +51,44 @@ struct StatusEffect {
 struct Actor {
   std::string name;
   Stats stats;
+  Stats base_stats;
+  unsigned int hp;
 
   std::vector<StatusEffect> statuses;
   StatusEffect embue;
   bool lifesteal;
 
+  void recalculate_stats() {
+    stats.max_hp = base_stats.max_hp;
+    stats.move = base_stats.move;
+    stats.range = base_stats.range;
+    stats.defense = base_stats.defense;
+    stats.strength = base_stats.strength;
+    stats.speed = base_stats.speed;
+
+    for (const StatusEffect& eff : statuses) {
+      if (eff.slowed) stats.speed /= 2;
+    }
+
+    hp = std::min(hp, stats.max_hp);
+  }
+
+  void add_status(const StatusEffect& effect) {
+    statuses.push_back(effect);
+    recalculate_stats();
+  }
+
+  void expire_statuses() {
+    for (StatusEffect& eff : statuses) --eff.ticks_left;
+    std::size_t n_erased = std::erase_if(
+        statuses,
+        [](const StatusEffect& eff) { return eff.ticks_left <= 0; });
+    if (n_erased) recalculate_stats();
+  }
+
   Actor(std::string name, Stats stats)
-      : name(std::move(name)), stats(stats), lifesteal(false) {
+      : name(std::move(name)), base_stats(stats), lifesteal(false) {
+    recalculate_stats();
   }
 };
 

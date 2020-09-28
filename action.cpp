@@ -95,7 +95,7 @@ std::unique_ptr<Action> hp_change_action(
           return;
         }
 
-        actor->statuses.push_back(effect);
+        actor->add_status(effect);
 
         int change_ = std::min(change, int(actor->stats.hp));
         actor->stats.hp -= change_;
