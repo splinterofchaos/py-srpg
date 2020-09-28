@@ -97,9 +97,9 @@ std::unique_ptr<Action> hp_change_action(
 
         actor->add_status(effect);
 
-        int change_ = std::min(change, int(actor->stats.hp));
-        actor->stats.hp -= change_;
-        actor->stats.hp = std::min(actor->stats.hp, actor->stats.max_hp);
+        int change_ = std::min(change, int(actor->hp));
+        actor->hp -= change_;
+        actor->hp = std::min(actor->hp, actor->stats.max_hp);
 
         // Spawn a "-X" to appear over the entity
         deferred_events.push_back([change, pos, &game] {
@@ -151,7 +151,7 @@ std::unique_ptr<Action> mele_action(const Ecs& ecs, EntityId attacker,
 
   int damage = std::min(attacker_actor.stats.strength -
                         defender_actor.stats.defense,
-                        defender_actor.stats.hp);
+                        defender_actor.hp);
   damage = std::max(damage, 1);
 
   auto deal_damage = hp_change_action(defender, damage, attacker_actor.embue);

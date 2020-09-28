@@ -145,7 +145,7 @@ void render_entity_desc(Game& game, EntityId id) {
   std::vector<std::string> lines;
   if (actor) {
     lines.push_back(actor->name);
-    lines.push_back(concat_strings("HP: ", std::to_string(actor->stats.hp),
+    lines.push_back(concat_strings("HP: ", std::to_string(actor->hp),
                                    "/", std::to_string(actor->stats.max_hp)));
     lines.push_back(concat_strings("MOV: ",
                                    std::to_string(actor->stats.move)));
@@ -335,7 +335,7 @@ void make_bat(Game& game, EntityId bat) {
   Actor& actor = game.ecs().read_or_panic<Actor>(bat);
   actor.stats.speed += 2;
   actor.stats.max_hp -= 3;
-  actor.stats.hp -= 3;
+  actor.hp -= 3;
   actor.lifesteal = true;
   game.ecs().write(bat, actor);
 }
@@ -601,7 +601,7 @@ Error run() {
     for (std::function<void()>& f : deferred_events) f();
 
     for (const auto& [id, actor] : game.ecs().read_all<Actor>())
-      if (actor.stats.hp == 0) game.ecs().mark_to_delete(id);
+      if (actor.hp == 0) game.ecs().mark_to_delete(id);
     game.ecs().deleted_marked_ids();
 
     gl::clear();

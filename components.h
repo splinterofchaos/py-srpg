@@ -23,7 +23,7 @@ struct Transform {
 };
 
 struct Stats {
-  unsigned int hp = 10, max_hp = 10;
+  unsigned int max_hp = 10;
   unsigned int move = 5;
   unsigned int range = 1;
   unsigned int defense = 3;
