@@ -487,7 +487,8 @@ public:
         made_new = true;
       } else if (e == EcsError::NOT_FOUND) {
         std::cerr << "WARNING: We're holding onto ID's in our free list that "
-                     "may have been garbage collected." << std::endl;
+                     "may have been garbage collected. (id=" <<
+                     free_list_.back().id << ")" << std::endl;
       } else {
         std::cerr << "EntityPool: unhandled error on write." << std::endl;
       }

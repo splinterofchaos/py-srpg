@@ -190,7 +190,7 @@ public:
     glm::vec2 center = (start + end) / 2.f;
 
     info_box_pool_.create_new(game.ecs(),
-                              Transform{center, -1.8f},
+                              Transform{center, Transform::WINDOW_BACKGROUND},
                               Marker(glm::vec4(0.f, 0.f, 0.f, .9f),
                                      glm::vec2(w, h)));
 
@@ -201,11 +201,60 @@ public:
         glm::vec2 pos = glm::vec2(cursor, highest - i * TEXT_SCALE);
         const Glyph& glyph = game.text_font_map().get(c);
         GlyphRenderConfig rc(glyph, glm::vec4(1.f));
-        info_box_pool_.create_new(game.ecs(), Transform{pos, -1.9},
+        info_box_pool_.create_new(game.ecs(), Transform{pos,
+                                  Transform::WINDOW_TEXT},
                                   std::vector<GlyphRenderConfig>{rc});
 
         cursor += glyph.bottom_right.x + TILE_SIZE * TEXT_SCALE * 0.1f;
       }
+    }
+  }
+};
+
+struct GlyphRenderTask {
+  glm::vec3 pos;
+  GlyphRenderConfig rc;
+};
+
+struct MarkerRenderTask {
+  glm::vec3 pos;
+  Marker marker;
+};
+
+class RenderTasks {
+  struct Layer {
+    std::vector<GlyphRenderTask> glyphs;
+    std::vector<MarkerRenderTask> markers;
+  };
+
+  std::vector<Layer> layers_;
+
+public:
+  RenderTasks() : layers_(Transform::ZLayer::N_Z_LAYERS, Layer()) { }
+
+  void add_glyph_task(const Game& game, Transform transform,
+                      const GlyphRenderConfig& rc) {
+    layers_[transform.z].glyphs.push_back({game.to_graphical_pos(transform),
+                                           rc});
+  }
+
+  void add_marker_task(const Game& game, Transform transform,
+                       const Marker& marker) {
+    layers_[transform.z].markers.push_back({game.to_graphical_pos(transform),
+                                            marker});
+  }
+
+  void execute_tasks_and_clear(const Game& game) {
+    for (Layer& layer : layers_) {
+      for (const GlyphRenderTask& task : layer.glyphs)
+        game.glyph_shader().render_glyph(task.pos, TILE_SIZE, task.rc);
+      for (const MarkerRenderTask& task : layer.markers)
+        game.marker_shader().render_marker(task.pos, TILE_SIZE,
+                                           task.marker.color,
+                                           task.marker.stretch);
+
+      layer.glyphs.clear();
+      layer.markers.clear();
     }
   }
 };
@@ -282,7 +331,7 @@ struct UserInput {
 };
 
 EntityId spawn_agent(Game& game, std::string name, glm::ivec2 pos, Team team) {
-  return game.ecs().write_new_entity(Transform{glm::vec2(pos), -1},
+  return game.ecs().write_new_entity(Transform{glm::vec2(pos), Transform::ACTORS},
                                      GridPos{pos},
                                      Actor(std::move(name), Stats()),
                                      Agent(team));
@@ -448,6 +497,7 @@ Error run() {
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   glEnable(GL_BLEND);
   glEnable(GL_DEPTH_TEST);
+  glDepthFunc(GL_LEQUAL);
 
   glMatrixMode(GL_PROJECTION);
   glLoadIdentity();
@@ -458,6 +508,8 @@ Error run() {
   GLuint vbo_elems_id = gl::genBuffer();
   gl::bindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo_elems_id);
   gl::bufferData(GL_ELEMENT_ARRAY_BUFFER, vbo_elems, GL_STATIC_DRAW);
+
+  RenderTasks render_tasks;
 
   std::unordered_map<char, Tile> tile_types;
   Tile floor{.walkable = true, .glyph = '.',
@@ -552,7 +604,7 @@ Error run() {
         Marker marker(node.dist ? glm::vec4(0.1f, 0.2f, 0.4f, 0.5f)
                                 : glm::vec4(1.0f, 1.0f, 1.0f, 0.3f));
         movement_indicators.create_new(game.ecs(),
-                                       Transform{pos, 0},
+                                       Transform{pos, Transform::OVERLAY},
                                        marker);
       }
 
@@ -636,6 +688,15 @@ Error run() {
       if (actor.hp == 0) game.ecs().mark_to_delete(id);
     game.ecs().deleted_marked_ids();
 
+    static glm::ivec2 previous_selected_tile = input.mouse_pos;
+    if (previous_selected_tile != input.mouse_pos) {
+      std::cout << "over new tile: " << input.mouse_pos << std::endl;
+      previous_selected_tile = input.mouse_pos;
+      info_box_popup.deactivate_pool(game);
+      auto [id, exists] = actor_at(game.ecs(), input.mouse_pos);
+      if (exists) info_box_popup.render_entity_desc(game, id);
+    }
+
     gl::clear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     game.smooth_camera_towards_target(dt);
@@ -643,35 +704,25 @@ Error run() {
     for (const auto& [_, transform, render_configs] :
          game.ecs().read_all<Transform, std::vector<GlyphRenderConfig>>()) {
       for (const GlyphRenderConfig& rc : render_configs) {
-        game.glyph_shader().render_glyph(game.to_graphical_pos(transform),
-                                         TILE_SIZE, rc);
+        render_tasks.add_glyph_task(game, transform, rc);
       }
     }
 
     for (const auto& [_, transform, marker] :
          game.ecs().read_all<Transform, Marker>()) {
-      game.marker_shader().render_marker(game.to_graphical_pos(transform),
-                                         TILE_SIZE, marker.color,
-                                         marker.stretch);
+      render_tasks.add_marker_task(game, transform, marker);
     }
 
-    game.marker_shader().render_marker(
-        game.to_graphical_pos(
-            game.ecs().read_or_panic<Transform>(whose_turn)),
-        TILE_SIZE, glm::vec4(1.f, 1.f, 1.f, 0.1f));
+    render_tasks.add_marker_task(
+        game, 
+        game.ecs().read_or_panic<Transform>(whose_turn),
+        Marker{glm::vec4(1.f, 1.f, 1.f, 0.1f)});
 
-    game.marker_shader().render_marker(
-        game.to_graphical_pos(input.mouse_pos, -1),
-        TILE_SIZE, glm::vec4(0.1f, 0.3f, 0.6f, .5f));
+    render_tasks.add_marker_task(
+        game, Transform{input.mouse_pos, Transform::OVERLAY},
+        Marker{glm::vec4(0.1f, 0.3f, 0.6f, .5f)});
 
-    static glm::ivec2 previous_selected_tile = input.mouse_pos;
-    if (previous_selected_tile != input.mouse_pos) {
-      std::cout << "over new tile: " << input.mouse_pos << std::endl;
-      previous_selected_tile = input.mouse_pos;
-      info_box_popup.clear(game);
-      auto [id, exists] = actor_at(game.ecs(), input.mouse_pos);
-      if (exists) info_box_popup.render_entity_desc(game, id);
-    }
+    render_tasks.execute_tasks_and_clear(game);
 
     gfx.swap_buffers();
 

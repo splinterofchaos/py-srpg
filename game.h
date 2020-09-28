@@ -78,8 +78,9 @@ public:
 
   void set_camera_target(glm::vec2 pos);
 
-  glm::vec3 to_graphical_pos(glm::vec2 pos, int z) const {
-    return glm::vec3(pos.x * TILE_SIZE, pos.y * TILE_SIZE, z) -
+  glm::vec3 to_graphical_pos(glm::vec2 pos, Transform::ZLayer z) const {
+    return glm::vec3(pos.x * TILE_SIZE, pos.y * TILE_SIZE,
+                     1.f + z * Transform::OFFSET_PER_LAYER) -
            glm::vec3(camera_offset_, 0.f);
   }
 
