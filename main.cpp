@@ -134,72 +134,81 @@ float text_width(FontMap& font_map, std::string_view text) {
   return w;
 }
 
-// Print's an entity's description next to its location. The view of the entity
-// itself shall be unobstructed and the text will always be on screen.
-void render_entity_desc(Game& game, EntityId id) {
-  GridPos grid_pos = game.ecs().read_or_panic<GridPos>(id);
+class InfoBoxPopup {
+  EntityPool info_box_pool_;
 
-  const Actor* actor = nullptr;
-  game.ecs().read(id, &actor);
+public:
 
-  std::vector<std::string> lines;
-  if (actor) {
-    lines.push_back(actor->name);
-    lines.push_back(concat_strings("HP: ", std::to_string(actor->hp),
-                                   "/", std::to_string(actor->stats.max_hp)));
-    lines.push_back(concat_strings("MOV: ",
-                                   std::to_string(actor->stats.move)));
-    lines.push_back(concat_strings("SPD: ",
-                                   std::to_string(actor->stats.speed)));
-    lines.push_back(concat_strings("STR: ",
-                                   std::to_string(actor->stats.strength)));
-    lines.push_back(concat_strings("DEF: ",
-                                   std::to_string(actor->stats.defense)));
-
-    std::unordered_set<std::string> stat_effs;
-    for (const StatusEffect& eff : actor->statuses) {
-      if (eff.slowed) stat_effs.emplace("slowed");
-    }
-
-    copy_to(lines, stat_effs);
-  } else {
-    lines.push_back("UNKNOWN");
+  void clear(Game& game) {
+    info_box_pool_.deactivate_pool(game.ecs());
   }
 
-  auto get_width = [&game](const std::string& s) {
-    return text_width(game.text_font_map(), s);
-  };
-  float w = max_by(lines, 0.0f, get_width);
-  float h = lines.size() * TEXT_SCALE;
+  // Print's an entity's description next to its location. The view of the entity
+  // itself shall be unobstructed and the text will always be on screen.
+  void render_entity_desc(Game& game, EntityId id) {
+    GridPos grid_pos = game.ecs().read_or_panic<GridPos>(id);
 
-  glm::vec2 start = glm::vec2(grid_pos.pos) + glm::vec2(1.f, 0.f);
-  if (start.x + w > game.bottom_right_screen_tile().x)
-    start.x -= 2.f + w;
-  start.y = std::max(start.y, game.bottom_right_screen_tile().y + h);
+    const Actor* actor = nullptr;
+    game.ecs().read(id, &actor);
 
-  glm::vec2 end = start + glm::vec2(w, -h);
-  glm::vec2 center = (start + end) / 2.f;
-  glm::vec3 graphical_center = game.to_graphical_pos(center, 0);
+    std::vector<std::string> lines;
+    if (actor) {
+      lines.push_back(actor->name);
+      lines.push_back(concat_strings("HP: ", std::to_string(actor->hp),
+                                     "/", std::to_string(actor->stats.max_hp)));
+      lines.push_back(concat_strings("MOV: ",
+                                     std::to_string(actor->stats.move)));
+      lines.push_back(concat_strings("SPD: ",
+                                     std::to_string(actor->stats.speed)));
+      lines.push_back(concat_strings("STR: ",
+                                     std::to_string(actor->stats.strength)));
+      lines.push_back(concat_strings("DEF: ",
+                                     std::to_string(actor->stats.defense)));
 
-  game.marker_shader().render_marker(
-      graphical_center,
-      TILE_SIZE, glm::vec4(0.f, 0.f, 0.f, .9f),
-      glm::vec2(w, h));
+      std::unordered_set<std::string> stat_effs;
+      for (const StatusEffect& eff : actor->statuses) {
+        if (eff.slowed) stat_effs.emplace("slowed");
+      }
 
-  for (unsigned int i = 0; i < lines.size(); ++i) {
-    float cursor = center.x - w/2.f + 0.5f;
-    const float highest = center.y + h/2.f - TEXT_SCALE/2.f;
-    for (char c : lines[i]) {
-      glm::vec2 pos = glm::vec2(cursor, highest - i * TEXT_SCALE);
-      const Glyph& glyph = game.text_font_map().get(c);
-      GlyphRenderConfig rc(glyph, glm::vec4(1.f));
-      game.glyph_shader().render_glyph(game.to_graphical_pos(pos, 0.f),
-                                       TILE_SIZE * TEXT_SCALE, rc);
+      copy_to(lines, stat_effs);
+    } else {
+      lines.push_back("UNKNOWN");
+    }
 
-      cursor += glyph.bottom_right.x + TILE_SIZE * TEXT_SCALE * 0.1f;
+    auto get_width = [&game](const std::string& s) {
+      return text_width(game.text_font_map(), s);
+    };
+    float w = max_by(lines, 0.0f, get_width);
+    float h = lines.size() * TEXT_SCALE;
+
+    glm::vec2 start = glm::vec2(grid_pos.pos) + glm::vec2(1.f, 0.f);
+    if (start.x + w > game.bottom_right_screen_tile().x)
+      start.x -= 2.f + w;
+    start.y = std::max(start.y, game.bottom_right_screen_tile().y + h);
+
+    glm::vec2 end = start + glm::vec2(w, -h);
+    glm::vec2 center = (start + end) / 2.f;
+
+    info_box_pool_.create_new(game.ecs(),
+                              Transform{center, -1.8f},
+                              Marker(glm::vec4(0.f, 0.f, 0.f, .9f),
+                                     glm::vec2(w, h)));
+
+    for (unsigned int i = 0; i < lines.size(); ++i) {
+      float cursor = center.x - w/2.f + 0.5f;
+      const float highest = center.y + h/2.f - TEXT_SCALE/2.f;
+      for (char c : lines[i]) {
+        glm::vec2 pos = glm::vec2(cursor, highest - i * TEXT_SCALE);
+        const Glyph& glyph = game.text_font_map().get(c);
+        GlyphRenderConfig rc(glyph, glm::vec4(1.f));
+        info_box_pool_.create_new(game.ecs(), Transform{pos, -1.9},
+                                  std::vector<GlyphRenderConfig>{rc});
+
+        cursor += glyph.bottom_right.x + TILE_SIZE * TEXT_SCALE * 0.1f;
+      }
     }
   }
-}
+};
 
 // When an actor wants to take a turn, its "SPD" or "speed" stat contributes to
 // its initial "energy" which then accrues over time. One tick, speed energy.
@@ -438,8 +447,11 @@ Error run() {
   gl::clearColor(0.f, 0.f, 0.f, 1.f);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   glEnable(GL_BLEND);
+  glEnable(GL_DEPTH_TEST);
 
-  glOrtho(-1, 1, -1, 1, -10, 10);
+  glMatrixMode(GL_PROJECTION);
+  glLoadIdentity();
+  glOrtho(-1, 10, -1, 1, -10, 10);
 
   GLuint vbo_elems[] = {0, 1, 2,
                         2, 3, 0};
@@ -478,6 +490,7 @@ Error run() {
   DijkstraGrid dijkstra;
 
   EntityPool movement_indicators;
+  InfoBoxPopup info_box_popup;
 
   UserInput input;
 
@@ -536,9 +549,8 @@ Error run() {
       for (const auto& [pos, node] : dijkstra) {
         if (!node.dist || node.dist > whose_turn_actor.stats.move) continue;
 
-        Marker marker;
-        marker.color = node.dist ? glm::vec4(0.1f, 0.2f, 0.4f, 0.5f)
-                                 : glm::vec4(1.0f, 1.0f, 1.0f, 0.3f);
+        Marker marker(node.dist ? glm::vec4(0.1f, 0.2f, 0.4f, 0.5f)
+                                : glm::vec4(1.0f, 1.0f, 1.0f, 0.3f));
         movement_indicators.create_new(game.ecs(),
                                        Transform{pos, 0},
                                        marker);
@@ -624,7 +636,7 @@ Error run() {
       if (actor.hp == 0) game.ecs().mark_to_delete(id);
     game.ecs().deleted_marked_ids();
 
-    gl::clear();
+    gl::clear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     game.smooth_camera_towards_target(dt);
 
@@ -639,7 +651,8 @@ Error run() {
     for (const auto& [_, transform, marker] :
          game.ecs().read_all<Transform, Marker>()) {
       game.marker_shader().render_marker(game.to_graphical_pos(transform),
-                                         TILE_SIZE, marker.color);
+                                         TILE_SIZE, marker.color,
+                                         marker.stretch);
     }
 
     game.marker_shader().render_marker(
@@ -648,11 +661,16 @@ Error run() {
         TILE_SIZE, glm::vec4(1.f, 1.f, 1.f, 0.1f));
 
     game.marker_shader().render_marker(
-        game.to_graphical_pos(input.mouse_pos, 0),
+        game.to_graphical_pos(input.mouse_pos, -1),
         TILE_SIZE, glm::vec4(0.1f, 0.3f, 0.6f, .5f));
 
-    if (auto [id, exists] = actor_at(game.ecs(), input.mouse_pos); exists) {
-      render_entity_desc(game, id);
+    static glm::ivec2 previous_selected_tile = input.mouse_pos;
+    if (previous_selected_tile != input.mouse_pos) {
+      std::cout << "over new tile: " << input.mouse_pos << std::endl;
+      previous_selected_tile = input.mouse_pos;
+      info_box_popup.clear(game);
+      auto [id, exists] = actor_at(game.ecs(), input.mouse_pos);
+      if (exists) info_box_popup.render_entity_desc(game, id);
     }
 
     gfx.swap_buffers();

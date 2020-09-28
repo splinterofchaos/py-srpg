@@ -19,7 +19,7 @@ struct GridPos {
 // location for a GridPos.
 struct Transform {
   glm::vec2 pos;
-  int z;
+  float z;
 };
 
 struct Stats {
@@ -94,6 +94,11 @@ struct Actor {
 
 struct Marker {
   glm::vec4 color;
+  glm::vec2 stretch = glm::vec2(1.0f, 1.0f);
+
+  Marker(glm::vec4 color_) { color = color_; }
+  Marker(glm::vec4 color, glm::vec2 stretch)
+    : color(color), stretch(stretch) { }
 };
 
 enum class Team { PLAYER, CPU };
