@@ -19,7 +19,23 @@ struct GridPos {
 // location for a GridPos.
 struct Transform {
   glm::vec2 pos;
-  int z;
+
+  // The z-axis is stored as an int, but must be converted to a value between
+  // zero and -1 objects at lower (closer to zero) layers are drawn first.
+  enum ZLayer {
+    BACKGROUND,
+    GRID,
+    ACTORS,
+    OVERLAY,
+    POPUP_TEXT,
+    WINDOW_BACKGROUND,
+    WINDOW_TEXT,
+    N_Z_LAYERS
+  };
+
+  static constexpr float OFFSET_PER_LAYER = -1.0f / N_Z_LAYERS;
+
+  ZLayer z;
 };
 
 struct Stats {

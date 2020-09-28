@@ -104,7 +104,7 @@ std::unique_ptr<Action> hp_change_action(
         // Spawn a "-X" to appear over the entity
         deferred_events.push_back([change, pos, &game] {
             GridPos x_pos{pos->pos + glm::ivec2(0, 1)};
-            Transform x_transform{glm::vec2(x_pos.pos), 1};
+            Transform x_transform{glm::vec2(x_pos.pos), Transform::POPUP_TEXT};
             glm::vec4 color = change > 0 ? glm::vec4(0.8f, 0.0f, 0.0f, 1.f)
                                          : glm::vec4(0.0f, 0.8f, 0.1f, 1.f);
             // TODO: Obviously, we want to support multi-digit change.
