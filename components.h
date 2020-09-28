@@ -92,6 +92,10 @@ struct Actor {
   }
 };
 
+struct Marker {
+  glm::vec4 color;
+};
+
 enum class Team { PLAYER, CPU };
 
 // The agent controls when an actor gets to take its turn and how.
@@ -113,6 +117,7 @@ using Ecs = EntityComponentSystem<
   GridPos,
   Transform,
   std::vector<GlyphRenderConfig>,
+  Marker,
   Actor,
   ActionPtr,
   ActorState,

@@ -453,17 +453,27 @@ public:
 // created, this pool can reactivate it with new parameters or create a new one
 // entirely.
 class EntityPool {
+  SortedVector<EntityId> pool_;
   SortedVector<EntityId> free_list_;
 
 public:
   EntityPool() { }
 
-  void clear() { free_list_.clear(); }
+  void clear() {
+    pool_.clear();
+    free_list_.clear();
+  }
 
   template<typename...Components>
   void deactivate(EntityComponentSystem<Components...>& ecs, EntityId id) {
     free_list_.insert_if_not_present(id);
     ecs.deactivate(id);
+  }
+
+  template<typename...Components>
+  void deactivate_pool(EntityComponentSystem<Components...>& ecs) {
+    if (pool_.size() == free_list_.size()) return;  // Already deactivated.
+    for (EntityId id : pool_) deactivate(ecs, id);
   }
 
   template<typename...Components, typename...Args>
@@ -486,7 +496,8 @@ public:
     }
 
     if (!made_new) {
-      ecs.write_new_entity(std::forward<Args>(args)...);
+      pool_.insert_or_update(ecs.write_new_entity(
+              std::forward<Args>(args)...));
     }
   }
 };

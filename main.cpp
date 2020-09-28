@@ -477,6 +477,8 @@ Error run() {
   EntityId whose_turn;
   DijkstraGrid dijkstra;
 
+  EntityPool movement_indicators;
+
   UserInput input;
 
   bool keep_going = true;
@@ -528,7 +530,25 @@ Error run() {
       std::cout << "Generating new dijkstra" << std::endl;
       dijkstra.generate(game, grid_pos.pos);
       std::cout << "generated" << std::endl;
+
+      movement_indicators.deactivate_pool(game.ecs());
+      // Add markers that show to where this entity can move.
+      for (const auto& [pos, node] : dijkstra) {
+        if (!node.dist || node.dist > whose_turn_actor.stats.move) continue;
+
+        Marker marker;
+        marker.color = node.dist ? glm::vec4(0.1f, 0.2f, 0.4f, 0.5f)
+                                 : glm::vec4(1.0f, 1.0f, 1.0f, 0.3f);
+        movement_indicators.create_new(game.ecs(),
+                                       Transform{pos, 0},
+                                       marker);
+      }
+
       whose_turn_state = ActorState::DECIDING;
+    }
+
+    if (game.turn().did_move && !game.turn().waiting) {
+      movement_indicators.deactivate_pool(game.ecs());
     }
 
     Decision decision;
@@ -616,13 +636,12 @@ Error run() {
       }
     }
 
-    if (!game.turn().did_move) for (const auto& [pos, node] : dijkstra) {
-      if (!node.dist || node.dist > whose_turn_actor.stats.move) continue;
-      glm::vec4 color = node.dist ? glm::vec4(0.1f, 0.2f, 0.4f, 0.5f)
-                                  : glm::vec4(1.f, 1.f, 1.f, 0.3f);
-      game.marker_shader().render_marker(game.to_graphical_pos(pos, 0),
-                                         TILE_SIZE, color);
+    for (const auto& [_, transform, marker] :
+         game.ecs().read_all<Transform, Marker>()) {
+      game.marker_shader().render_marker(game.to_graphical_pos(transform),
+                                         TILE_SIZE, marker.color);
     }
+
     game.marker_shader().render_marker(
         game.to_graphical_pos(
             game.ecs().read_or_panic<Transform>(whose_turn)),
