@@ -135,12 +135,17 @@ float text_width(FontMap& font_map, std::string_view text) {
 }
 
 class InfoBoxPopup {
-  EntityPool info_box_pool_;
+  EntityPool text_pool_;
+
+  // Even if the window background will strictly be one entity, the pool
+  // abstracts needing to decide whether to create a new entity or reuse
+  // the old.
+  EntityPool window_background_pool_;
 
 public:
-
   void clear(Game& game) {
-    info_box_pool_.deactivate_pool(game.ecs());
+    text_pool_.deactivate_pool(game.ecs());
+    window_background_pool_.deactivate_pool(game.ecs());
   }
 
   // Print's an entity's description next to its location. The view of the entity
@@ -189,10 +194,10 @@ public:
     glm::vec2 end = start + glm::vec2(w, -h);
     glm::vec2 center = (start + end) / 2.f;
 
-    info_box_pool_.create_new(game.ecs(),
-                              Transform{center, Transform::WINDOW_BACKGROUND},
-                              Marker(glm::vec4(0.f, 0.f, 0.f, .9f),
-                                     glm::vec2(w, h)));
+    window_background_pool_.create_new(
+        game.ecs(),
+        Transform{center, Transform::WINDOW_BACKGROUND},
+        Marker(glm::vec4(0.f, 0.f, 0.f, .9f), glm::vec2(w, h)));
 
     for (unsigned int i = 0; i < lines.size(); ++i) {
       float cursor = center.x - w/2.f + 0.5f;
@@ -201,9 +206,9 @@ public:
         glm::vec2 pos = glm::vec2(cursor, highest - i * TEXT_SCALE);
         const Glyph& glyph = game.text_font_map().get(c);
         GlyphRenderConfig rc(glyph, glm::vec4(1.f));
-        info_box_pool_.create_new(game.ecs(), Transform{pos,
-                                  Transform::WINDOW_TEXT},
-                                  std::vector<GlyphRenderConfig>{rc});
+        text_pool_.create_new(game.ecs(), Transform{pos,
+                              Transform::WINDOW_TEXT},
+                              std::vector<GlyphRenderConfig>{rc});
 
         cursor += glyph.bottom_right.x + TILE_SIZE * TEXT_SCALE * 0.1f;
       }
@@ -690,7 +695,6 @@ Error run() {
 
     static glm::ivec2 previous_selected_tile = input.mouse_pos;
     if (previous_selected_tile != input.mouse_pos) {
-      std::cout << "over new tile: " << input.mouse_pos << std::endl;
       previous_selected_tile = input.mouse_pos;
       info_box_popup.clear(game);
       auto [id, exists] = actor_at(game.ecs(), input.mouse_pos);

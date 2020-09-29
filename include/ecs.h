@@ -497,8 +497,8 @@ public:
     }
 
     if (!made_new) {
-      pool_.insert_or_update(ecs.write_new_entity(
-              std::forward<Args>(args)...));
+      EntityId id = ecs.write_new_entity(std::forward<Args>(args)...);
+      pool_.insert_or_update(id);
     }
   }
 };
