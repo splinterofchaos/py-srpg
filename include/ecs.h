@@ -477,13 +477,16 @@ public:
   }
 
   template<typename...Components, typename...Args>
-  void create_new(EntityComponentSystem<Components...>& ecs, Args&&...args) {
+  EntityId create_new(EntityComponentSystem<Components...>& ecs,
+                      Args&&...args) {
     bool made_new = false;
+    EntityId id;
     if (free_list_.size()) {
       EcsError e = ecs.write(free_list_.back(), std::forward<Args>(args)...);
 
       if (e == EcsError::OK) {
-        ecs.activate(free_list_.back());
+        id = free_list_.back();
+        ecs.activate(id);
         made_new = true;
       } else if (e == EcsError::NOT_FOUND) {
         std::cerr << "WARNING: We're holding onto ID's in our free list that "
@@ -497,8 +500,10 @@ public:
     }
 
     if (!made_new) {
-      EntityId id = ecs.write_new_entity(std::forward<Args>(args)...);
+      id = ecs.write_new_entity(std::forward<Args>(args)...);
       pool_.insert_or_update(id);
     }
+
+    return id;
   }
 };

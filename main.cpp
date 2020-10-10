@@ -31,6 +31,7 @@
 #include "math.h"
 #include "shaders.h"
 #include "timer.h"
+#include "ui.h"
 
 constexpr int WINDOW_HEIGHT = 640;
 constexpr int WINDOW_WIDTH = 480;
@@ -121,6 +122,7 @@ std::vector<PossibleAttack> expand_attacks(const Ecs& ecs,
 }
 
 constexpr float TEXT_SCALE = 0.75f;
+constexpr float MENU_WIDTH = TEXT_SCALE * 10;
 
 float text_width(FontMap& font_map, std::string_view text) {
   auto get_width =
@@ -136,6 +138,8 @@ float text_width(FontMap& font_map, std::string_view text) {
 
 class InfoBoxPopup {
   EntityPool text_pool_;
+
+  std::vector<Text> text_;
 
   // Even if the window background will strictly be one entity, the pool
   // abstracts needing to decide whether to create a new entity or reuse
@@ -156,59 +160,53 @@ public:
     const Actor* actor = nullptr;
     game.ecs().read(id, &actor);
 
-    std::vector<std::string> lines;
+    text_.clear();
     if (actor) {
-      lines.push_back(actor->name);
-      lines.push_back(concat_strings("HP: ", std::to_string(actor->hp),
-                                     "/", std::to_string(actor->stats.max_hp)));
-      lines.push_back(concat_strings("MOV: ",
-                                     std::to_string(actor->stats.move)));
-      lines.push_back(concat_strings("SPD: ",
-                                     std::to_string(actor->stats.speed)));
-      lines.push_back(concat_strings("STR: ",
-                                     std::to_string(actor->stats.strength)));
-      lines.push_back(concat_strings("DEF: ",
-                                     std::to_string(actor->stats.defense)));
+      text_.emplace_back(actor->name);
+      text_.emplace_back("HP: ", std::to_string(actor->hp), "/",
+                         std::to_string(actor->stats.max_hp));
+      text_.emplace_back("MOV: ", std::to_string(actor->stats.move));
+      text_.emplace_back("SPD: ", std::to_string(actor->stats.speed));
+      text_.emplace_back("STR: ", std::to_string(actor->stats.strength));
+      text_.emplace_back("DEF: ", std::to_string(actor->stats.defense));
 
       std::unordered_set<std::string> stat_effs;
       for (const StatusEffect& eff : actor->statuses) {
         if (eff.slowed) stat_effs.emplace("slowed");
       }
-
-      copy_to(lines, stat_effs);
+      for (const std::string& s : stat_effs) text_.emplace_back(s);
     } else {
-      lines.push_back("UNKNOWN");
+      text_.emplace_back("UNKNOWN");
     }
 
-    auto get_width = [&game](const std::string& s) {
-      return text_width(game.text_font_map(), s);
-    };
-    float w = max_by(lines, 0.0f, get_width);
-    float h = lines.size() * TEXT_SCALE;
+    float h = text_.size() * TEXT_SCALE;
 
     glm::vec2 start = glm::vec2(grid_pos.pos) + glm::vec2(1.f, 0.f);
-    if (start.x + w > game.bottom_right_screen_tile().x)
-      start.x -= 2.f + w;
+    if (start.x + MENU_WIDTH > game.bottom_right_screen_tile().x)
+      start.x -= 2.f + MENU_WIDTH;
     start.y = std::max(start.y, game.bottom_right_screen_tile().y + h);
 
-    glm::vec2 end = start + glm::vec2(w, -h);
+    glm::vec2 end = start + glm::vec2(MENU_WIDTH, -h);
     glm::vec2 center = (start + end) / 2.f;
 
     window_background_pool_.create_new(
         game.ecs(),
         Transform{center, Transform::WINDOW_BACKGROUND},
-        Marker(glm::vec4(0.f, 0.f, 0.f, .9f), glm::vec2(w, h)));
+        Marker(glm::vec4(0.f, 0.f, 0.f, .9f), glm::vec2(MENU_WIDTH, h)));
 
-    for (unsigned int i = 0; i < lines.size(); ++i) {
-      float cursor = center.x - w/2.f + 0.5f;
-      const float highest = center.y + h/2.f - TEXT_SCALE/2.f;
-      for (char c : lines[i]) {
-        glm::vec2 pos = glm::vec2(cursor, highest - i * TEXT_SCALE);
+    for (unsigned int i = 0; i < text_.size(); ++i) {
+      text_[i].upper_left = glm::vec2(center.x - MENU_WIDTH/2.f,
+                                      center.y + h/2.f - i * TEXT_SCALE);
+      float cursor = 0.5f;
+      for (char c : text_[i].text) {
+        glm::vec2 pos = text_[i].upper_left + glm::vec2(cursor, -0.5f * TEXT_SCALE);
         const Glyph& glyph = game.text_font_map().get(c);
         GlyphRenderConfig rc(glyph, glm::vec4(1.f));
-        text_pool_.create_new(game.ecs(), Transform{pos,
-                              Transform::WINDOW_TEXT},
-                              std::vector<GlyphRenderConfig>{rc});
+        EntityId id = text_pool_.create_new(
+            game.ecs(), Transform{pos, Transform::WINDOW_TEXT},
+            std::vector<GlyphRenderConfig>{rc});
+
+        text_[i].text_entities.push_back(id);
 
         cursor += glyph.bottom_right.x + TILE_SIZE * TEXT_SCALE * 0.1f;
       }
