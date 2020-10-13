@@ -146,42 +146,61 @@ class InfoBoxPopup {
   // the old.
   EntityPool window_background_pool_;
 
+  Game& game;
+
+  bool active_;
+
 public:
-  void clear(Game& game) {
+  InfoBoxPopup(Game& game) : game(game), active_(false) { }
+
+  bool active() const { return active_; }
+
+  void clear() {
     text_pool_.deactivate_pool(game.ecs());
     window_background_pool_.deactivate_pool(game.ecs());
+    text_.clear();
+    active_ = false;
+  }
+
+  void destroy() {
+    text_pool_.destroy_pool(game.ecs());
+    window_background_pool_.destroy_pool(game.ecs());
+    active_ = false;
+  }
+
+  ~InfoBoxPopup() { destroy(); }
+
+  void press_button_at(glm::vec2 pos) {
+    for (const Text& text : text_) {
+      std::cout << "pos  = " << pos << std::endl;
+      std::cout << "uprl = " << text.upper_left << std::endl;
+      std::cout << "lwrr = " << text.lower_right << std::endl;
+      if (in_between(pos, text.upper_left, text.lower_right)) {
+        text.on_click();
+        break;
+      }
+    }
+  }
+
+  template<typename...String>
+  void add_text(String...strings) {
+    text_.emplace_back(std::move(strings)...);
+  }
+
+  void add_text_with_onclick(std::string text, std::function<void()> onclick) {
+    text_.emplace_back(std::move(text), std::move(onclick));
   }
 
   // Print's an entity's description next to its location. The view of the entity
   // itself shall be unobstructed and the text will always be on screen.
-  void render_entity_desc(Game& game, EntityId id) {
-    GridPos grid_pos = game.ecs().read_or_panic<GridPos>(id);
-
-    const Actor* actor = nullptr;
-    game.ecs().read(id, &actor);
-
-    text_.clear();
-    if (actor) {
-      text_.emplace_back(actor->name);
-      text_.emplace_back("HP: ", std::to_string(actor->hp), "/",
-                         std::to_string(actor->stats.max_hp));
-      text_.emplace_back("MOV: ", std::to_string(actor->stats.move));
-      text_.emplace_back("SPD: ", std::to_string(actor->stats.speed));
-      text_.emplace_back("STR: ", std::to_string(actor->stats.strength));
-      text_.emplace_back("DEF: ", std::to_string(actor->stats.defense));
-
-      std::unordered_set<std::string> stat_effs;
-      for (const StatusEffect& eff : actor->statuses) {
-        if (eff.slowed) stat_effs.emplace("slowed");
-      }
-      for (const std::string& s : stat_effs) text_.emplace_back(s);
-    } else {
-      text_.emplace_back("UNKNOWN");
-    }
+  void create_text_box(EntityId id) {
+    active_ = true;
 
     float h = text_.size() * TEXT_SCALE;
 
-    glm::vec2 start = glm::vec2(grid_pos.pos) + glm::vec2(1.f, 0.f);
+    GridPos pos = game.ecs().read_or_panic<GridPos>(id);
+
+    glm::vec2 start = glm::vec2(pos.pos) + glm::vec2(1.f, 0.f);
     if (start.x + MENU_WIDTH > game.bottom_right_screen_tile().x)
       start.x -= 2.f + MENU_WIDTH;
     start.y = std::max(start.y, game.bottom_right_screen_tile().y + h);
@@ -195,11 +214,12 @@ public:
         Marker(glm::vec4(0.f, 0.f, 0.f, .9f), glm::vec2(MENU_WIDTH, h)));
 
     for (unsigned int i = 0; i < text_.size(); ++i) {
-      text_[i].upper_left = glm::vec2(center.x - MENU_WIDTH/2.f,
-                                      center.y + h/2.f - i * TEXT_SCALE);
+      text_[i].upper_left = start + glm::vec2(0.0f, -(i * TEXT_SCALE));
+
       float cursor = 0.5f;
       for (char c : text_[i].text) {
-        glm::vec2 pos = text_[i].upper_left + glm::vec2(cursor, -0.5f * TEXT_SCALE);
+        glm::vec2 pos = text_[i].upper_left +
+                        glm::vec2(cursor, -0.5f * TEXT_SCALE);
         const Glyph& glyph = game.text_font_map().get(c);
         GlyphRenderConfig rc(glyph, glm::vec4(1.f));
         EntityId id = text_pool_.create_new(
@@ -210,9 +230,40 @@ public:
 
         cursor += glyph.bottom_right.x + TILE_SIZE * TEXT_SCALE * 0.1f;
       }
+
+      text_[i].lower_right = text_[i].upper_left +
+                             glm::vec2(MENU_WIDTH, -TEXT_SCALE);
     }
   }
 };
+
+// Adds entity description text to an info box.
+void add_entity_desc_text(const Game& game, InfoBoxPopup& info_box,
+                          EntityId id) {
+  const Actor* actor = nullptr;
+  game.ecs().read(id, &actor);
+
+  // First, figure out what we need to print. Figuring out where it goes on
+  // screen comes later.
+  info_box.clear();
+  if (actor) {
+    info_box.add_text(actor->name);
+    info_box.add_text("HP: ", std::to_string(actor->hp), "/",
+                      std::to_string(actor->stats.max_hp));
+    info_box.add_text("MOV: ", std::to_string(actor->stats.move));
+    info_box.add_text("SPD: ", std::to_string(actor->stats.speed));
+    info_box.add_text("STR: ", std::to_string(actor->stats.strength));
+    info_box.add_text("DEF: ", std::to_string(actor->stats.defense));
+
+    std::unordered_set<std::string> stat_effs;
+    for (const StatusEffect& eff : actor->statuses) {
+      if (eff.slowed) stat_effs.emplace("slowed");
+    }
+    for (const std::string& s : stat_effs) info_box.add_text(s);
+  } else {
+    info_box.add_text("UNKNOWN");
+  }
+}
 
 struct GlyphRenderTask {
   glm::vec3 pos;
@@ -308,8 +359,10 @@ EntityId advance_until_next_turn(Ecs& ecs) {
 }
 
 struct UserInput {
+  glm::vec2 mouse_pos_f;
   glm::ivec2 mouse_pos;
   bool left_click;
+  bool right_click;
   // Inclusion in this set means that a key is pressed.
   std::unordered_set<char> keys_pressed;
 
@@ -325,10 +378,12 @@ struct UserInput {
     SDL_GetMouseState(&mouse_x, &mouse_y);
     glm::vec2 mouse_screen_pos(float(mouse_x * 2) / WINDOW_WIDTH - 1,
                                float(-mouse_y * 2) / WINDOW_HEIGHT + 1);
-    mouse_pos = (mouse_screen_pos + TILE_SIZE/2) / TILE_SIZE +
-                game.camera_offset() / TILE_SIZE;
+    mouse_pos_f = (mouse_screen_pos + TILE_SIZE/2) / TILE_SIZE +
+                  game.camera_offset() / TILE_SIZE;
+    mouse_pos = mouse_pos_f;
 
     left_click = false;
+    right_click = false;
     keys_pressed.clear();
   }
 };
@@ -400,23 +455,6 @@ void make_bat(Game& game, EntityId bat) {
   actor.lifesteal = true;
   game.ecs().write(bat, actor);
 }
-
-struct Decision {
-  enum Type {
-    WAIT,
-    PASS,
-    MOVE_TO,
-    ATTACK_ENTITY,
-    N_TYPES
-  } type = WAIT;
-
-  union {
-    glm::ivec2 move_to;
-    EntityId attack_target;
-  };
-
-  Decision() : type(WAIT) { }
-};
 
 Decision player_decision(const Game& game, EntityId id, const UserInput& input) {
   Decision decision;
@@ -545,7 +583,8 @@ Error run() {
   DijkstraGrid dijkstra;
 
   EntityPool movement_indicators;
-  InfoBoxPopup info_box_popup;
+  InfoBoxPopup info_box_popup(game);
+  InfoBoxPopup selection_menu(game);
 
   UserInput input;
 
@@ -562,6 +601,8 @@ Error run() {
         case SDL_MOUSEBUTTONDOWN: {
           if (e.button.button == SDL_BUTTON_LEFT)
             input.left_click = true;
+          if (e.button.button == SDL_BUTTON_RIGHT)
+            input.right_click = true;
           break;
         }
       }
@@ -618,27 +659,48 @@ Error run() {
       movement_indicators.deactivate_pool(game.ecs());
     }
 
-    Decision decision;
-    if (whose_turn_state == ActorState::DECIDING) {
+    if (selection_menu.active()) {
+      if (input.left_click) {
+        selection_menu.press_button_at(input.mouse_pos_f);
+        // The user either clicked a button in which case the menu is done or
+        // they clicked elsewhere in which case we don't need it anymore.
+        selection_menu.clear();
+      }
+    } else if (info_box_popup.active()) {
+      if (input.left_click) info_box_popup.clear();
+    } else if (whose_turn_state == ActorState::DECIDING) {
       if (whose_turn_agent.team == Team::CPU) {
-        decision = cpu_decision(game, dijkstra, whose_turn);
+        game.decision() = cpu_decision(game, dijkstra, whose_turn);
       } else if (whose_turn_agent.team == Team::PLAYER) {
-        decision = player_decision(game, whose_turn, input);
+
+        if (!selection_menu.active() && input.right_click) {
+          auto [id, exists] = actor_at(game.ecs(), input.mouse_pos);
+          if (exists) {
+            auto look_at = [&game, id=id] {
+              game.decision().type = Decision::LOOK_AT;
+              game.decision().attack_target = id;
+            };
+            selection_menu.add_text_with_onclick("look", look_at);
+
+            selection_menu.create_text_box(id);
+          }
+        }
+        game.decision() = player_decision(game, whose_turn, input);
       }
     }
 
     if (whose_turn_state == ActorState::DECIDING &&
-        decision.type == Decision::PASS) {
+        game.decision().type == Decision::PASS) {
       game.turn().did_pass = true;
     } else if (whose_turn_state == ActorState::DECIDING &&
-               decision.type == Decision::WAIT) {
+               game.decision().type == Decision::WAIT) {
       // noop
     } else if (whose_turn_state == ActorState::DECIDING &&
-               decision.type == Decision::MOVE_TO) {
-      game.set_camera_target(decision.move_to);
+               game.decision().type == Decision::MOVE_TO) {
+      game.set_camera_target(game.decision().move_to);
 
       auto action = sequance_action(
-          move_action(whose_turn, path_to(dijkstra, decision.move_to)),
+          move_action(whose_turn, path_to(dijkstra, game.decision().move_to)),
           generic_action([&waiting = game.turn().waiting] (const auto&...)
                          { waiting = false; }));
       game.ecs().write(whose_turn,
@@ -648,10 +710,10 @@ Error run() {
       game.turn().waiting = true;
       whose_turn_state = ActorState::TAKING_TURN;
     } else if (whose_turn_state == ActorState::DECIDING &&
-               decision.type == Decision::ATTACK_ENTITY) {
+               game.decision().type == Decision::ATTACK_ENTITY) {
       // Set the camera at the midpoint between attacker and defender.
       glm::vec2 attack_target_pos =
-        game.ecs().read_or_panic<Transform>(decision.attack_target).pos;
+        game.ecs().read_or_panic<Transform>(game.decision().attack_target).pos;
       game.set_camera_target(glm::mix(whose_turn_trans.pos,
                                       attack_target_pos,
                                       0.5f));
@@ -659,7 +721,7 @@ Error run() {
       // Do the mele, but afterwards, reset the camera and continue the turn.
       auto action = sequance_action(
           mele_action(game.ecs(), whose_turn,
-                      decision.attack_target, Path()),
+                      game.decision().attack_target, Path()),
           generic_action([&game, whose_turn] (const auto&...) {
             game.set_camera_target(
                 game.ecs().read_or_panic<Transform>(whose_turn).pos);
@@ -671,6 +733,11 @@ Error run() {
       game.turn().did_action = true;
       game.turn().waiting = true;
       whose_turn_state = ActorState::TAKING_TURN;
+    } else if (whose_turn_state == ActorState::DECIDING &&
+               game.decision().type == Decision::LOOK_AT) {
+      add_entity_desc_text(game, info_box_popup, game.decision().attack_target);
+      info_box_popup.create_text_box(game.decision().attack_target);
+      game.decision().type = Decision::WAIT;
     }
 
     // See Action documentation for why this exists.
@@ -690,14 +757,6 @@ Error run() {
     for (const auto& [id, actor] : game.ecs().read_all<Actor>())
       if (actor.hp == 0) game.ecs().mark_to_delete(id);
     game.ecs().deleted_marked_ids();
-
-    static glm::ivec2 previous_selected_tile = input.mouse_pos;
-    if (previous_selected_tile != input.mouse_pos) {
-      previous_selected_tile = input.mouse_pos;
-      info_box_popup.clear(game);
-      auto [id, exists] = actor_at(game.ecs(), input.mouse_pos);
-      if (exists) info_box_popup.render_entity_desc(game, id);
-    }
 
     gl::clear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 

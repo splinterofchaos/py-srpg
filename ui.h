@@ -8,6 +8,7 @@
 
 struct Text {
   glm::vec2 upper_left;
+  glm::vec2 lower_right;
   std::string text;
   std::vector<EntityId> text_entities;
 
@@ -18,4 +19,7 @@ struct Text {
   template<typename...String>
   explicit Text(String... strings)
       : text(concat_strings(std::move(strings)...)) { }
+
+  Text(std::string text, std::function<void()> on_click)
+    : text(std::move(text)), on_click(std::move(on_click)) { }
 };

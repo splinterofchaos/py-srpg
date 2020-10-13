@@ -476,6 +476,13 @@ public:
     for (EntityId id : pool_) deactivate(ecs, id);
   }
 
+  template<typename...Components>
+  void destroy_pool(EntityComponentSystem<Components...>& ecs) {
+    for (EntityId id : pool_) ecs.mark_to_delete(id);
+    pool_.clear();
+    free_list_.clear();
+  }
+
   template<typename...Components, typename...Args>
   EntityId create_new(EntityComponentSystem<Components...>& ecs,
                       Args&&...args) {

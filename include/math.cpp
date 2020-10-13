@@ -45,3 +45,8 @@ std::pair<float, bool> segment_segment_intersection(
 glm::vec3 radial_vec(float radians, float length) {
   return glm::vec3(std::cos(radians) * length, std::sin(radians) * length, 0);
 }
+
+bool in_between(glm::vec2 x, glm::vec2 a, glm::vec2 b) {
+  return x.x >= std::min(a.x, b.x) && x.x <= std::max(a.x, b.x) &&
+         x.y >= std::min(a.y, b.y) && x.y <= std::max(a.y, b.y);
+}

@@ -48,4 +48,4 @@ inline auto plus_minus(T init, T operand) {
 std::pair<float, bool> segment_segment_intersection(
     glm::vec3 p1, glm::vec3 p2, glm::vec3 q1, glm::vec3 q2);
 
-
+bool in_between(glm::vec2 x, glm::vec2 a, glm::vec2 b);

@@ -28,10 +28,31 @@ struct Turn {
   bool over() const;
 };
 
+// Decides what actions to take for this turn.
+struct Decision {
+  enum Type {
+    WAIT,
+    PASS,
+    MOVE_TO,
+    ATTACK_ENTITY,
+    LOOK_AT,
+    N_TYPES
+  } type = WAIT;
+
+  union {
+    glm::ivec2 move_to;
+    EntityId attack_target;
+  };
+
+  Decision() : type(WAIT) { }
+};
+
+
 class Game {
   Ecs ecs_;
   Grid grid_;
   Turn turn_;  // represents the current entitie's turn.
+  Decision decision_;
 
   MarkerShaderProgram marker_shader_;
   GlyphShaderProgram glyph_shader_;
@@ -48,6 +69,9 @@ public:
   const Grid& grid() const { return grid_; }
 
   void set_grid(Grid grid);
+
+  Decision& decision() { return decision_; }
+  const Decision& decision() const { return decision_; }
 
   Ecs& ecs() { return ecs_; }
   const Ecs& ecs() const { return ecs_; }
