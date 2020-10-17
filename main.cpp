@@ -217,6 +217,11 @@ public:
 
       float cursor = 0.5f;
       for (char c : text_[i].text) {
+        if (c == ' ') {
+          cursor += 1;
+          continue;
+        }
+
         glm::vec2 pos = text_[i].upper_left +
                         glm::vec2(cursor, -1.f);
         const Glyph& glyph = game.text_font_map().get(c);
@@ -455,6 +460,13 @@ void make_bat(Game& game, EntityId bat) {
   game.ecs().write(bat, actor);
 }
 
+bool can_attack(const Game& game, glm::ivec2 from_pos, unsigned int attack_range,
+                EntityId target) {
+  return !game.turn().did_action &&
+         manh_dist(game.ecs().read_or_panic<GridPos>(target).pos, from_pos) <=
+             attack_range;
+}
+
 Decision player_decision(const Game& game, EntityId id, const UserInput& input) {
   Decision decision;
   if (!input.left_click) return decision;
@@ -465,9 +477,7 @@ Decision player_decision(const Game& game, EntityId id, const UserInput& input) 
   const Actor& actor = game.ecs().read_or_panic<Actor>(id);
   if (pos == input.mouse_pos) {
     decision.type = Decision::PASS;
-  } else if (exists && !game.turn().did_action &&
-             game.ecs().read_or_panic<Agent>(enemy).team != Team::PLAYER &&
-             manh_dist(input.mouse_pos, pos) <= actor.stats.range) {
+  } else if (exists && can_attack(game, pos, actor.stats.range, enemy)) {
     decision.type = Decision::ATTACK_ENTITY;
     decision.attack_target = enemy;
   } else if (!exists && manh_dist(pos, input.mouse_pos) <= actor.stats.move) {
@@ -680,6 +690,15 @@ Error run() {
               game.decision().attack_target = id;
             };
             selection_menu.add_text_with_onclick("look", look_at);
+
+            glm::vec2 pos = game.ecs().read_or_panic<GridPos>(whose_turn).pos;
+            if (can_attack(game, pos, whose_turn_actor.stats.range, id)) {
+              auto attack = [&game, id=id] {
+                game.decision().type = Decision::ATTACK_ENTITY;
+                game.decision().attack_target = id;
+              };
+              selection_menu.add_text_with_onclick("normal attack", attack);
+            }
 
             selection_menu.create_text_box(id);
           }
