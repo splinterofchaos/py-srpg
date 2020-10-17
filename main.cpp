@@ -379,7 +379,7 @@ struct UserInput {
                                float(-mouse_y * 2) / WINDOW_HEIGHT + 1);
     mouse_pos_f = (mouse_screen_pos + TILE_SIZE/2) / TILE_SIZE +
                   game.camera_offset() / TILE_SIZE;
-    mouse_pos = mouse_pos_f;
+    mouse_pos = glm::floor(mouse_pos_f);
 
     left_click = false;
     right_click = false;
