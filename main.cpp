@@ -33,8 +33,8 @@
 #include "timer.h"
 #include "ui.h"
 
-constexpr int WINDOW_HEIGHT = 640;
-constexpr int WINDOW_WIDTH = 480;
+constexpr int WINDOW_HEIGHT = 800;
+constexpr int WINDOW_WIDTH = 800;
 
 using Time = std::chrono::high_resolution_clock::time_point;
 using Milliseconds = std::chrono::milliseconds;
