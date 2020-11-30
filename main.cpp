@@ -588,6 +588,8 @@ Error run() {
 
   UserInput input;
 
+  ActionManager action_manager;
+
   bool keep_going = true;
   SDL_Event e;
   Time t = now();
@@ -623,6 +625,10 @@ Error run() {
 
       game.set_camera_target(
           game.ecs().read_or_panic<Transform>(whose_turn).pos);
+
+      ActorState& whose_turn_state =
+        game.ecs().read_or_panic<ActorState>(whose_turn);
+      whose_turn_state = ActorState::SETUP;
     }
 
     ActorState& whose_turn_state =
@@ -659,7 +665,9 @@ Error run() {
       movement_indicators.deactivate_pool(game.ecs());
     }
 
-    if (selection_menu.active()) {
+    if (action_manager.have_ordered_actions()) {
+      // We're already acting on the previous decision.
+    } else if (selection_menu.active()) {
       if (input.left_click) {
         selection_menu.press_button_at(input.mouse_pos_f);
         // The user either clicked a button in which case the menu is done or
@@ -689,7 +697,9 @@ Error run() {
       }
     }
 
-    if (whose_turn_state == ActorState::DECIDING &&
+    if (action_manager.have_ordered_actions()) {
+      // We're already acting on the previous decision.
+    } else if (whose_turn_state == ActorState::DECIDING &&
         game.decision().type == Decision::PASS) {
       game.turn().did_pass = true;
     } else if (whose_turn_state == ActorState::DECIDING &&
@@ -699,16 +709,13 @@ Error run() {
                game.decision().type == Decision::MOVE_TO) {
       game.set_camera_target(game.decision().move_to);
 
-      auto action = sequance_action(
+      action_manager.add_ordered_sequence(
           move_action(whose_turn, path_to(dijkstra, game.decision().move_to)),
           generic_action([&waiting = game.turn().waiting] (const auto&...)
                          { waiting = false; }));
-      game.ecs().write(whose_turn,
-                       std::move(action),
-                       Ecs::CREATE_OR_UPDATE);
       game.turn().did_move = true;
       game.turn().waiting = true;
-      whose_turn_state = ActorState::TAKING_TURN;
+      whose_turn_state = ActorState::DECIDING;
     } else if (whose_turn_state == ActorState::DECIDING &&
                game.decision().type == Decision::ATTACK_ENTITY) {
       // Set the camera at the midpoint between attacker and defender.
@@ -719,7 +726,7 @@ Error run() {
                                       0.5f));
 
       // Do the mele, but afterwards, reset the camera and continue the turn.
-      auto action = sequance_action(
+      action_manager.add_ordered_sequence(
           mele_action(game.ecs(), whose_turn,
                       game.decision().attack_target, Path()),
           generic_action([&game, whose_turn] (const auto&...) {
@@ -727,12 +734,9 @@ Error run() {
                 game.ecs().read_or_panic<Transform>(whose_turn).pos);
             game.turn().waiting = false;
           }));
-      game.ecs().write(whose_turn,
-                       std::move(action),
-                       Ecs::CREATE_OR_UPDATE);
       game.turn().did_action = true;
       game.turn().waiting = true;
-      whose_turn_state = ActorState::TAKING_TURN;
+      whose_turn_state = ActorState::DECIDING;
     } else if (whose_turn_state == ActorState::DECIDING &&
                game.decision().type == Decision::LOOK_AT) {
       add_entity_desc_text(game, info_box_popup, game.decision().attack_target);
@@ -740,19 +744,8 @@ Error run() {
       game.decision().type = Decision::WAIT;
     }
 
-    // See Action documentation for why this exists.
-    std::vector<std::function<void()>> deferred_events;
-    for (auto [id, action] : game.ecs().read_all<ActionPtr>()) {
-      if (!action) continue;
-      action->run(game, dt, deferred_events);
-      if (id == whose_turn && action->finished()) {
-        action.reset();
-        whose_turn_state = ActorState::SETUP;
-        std::cout << "whose_turn's finished" << std::endl;  
-      }
-    }
-
-    for (std::function<void()>& f : deferred_events) f();
+    action_manager.process_ordered_actions(game, dt);
+    action_manager.process_independent_actions(game, dt);
 
     for (const auto& [id, actor] : game.ecs().read_all<Actor>())
       if (actor.hp == 0) game.ecs().mark_to_delete(id);

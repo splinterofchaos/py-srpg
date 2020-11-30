@@ -30,13 +30,13 @@ public:
   }
 
   void impl(Game& game, std::chrono::milliseconds dt,
-            std::vector<std::function<void()>>& deferred_events) {
+            ActionManager& manager) {
     if (current_ >= sequence_.size()) {
       stop_short();
       return;
     }
 
-    sequence_[current_]->run(game, dt, deferred_events);
+    sequence_[current_]->run(game, dt, manager);
     if (sequence_[current_]->finished()) ++current_;
     if (current_ >= sequence_.size()) stop_short();
   }
@@ -56,8 +56,7 @@ public:
         path_(std::move(path)),
         change_final_position_(change_final_position) { }
 
-  void impl(Game& game, std::chrono::milliseconds,
-            std::vector<std::function<void()>>&) override {
+  void impl(Game& game, std::chrono::milliseconds, ActionManager&) override {
     GridPos* grid_pos = nullptr;
     Transform* transform = nullptr;
     if (EcsError e = game.ecs().read(actor_, &transform, &grid_pos);
@@ -84,8 +83,7 @@ std::unique_ptr<Action> hp_change_action(
     EntityId id, int change, StatusEffect effect = StatusEffect()) {
   return generic_action(
       [id, change, effect]
-      (Game& game, float,
-       std::vector<std::function<void()>>& deferred_events) {
+      (Game& game, float, ActionManager& manager) {
         Actor* actor;
         GridPos* pos;
         if (game.ecs().read(id, &actor, &pos) !=
@@ -102,7 +100,8 @@ std::unique_ptr<Action> hp_change_action(
         actor->hp = std::min(actor->hp, actor->stats.max_hp);
 
         // Spawn a "-X" to appear over the entity
-        deferred_events.push_back([change, pos, &game] {
+        manager.add_deferred_action([change, pos, &game]
+                                    (ActionManager& manager) {
             GridPos x_pos{pos->pos + glm::ivec2(0, 1)};
             Transform x_transform{glm::vec2(x_pos.pos), Transform::POPUP_TEXT};
             glm::vec4 color = change > 0 ? glm::vec4(0.8f, 0.0f, 0.0f, 1.f)
@@ -116,12 +115,11 @@ std::unique_ptr<Action> hp_change_action(
             auto float_up = move_action(
                 damage_text, {x_pos.pos, x_pos.pos + glm::ivec2(0, 1)});
             auto expire = generic_action(
-                [damage_text]
-                (Game& game, float, std::vector<std::function<void()>>&) {
+                [damage_text](Game& game, float, ActionManager&) {
                   game.ecs().mark_to_delete(damage_text);
                 });
-            auto seq = sequance_action(std::move(float_up), std::move(expire));
-            game.ecs().write(damage_text, std::move(seq), Ecs::CREATE_ENTRY);
+            manager.add_independent_action(
+                sequance_action(std::move(float_up), std::move(expire)));
         });
       }
   );
@@ -172,4 +170,48 @@ std::unique_ptr<Action> mele_action(const Ecs& ecs, EntityId attacker,
 std::unique_ptr<Action> sequance_action(
     std::vector<std::unique_ptr<Action>> s) {
   return std::make_unique<SequnceAction>(std::move(s));
+}
+
+unsigned int ActionManager::add_independent_action(
+    std::unique_ptr<Action> action) {
+  do {
+    ++previous_action_id_;
+  } while(independent_actions_.contains(previous_action_id_));
+  independent_actions_.emplace(previous_action_id_, std::move(action));
+  return previous_action_id_;
+}
+
+void ActionManager::add_deferred_action(
+    std::function<void(ActionManager&)> f) {
+  deferred_events_.emplace_back(std::move(f));
+}
+
+void ActionManager::add_ordered_action(std::unique_ptr<Action> action) {
+  ordered_actions_.push_back(std::move(action));
+}
+
+void ActionManager::process_independent_actions(Game& game,
+                                                std::chrono::milliseconds dt) {
+  static std::vector<unsigned int> to_delete;
+  to_delete.clear();
+
+  for (auto& [id, action] : independent_actions_) {
+    action->run(game, dt, *this);
+    if (action->finished()) to_delete.push_back(id);
+  }
+
+  for (unsigned int id : to_delete) independent_actions_.erase(id);
+
+  for (auto& f : deferred_events_) f(*this);
+  deferred_events_.clear();
+}
+
+unsigned int ActionManager::process_ordered_actions(
+    Game& game, std::chrono::milliseconds dt) {
+  while (!ordered_actions_.empty()) {
+    ordered_actions_.back()->run(game, dt, *this);
+    if (!ordered_actions_.back()->finished()) break;
+    ordered_actions_.pop_back();
+  }
+  return ordered_actions_.size();
 }
