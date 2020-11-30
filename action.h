@@ -140,9 +140,58 @@ class ActionManager {
 
   void add_ordered_sequence() { }
 
+  void move_ordered_sequence(std::vector<std::unique_ptr<Action>> v) {
+    for (auto& a : v) add_ordered_sequence(std::move(a));
+  }
+
   void process_independent_actions(Game& game, std::chrono::milliseconds dt);
   unsigned int process_ordered_actions(Game& game,
                                        std::chrono::milliseconds dt);
 
   bool have_ordered_actions() { return ordered_actions_.size(); }
+};
+
+enum class ScriptResult {
+  START,     // The default value of a script that hasn't run yet.
+  EXIT,      // Exit the script (no more instruction or early exit).
+  WAIT,      // Return early; do not advance.
+  RETRY,     // Run the same line again (might be used by goto instructions).
+  CONTINUE,  // Run the next line.
+  ERROR,     // Stop due to errors.
+  N_RESULTS
+};
+
+using ScriptFn = std::function<ScriptResult(Game&, ActionManager&)>;
+
+class ScriptEngine {
+ public:
+
+ private:
+  std::vector<ScriptFn> instructions_;
+  unsigned int instruction_pointer_ = 0;
+  ScriptResult last_result_ = ScriptResult::EXIT;
+
+  ScriptResult run_impl(Game& game, ActionManager& manager);
+
+ public:
+  ScriptEngine() { }
+
+  // Checks if we are currently executing a script.
+  bool active();
+
+  void clear() { instruction_pointer_ = 0; instructions_.clear(); }
+
+  void reset(std::vector<ScriptFn> script) {
+    instructions_ = std::move(script);
+    instruction_pointer_ = 0;
+    last_result_ = ScriptResult::START;
+  }
+
+  // Appends an instruction to the script.
+  void add(ScriptFn f);
+
+  ScriptResult run(Game& game, ActionManager& manager) {
+    last_result_ = run_impl(game, manager);
+    return last_result_;
+  }
 };

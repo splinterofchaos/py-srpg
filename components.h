@@ -51,6 +51,12 @@ struct Stats {
 class Action;
 using ActionPtr = std::unique_ptr<Action>;
 
+// Defined along side Action.
+enum class ScriptResult;
+class ActionManager;
+
+class Game;
+
 enum ActorState {
   SETUP, DECIDING, TAKING_TURN, WAITING,
   N_ACTOR_STATES
@@ -73,6 +79,8 @@ struct Actor {
   std::vector<StatusEffect> statuses;
   StatusEffect embue;
   bool lifesteal;
+
+  std::vector<std::function<ScriptResult(Game&, ActionManager&)>> on_hit_enemy;
 
   void recalculate_stats() {
     stats.max_hp = base_stats.max_hp;

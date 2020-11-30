@@ -405,6 +405,36 @@ void make_human(Game& game, EntityId human) {
   game.ecs().write(human, actor);
 }
 
+void make_hammer_guy(Game& game, EntityId guy) {
+  GlyphRenderConfig rc(game.font_map().get('H'),
+                       glm::vec4(.9f, .6f, .1f, 1.f));
+  rc.center();
+  game.ecs().write(guy, std::vector{std::move(rc)}, Ecs::CREATE_OR_UPDATE);
+
+  Actor& actor = game.ecs().read_or_panic<Actor>(guy);
+
+  actor.on_hit_enemy.push_back([guy](Game& game, ActionManager& manager)
+                               -> ScriptResult {
+      glm::ivec2 pos = game.ecs().read_or_panic<GridPos>(guy).pos;
+
+      EntityId defender = game.decision().attack_target;
+      glm::ivec2 defender_pos =
+          game.ecs().read_or_panic<GridPos>(defender).pos;
+
+      glm::ivec2 target_tile = defender_pos + (defender_pos - pos);
+      
+      auto [tile, exists] = game.grid().get(target_tile);
+      if (exists && tile.walkable) {
+        manager.add_ordered_action(
+            move_action(defender, {defender_pos, target_tile}));
+      }
+
+      return ScriptResult::CONTINUE;
+  });
+      
+  game.ecs().write(guy, actor);
+}
+
 void make_spider(Game& game, EntityId spider) {
   // The shape we're making here:
   // =|=
@@ -572,7 +602,7 @@ Error run() {
 
   make_human(game, spawn_agent(game, "Joe", {3, 3}, Team::PLAYER));
   make_human(game, spawn_agent(game, "Joa", {4, 3}, Team::PLAYER));
-  make_human(game, spawn_agent(game, "Jor", {5, 3}, Team::PLAYER));
+  make_hammer_guy(game, spawn_agent(game, "Jor", {5, 3}, Team::PLAYER));
 
   make_spider(game, spawn_agent(game, "spider", {12, 12}, Team::CPU));
   make_spider(game, spawn_agent(game, "spiider", {10, 12}, Team::CPU));
@@ -589,6 +619,7 @@ Error run() {
   UserInput input;
 
   ActionManager action_manager;
+  ScriptEngine active_script;
 
   bool keep_going = true;
   SDL_Event e;
@@ -614,7 +645,7 @@ Error run() {
     Milliseconds dt =
       std::chrono::duration_cast<std::chrono::milliseconds>(new_time - t);
 
-    if (game.turn().over() || !game.ecs().is_active(whose_turn)) {
+    if (!active_script.active() && (game.turn().over() || !game.ecs().is_active(whose_turn))) {
       whose_turn = advance_until_next_turn(game.ecs());
       if (whose_turn.id == EntityId::NOT_AN_ID)
         return Error("No one left alive");
@@ -665,8 +696,8 @@ Error run() {
       movement_indicators.deactivate_pool(game.ecs());
     }
 
-    if (action_manager.have_ordered_actions()) {
-      // We're already acting on the previous decision.
+    if (action_manager.have_ordered_actions() || active_script.active()) {
+      // Any active scripts interrupt processing input.
     } else if (selection_menu.active()) {
       if (input.left_click) {
         selection_menu.press_button_at(input.mouse_pos_f);
@@ -697,8 +728,8 @@ Error run() {
       }
     }
 
-    if (action_manager.have_ordered_actions()) {
-      // We're already acting on the previous decision.
+    if (action_manager.have_ordered_actions() || active_script.active()) {
+      // We're already acting on the previous decision or script.
     } else if (whose_turn_state == ActorState::DECIDING &&
         game.decision().type == Decision::PASS) {
       game.turn().did_pass = true;
@@ -726,14 +757,29 @@ Error run() {
                                       0.5f));
 
       // Do the mele, but afterwards, reset the camera and continue the turn.
-      action_manager.add_ordered_sequence(
+      std::vector<std::unique_ptr<Action>> sequence;
+      sequence.push_back(
           mele_action(game.ecs(), whose_turn,
-                      game.decision().attack_target, Path()),
+                      game.decision().attack_target, Path()));
+
+      // TODO: It would be much cleaner to check this withing mele_action().
+      if (!whose_turn_actor.on_hit_enemy.empty()) {
+        sequence.push_back(
+          generic_action([&active_script, script=whose_turn_actor.on_hit_enemy]
+                         (const auto&...) {
+              active_script.reset(std::move(script));
+        }));
+      }
+
+      sequence.push_back(
           generic_action([&game, whose_turn] (const auto&...) {
             game.set_camera_target(
                 game.ecs().read_or_panic<Transform>(whose_turn).pos);
             game.turn().waiting = false;
           }));
+
+      action_manager.move_ordered_sequence(std::move(sequence));
+
       game.turn().did_action = true;
       game.turn().waiting = true;
       whose_turn_state = ActorState::DECIDING;
@@ -744,7 +790,12 @@ Error run() {
       game.decision().type = Decision::WAIT;
     }
 
-    action_manager.process_ordered_actions(game, dt);
+    if (action_manager.have_ordered_actions()) {
+      action_manager.process_ordered_actions(game, dt);
+    } else if (active_script.active())  {
+      active_script.run(game, action_manager);
+    }
+
     action_manager.process_independent_actions(game, dt);
 
     for (const auto& [id, actor] : game.ecs().read_all<Actor>())
