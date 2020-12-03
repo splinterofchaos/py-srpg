@@ -645,7 +645,10 @@ Error run() {
     Milliseconds dt =
       std::chrono::duration_cast<std::chrono::milliseconds>(new_time - t);
 
-    if (!active_script.active() && (game.turn().over() || !game.ecs().is_active(whose_turn))) {
+    // Check if we need to end the current turn, but wait until all scripts and
+    // actions have completed first.
+    if (!active_script.active() && !action_manager.have_ordered_actions() &&
+        (game.turn().over() || !game.ecs().is_active(whose_turn))) {
       whose_turn = advance_until_next_turn(game.ecs());
       if (whose_turn.id == EntityId::NOT_AN_ID)
         return Error("No one left alive");
