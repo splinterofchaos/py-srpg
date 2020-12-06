@@ -121,8 +121,7 @@ std::vector<PossibleAttack> expand_attacks(const Ecs& ecs,
   return possible_attacks;
 }
 
-constexpr float TEXT_SCALE = 0.75f;
-constexpr float MENU_WIDTH = TEXT_SCALE * 10;
+constexpr float MENU_WIDTH = 10.0f;
 
 float text_width(FontMap& font_map, std::string_view text) {
   auto get_width =
@@ -130,13 +129,14 @@ float text_width(FontMap& font_map, std::string_view text) {
   float w = reduce_by(text, 0.0f, get_width);
   // There will be some trailing space at the start. Make it the same at the
   // end.
-  if (text.size()) w += font_map.get(text[0]).top_left.x * TEXT_SCALE;
+  if (text.size()) w += font_map.get(text[0]).top_left.x;
   // Add spacing between the letters.
   w += text.size() * TILE_SIZE * 0.1f;
   return w;
 }
 
-class InfoBoxPopup {
+class TextBoxPopup {
+ protected:
   EntityPool text_pool_;
 
   std::vector<Text> text_;
@@ -151,7 +151,7 @@ class InfoBoxPopup {
   bool active_;
 
 public:
-  InfoBoxPopup(Game& game) : game(game), active_(false) { }
+  TextBoxPopup(Game& game) : game(game), active_(false) { }
 
   bool active() const { return active_; }
 
@@ -168,19 +168,9 @@ public:
     active_ = false;
   }
 
-  ~InfoBoxPopup() { destroy(); }
+  ~TextBoxPopup() { destroy(); }
 
-  void press_button_at(glm::vec2 pos) {
-    for (const Text& text : text_) {
-      std::cout << "pos  = " << pos << std::endl;
-      std::cout << "uprl = " << text.upper_left << std::endl;
-      std::cout << "lwrr = " << text.lower_right << std::endl;
-      if (in_between(pos, text.upper_left, text.lower_right)) {
-        text.on_click();
-        break;
-      }
-    }
-  }
+  virtual void on_left_click(glm::vec2 mouse_pos) { }
 
   template<typename...String>
   void add_text(String...strings) {
@@ -196,14 +186,14 @@ public:
   void create_text_box(EntityId id) {
     active_ = true;
 
-    float h = text_.size() * TEXT_SCALE;
+    float h = text_.size();
 
     GridPos pos = game.ecs().read_or_panic<GridPos>(id);
 
     glm::vec2 start = glm::vec2(pos.pos) + glm::vec2(1.f, 0.f);
     if (start.x + MENU_WIDTH > game.bottom_right_screen_tile().x)
       start.x -= 2.f + MENU_WIDTH;
-    start.y = std::max(start.y, game.bottom_right_screen_tile().y + h);
+    start.y = std::max(start.y + 0.5f, game.bottom_right_screen_tile().y + h);
 
     glm::vec2 end = start + glm::vec2(MENU_WIDTH, -h);
     glm::vec2 center = (start + end) / 2.f;
@@ -211,15 +201,20 @@ public:
     window_background_pool_.create_new(
         game.ecs(),
         Transform{center, Transform::WINDOW_BACKGROUND},
-        Marker(glm::vec4(0.f, 0.f, 0.f, .9f), glm::vec2(MENU_WIDTH, h)));
+        Marker(glm::vec4(0.f, 0.2f, 0.f, .9f), glm::vec2(MENU_WIDTH, h)));
 
     for (unsigned int i = 0; i < text_.size(); ++i) {
-      text_[i].upper_left = start + glm::vec2(0.0f, -(i * TEXT_SCALE));
+      text_[i].upper_left = start + glm::vec2(0.0f, -float(i) + 0.5f);
 
       float cursor = 0.5f;
       for (char c : text_[i].text) {
+        if (c == ' ') {
+          cursor += 1;
+          continue;
+        }
+
         glm::vec2 pos = text_[i].upper_left +
-                        glm::vec2(cursor, -0.5f * TEXT_SCALE);
+                        glm::vec2(cursor, -1.f);
         const Glyph& glyph = game.text_font_map().get(c);
         GlyphRenderConfig rc(glyph, glm::vec4(1.f));
         EntityId id = text_pool_.create_new(
@@ -228,17 +223,31 @@ public:
 
         text_[i].text_entities.push_back(id);
 
-        cursor += glyph.bottom_right.x + TILE_SIZE * TEXT_SCALE * 0.1f;
+        cursor += glyph.bottom_right.x + TILE_SIZE * 0.1f;
       }
 
       text_[i].lower_right = text_[i].upper_left +
-                             glm::vec2(MENU_WIDTH, -TEXT_SCALE);
+                             glm::vec2(MENU_WIDTH, -1.0f);
+    }
+  }
+};
+
+class SelectionBox : public TextBoxPopup {
+ public:
+  using TextBoxPopup::TextBoxPopup;
+
+  void on_left_click(glm::vec2 mouse_pos) override {
+    for (const Text& text : text_) {
+      if (in_between(mouse_pos, text.upper_left, text.lower_right)) {
+        text.on_click();
+        break;
+      }
     }
   }
 };
 
 // Adds entity description text to an info box.
-void add_entity_desc_text(const Game& game, InfoBoxPopup& info_box,
+void add_entity_desc_text(const Game& game, TextBoxPopup& info_box,
                           EntityId id) {
   const Actor* actor = nullptr;
   game.ecs().read(id, &actor);
@@ -380,7 +389,7 @@ struct UserInput {
                                float(-mouse_y * 2) / WINDOW_HEIGHT + 1);
     mouse_pos_f = (mouse_screen_pos + TILE_SIZE/2) / TILE_SIZE +
                   game.camera_offset() / TILE_SIZE;
-    mouse_pos = mouse_pos_f;
+    mouse_pos = glm::floor(mouse_pos_f);
 
     left_click = false;
     right_click = false;
@@ -486,6 +495,13 @@ void make_bat(Game& game, EntityId bat) {
   game.ecs().write(bat, actor);
 }
 
+bool can_attack(const Game& game, glm::ivec2 from_pos, unsigned int attack_range,
+                EntityId target) {
+  return !game.turn().did_action &&
+         manh_dist(game.ecs().read_or_panic<GridPos>(target).pos, from_pos) <=
+             attack_range;
+}
+
 Decision player_decision(const Game& game, EntityId id, const UserInput& input) {
   Decision decision;
   if (!input.left_click) return decision;
@@ -496,9 +512,7 @@ Decision player_decision(const Game& game, EntityId id, const UserInput& input) 
   const Actor& actor = game.ecs().read_or_panic<Actor>(id);
   if (pos == input.mouse_pos) {
     decision.type = Decision::PASS;
-  } else if (exists && !game.turn().did_action &&
-             game.ecs().read_or_panic<Agent>(enemy).team != Team::PLAYER &&
-             manh_dist(input.mouse_pos, pos) <= actor.stats.range) {
+  } else if (exists && can_attack(game, pos, actor.stats.range, enemy)) {
     decision.type = Decision::ATTACK_ENTITY;
     decision.attack_target = enemy;
   } else if (!exists && manh_dist(pos, input.mouse_pos) <= actor.stats.move) {
@@ -613,8 +627,7 @@ Error run() {
   DijkstraGrid dijkstra;
 
   EntityPool movement_indicators;
-  InfoBoxPopup info_box_popup(game);
-  InfoBoxPopup selection_menu(game);
+  std::unique_ptr<TextBoxPopup> popup_box;
 
   UserInput input;
 
@@ -701,30 +714,39 @@ Error run() {
 
     if (action_manager.have_ordered_actions() || active_script.active()) {
       // Any active scripts interrupt processing input.
-    } else if (selection_menu.active()) {
+    } else if (popup_box) {
+      // Popup boxes rob input from the player. If they click anywhere, they go
+      // away.
       if (input.left_click) {
-        selection_menu.press_button_at(input.mouse_pos_f);
-        // The user either clicked a button in which case the menu is done or
-        // they clicked elsewhere in which case we don't need it anymore.
-        selection_menu.clear();
+        popup_box->on_left_click(input.mouse_pos_f);
+        popup_box.reset();
       }
-    } else if (info_box_popup.active()) {
-      if (input.left_click) info_box_popup.clear();
     } else if (whose_turn_state == ActorState::DECIDING) {
       if (whose_turn_agent.team == Team::CPU) {
         game.decision() = cpu_decision(game, dijkstra, whose_turn);
       } else if (whose_turn_agent.team == Team::PLAYER) {
 
-        if (!selection_menu.active() && input.right_click) {
+        if (input.right_click) {
+          // Bring up a selection menu if something is there.
           auto [id, exists] = actor_at(game.ecs(), input.mouse_pos);
           if (exists) {
             auto look_at = [&game, id=id] {
               game.decision().type = Decision::LOOK_AT;
               game.decision().attack_target = id;
             };
-            selection_menu.add_text_with_onclick("look", look_at);
+            popup_box.reset(new SelectionBox(game));
+            popup_box->add_text_with_onclick("look", look_at);
 
-            selection_menu.create_text_box(id);
+            glm::vec2 pos = game.ecs().read_or_panic<GridPos>(whose_turn).pos;
+            if (can_attack(game, pos, whose_turn_actor.stats.range, id)) {
+              auto attack = [&game, id=id] {
+                game.decision().type = Decision::ATTACK_ENTITY;
+                game.decision().attack_target = id;
+              };
+              popup_box->add_text_with_onclick("normal attack", attack);
+            }
+
+            popup_box->create_text_box(id);
           }
         }
         game.decision() = player_decision(game, whose_turn, input);
@@ -788,8 +810,9 @@ Error run() {
       whose_turn_state = ActorState::DECIDING;
     } else if (whose_turn_state == ActorState::DECIDING &&
                game.decision().type == Decision::LOOK_AT) {
-      add_entity_desc_text(game, info_box_popup, game.decision().attack_target);
-      info_box_popup.create_text_box(game.decision().attack_target);
+      popup_box.reset(new TextBoxPopup(game));
+      add_entity_desc_text(game, *popup_box, game.decision().attack_target);
+      popup_box->create_text_box(game.decision().attack_target);
       game.decision().type = Decision::WAIT;
     }
 
