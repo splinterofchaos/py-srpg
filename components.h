@@ -52,7 +52,7 @@ class Action;
 using ActionPtr = std::unique_ptr<Action>;
 
 // Defined along side Action.
-enum class ScriptResult;
+struct ScriptResult;
 class ActionManager;
 
 class Game;

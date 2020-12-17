@@ -151,14 +151,21 @@ class ActionManager {
   bool have_ordered_actions() { return ordered_actions_.size(); }
 };
 
-enum class ScriptResult {
-  START,     // The default value of a script that hasn't run yet.
-  EXIT,      // Exit the script (no more instruction or early exit).
-  WAIT,      // Return early; do not advance.
-  RETRY,     // Run the same line again (might be used by goto instructions).
-  CONTINUE,  // Run the next line.
-  ERROR,     // Stop due to errors.
-  N_RESULTS
+struct ScriptResult {
+  enum Code {
+    START,     // The default value of a script that hasn't run yet.
+    EXIT,      // Exit the script (no more instruction or early exit).
+    WAIT,      // Return early; do not advance.
+    RETRY,     // Run the same line again (might be used by goto instructions).
+    CONTINUE,  // Run the next line.
+    ERROR,     // Stop due to errors.
+    N_RESULTS
+  } code;
+
+  int goto_line = -1;
+
+  ScriptResult(Code code) : code(code) { }
+  ScriptResult(Code code, int goto_line) : code(code), goto_line(goto_line) { }
 };
 
 using ScriptFn = std::function<ScriptResult(Game&, ActionManager&)>;
