@@ -4,13 +4,13 @@
 
 #include <glm/vec2.hpp>
 
+#include "constants.h"
 #include "components.h"
 #include "font.h"
 #include "grid.h"
 #include "shaders.h"
 #include "timer.h"
-
-constexpr inline float TILE_SIZE = 0.1f;
+#include "ui.h"
 
 struct Turn {
   bool did_move = false;
@@ -47,7 +47,6 @@ struct Decision {
   Decision() : type(WAIT) { }
 };
 
-
 class Game {
   Ecs ecs_;
   Grid grid_;
@@ -63,6 +62,8 @@ class Game {
   glm::vec2 camera_initial_offset_ = glm::vec2(0.f, 0.f);
   glm::vec2 camera_target_ = glm::vec2(0.f, 0.f);
   StopWatch camera_center_watch_ = std::chrono::milliseconds(1000);
+
+  std::unique_ptr<TextBoxPopup> popup_box_;
 
 public:
   Error init();
@@ -87,6 +88,12 @@ public:
 
   FontMap& text_font_map() { return text_font_map_; }
   const FontMap& text_font_map() const { return text_font_map_; }
+
+  std::unique_ptr<TextBoxPopup>& popup_box() { return popup_box_; }
+  const std::unique_ptr<TextBoxPopup>& popup_box() const {
+    return popup_box_;
+  }
+
 
   glm::vec2& camera_offset() { return camera_offset_; }
   const glm::vec2& camera_offset() const { return camera_offset_; }

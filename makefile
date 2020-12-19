@@ -36,7 +36,11 @@ obj/math.o : include/math.h include/math.cpp
 obj/grid.o : grid.h grid.cpp
 	${COMPILER} ${OPS} -c grid.cpp -o obj/grid.o
 
-obj/game.o : game.h game.cpp components.h font.h grid.h shaders.h
+obj/ui.o : ui.h ui.cpp include/math.h include/ecs.h constants.h
+	${COMPILER} ${OPS} -c ui.cpp -o obj/ui.o
+
+obj/game.o : game.h game.cpp components.h font.h grid.h shaders.h ui.h \
+						 constants.h
 	${COMPILER} ${OPS} -c game.cpp -o obj/game.o
 
 obj/action.o : action.h action.cpp components.h game.h include/timer.h \
@@ -50,5 +54,5 @@ obj/main.o : main.cpp include/*.h *.h
 	${COMPILER} ${OPS} -c main.cpp -o obj/main.o
 
 obj/run : obj/main.o obj/graphics.o obj/shaders.o obj/font.o obj/math.o \
-					obj/action.o obj/grid.o obj/game.o obj/dijkstra.o
+					obj/action.o obj/grid.o obj/game.o obj/dijkstra.o obj/ui.o
 	${COMPILER} ${OPS} obj/*.o -lSDL2 -lfreetype -lGL -lGLEW -lGLU -o obj/run
