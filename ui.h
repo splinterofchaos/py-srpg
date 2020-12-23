@@ -71,9 +71,12 @@ public:
     text_.emplace_back(std::move(text), std::move(onclick));
   }
 
-  // Print's an entity's description next to its location. The view of the entity
-  // itself shall be unobstructed and the text will always be on screen.
-  void create_text_box(EntityId id);
+  // Builds the window background adjacent to `pos`, defaulting to the right,
+  // but switching to the left if its edges would go off screen.
+  void build_text_box_next_to(glm::vec2 pos);
+
+  // Builds the window background and text given the window's dimensions.
+  void build_text_box_at(glm::vec2 upper_left, glm::vec2 lower_right);
 };
 
 class SelectionBox : public TextBoxPopup {

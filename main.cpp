@@ -620,7 +620,7 @@ Error run() {
               game.popup_box()->add_text_with_onclick("normal attack", attack);
             }
 
-            game.popup_box()->create_text_box(id);
+            game.popup_box()->build_text_box_next_to(input.mouse_pos);
           }
         }
         game.decision() = player_decision(game, whose_turn, input);
@@ -686,7 +686,9 @@ Error run() {
                game.decision().type == Decision::LOOK_AT) {
       game.popup_box().reset(new TextBoxPopup(game));
       add_entity_desc_text(game, *game.popup_box(), game.decision().attack_target);
-      game.popup_box()->create_text_box(game.decision().attack_target);
+      glm::vec2 pos = game.ecs().read_or_panic<GridPos>(
+          game.decision().attack_target).pos;
+      game.popup_box()->build_text_box_next_to(pos);
       game.decision().type = Decision::WAIT;
     }
 

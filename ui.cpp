@@ -30,20 +30,24 @@ void TextBoxPopup::destroy() {
   active_ = false;
 }
 
-void TextBoxPopup::create_text_box(EntityId id) {
+void TextBoxPopup::build_text_box_next_to(glm::vec2 pos) {
   active_ = true;
 
-  float h = text_.size();
+  const float h = text_.size();
 
-  GridPos pos = game.ecs().read_or_panic<GridPos>(id);
-
-  glm::vec2 start = glm::vec2(pos.pos) + glm::vec2(1.f, 0.f);
+  glm::vec2 start = pos + glm::vec2(1.f, 0.f);
   if (start.x + MENU_WIDTH > game.bottom_right_screen_tile().x)
     start.x -= 2.f + MENU_WIDTH;
   start.y = std::max(start.y + 0.5f, game.bottom_right_screen_tile().y + h);
 
   glm::vec2 end = start + glm::vec2(MENU_WIDTH, -h);
-  glm::vec2 center = (start + end) / 2.f;
+  build_text_box_at(start, end);
+}
+
+void TextBoxPopup::build_text_box_at(glm::vec2 upper_left,
+                                     glm::vec2 lower_right) {
+  glm::vec2 center = (upper_left + lower_right) / 2.f;
+  const float h = upper_left.y - lower_right.y;
 
   window_background_pool_.create_new(
       game.ecs(),
@@ -51,7 +55,7 @@ void TextBoxPopup::create_text_box(EntityId id) {
       Marker(glm::vec4(0.f, 0.2f, 0.f, .9f), glm::vec2(MENU_WIDTH, h)));
 
   for (unsigned int i = 0; i < text_.size(); ++i) {
-    text_[i].upper_left = start + glm::vec2(0.0f, -float(i) + 0.5f);
+    text_[i].upper_left = upper_left + glm::vec2(0.0f, -float(i) + 0.5f);
 
     float cursor = 0.5f;
     for (char c : text_[i].text) {
