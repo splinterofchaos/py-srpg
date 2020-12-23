@@ -373,8 +373,12 @@ void make_bat(Game& game, EntityId bat) {
 bool can_attack(const Game& game, glm::ivec2 from_pos, unsigned int attack_range,
                 EntityId target) {
   return !game.turn().did_action &&
-         manh_dist(game.ecs().read_or_panic<GridPos>(target).pos, from_pos) <=
-             attack_range;
+         diamond_dist(game.ecs().read_or_panic<GridPos>(target).pos, from_pos)
+         <= attack_range;
+}
+
+bool can_talk(const Game& game, glm::ivec2 from_pos, EntityId target) {
+  return can_attack(game, from_pos, 3, target);
 }
 
 Decision player_decision(const Game& game, EntityId id, const UserInput& input) {
@@ -535,6 +539,7 @@ Error run() {
     // Check if we need to end the current turn, but wait until all scripts and
     // actions have completed first.
     if (!active_script.active() && !action_manager.have_ordered_actions() &&
+        !game.popup_box() &&
         (game.turn().over() || !game.ecs().is_active(whose_turn))) {
       whose_turn = advance_until_next_turn(game.ecs());
       if (whose_turn.id == EntityId::NOT_AN_ID)
@@ -620,6 +625,14 @@ Error run() {
               game.popup_box()->add_text_with_onclick("normal attack", attack);
             }
 
+            if (can_talk(game, pos, id)) {
+              auto talk = [&game, id=id] {
+                game.decision().type = Decision::TALK;
+                game.decision().attack_target = id;
+              };
+              game.popup_box()->add_text_with_onclick("talk", talk);
+            }
+
             game.popup_box()->build_text_box_next_to(input.mouse_pos);
           }
         }
@@ -689,6 +702,22 @@ Error run() {
       glm::vec2 pos = game.ecs().read_or_panic<GridPos>(
           game.decision().attack_target).pos;
       game.popup_box()->build_text_box_next_to(pos);
+      game.decision().type = Decision::WAIT;
+    } else if (whose_turn_state == ActorState::DECIDING &&
+               game.decision().type == Decision::TALK) {
+      game.popup_box().reset(new TextBoxPopup(game));
+      game.popup_box()->add_text("(they have nothing to say to you)");
+
+      // For positioning the text box, take advantage of the camera being
+      // centered on the player.
+      // TODO: Dialogues should have the camera center on the speaker. We can
+      // then place the box relative to the speaker's position.
+      glm::vec2 player_pos =
+        game.ecs().read_or_panic<Transform>(whose_turn).pos;
+      game.popup_box()->build_text_box_at(player_pos + glm::vec2(-10, -2),
+                                          player_pos + glm::vec2( 10, -6));
+
+      game.turn().did_action = true;
       game.decision().type = Decision::WAIT;
     }
 

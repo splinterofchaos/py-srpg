@@ -47,12 +47,11 @@ void TextBoxPopup::build_text_box_next_to(glm::vec2 pos) {
 void TextBoxPopup::build_text_box_at(glm::vec2 upper_left,
                                      glm::vec2 lower_right) {
   glm::vec2 center = (upper_left + lower_right) / 2.f;
-  const float h = upper_left.y - lower_right.y;
 
   window_background_pool_.create_new(
       game.ecs(),
       Transform{center, Transform::WINDOW_BACKGROUND},
-      Marker(glm::vec4(0.f, 0.2f, 0.f, .9f), glm::vec2(MENU_WIDTH, h)));
+      Marker(glm::vec4(0.f, 0.2f, 0.f, .9f), lower_right - upper_left));
 
   for (unsigned int i = 0; i < text_.size(); ++i) {
     text_[i].upper_left = upper_left + glm::vec2(0.0f, -float(i) + 0.5f);
@@ -60,7 +59,7 @@ void TextBoxPopup::build_text_box_at(glm::vec2 upper_left,
     float cursor = 0.5f;
     for (char c : text_[i].text) {
       if (c == ' ') {
-        cursor += 1;
+        cursor += 0.5f;
         continue;
       }
 

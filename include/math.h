@@ -15,6 +15,13 @@ unsigned int manh_dist(Vec2 a, Vec2 b) {
   return glm::abs(a.x - b.x) + glm::abs(a.y - b.y);
 }
 
+template<typename Vec2>
+unsigned int diamond_dist(Vec2 a, Vec2 b) {
+  const auto x = glm::abs(a.x - b.x);
+  const auto y = glm::abs(a.y - b.y);
+  return glm::max(x, y);
+}
+
 // Returns the Z-axis part of a 3D cross product.
 float cross2(const glm::vec3& a, const glm::vec3& b);
 

@@ -36,6 +36,7 @@ struct Decision {
     MOVE_TO,
     ATTACK_ENTITY,
     LOOK_AT,
+    TALK,
     N_TYPES
   } type = WAIT;
 
