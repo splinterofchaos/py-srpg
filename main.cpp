@@ -29,6 +29,7 @@
 #include "grid.h"
 #include "graphics.h"
 #include "math.h"
+#include "script.h"
 #include "shaders.h"
 #include "timer.h"
 #include "ui.h"
