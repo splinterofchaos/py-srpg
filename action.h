@@ -6,13 +6,15 @@
 #include <memory>
 #include <vector>
 
-#include "components.h"
-#include "game.h"
+#include <glm/vec2.hpp>
+
 #include "timer.h"
+#include "include/ecs.h"
 
 using Path = std::vector<glm::vec2>;
 
 class ActionManager;
+class Game;
 
 // An "action" encompasses a change of state of the game. It handled both the
 // animations and state effects of that action.
@@ -46,10 +48,7 @@ public:
   // Executes the action. This is intended to be called while iterating through
   // the ECS, therefore mutating operations, like creating a new entity or
   // destroying one, will be "deferred" in order to be run after execution.
-  void run(Game& game, std::chrono::milliseconds dt, ActionManager& manager) {
-    stop_watch_.consume(dt);
-    impl(game, dt, manager);
-  }
+  void run(Game& game, std::chrono::milliseconds dt, ActionManager& manager);
 };
 
 template<typename F>
@@ -65,7 +64,8 @@ public:
   GenericAction(std::chrono::duration<Rep, Period> duration, F f)
       : Action(StopWatch(duration)), f_(std::move(f)) { }
 
-  void impl(Game& game, std::chrono::milliseconds dt, ActionManager& manager) {
+  void impl(Game& game, std::chrono::milliseconds dt,
+            ActionManager& manager) {
     f_(game, ratio_finished(), manager);
   }
 };
@@ -84,7 +84,7 @@ auto generic_action(F f) {
 // path.back() at the end. Otherwise, the effect is merely graphical.
 std::unique_ptr<Action> move_action(EntityId actor, Path path,
                                     bool change_final_position = true);
-std::unique_ptr<Action> mele_action(const Ecs& ecs, EntityId attacker,
+std::unique_ptr<Action> mele_action(const Game& game, EntityId attacker,
                                     EntityId defender, Path path);
 std::unique_ptr<Action> expire_action(EntityId id,
                                       std::chrono::milliseconds expiry);

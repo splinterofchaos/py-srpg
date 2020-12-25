@@ -5,6 +5,7 @@
 
 #include "ecs.h"
 #include "font.h"
+#include "script.h"
 #include "shaders.h"
 
 #include <glm/vec2.hpp>
@@ -80,7 +81,7 @@ struct Actor {
   StatusEffect embue;
   bool lifesteal;
 
-  std::vector<std::function<ScriptResult(Game&, ActionManager&)>> on_hit_enemy;
+  Script on_hit_enemy;
 
   void recalculate_stats() {
     stats.max_hp = base_stats.max_hp;

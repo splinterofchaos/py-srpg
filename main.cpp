@@ -298,8 +298,7 @@ void make_hammer_guy(Game& game, EntityId guy) {
 
   Actor& actor = game.ecs().read_or_panic<Actor>(guy);
 
-  actor.on_hit_enemy.push_back([guy](Game& game, ActionManager& manager)
-                               -> ScriptResult {
+  actor.on_hit_enemy.push([guy](Game& game, ActionManager& manager) {
       glm::ivec2 pos = game.ecs().read_or_panic<GridPos>(guy).pos;
 
       EntityId defender = game.decision().attack_target;
@@ -672,8 +671,8 @@ Error run() {
       // Do the mele, but afterwards, reset the camera and continue the turn.
       std::vector<std::unique_ptr<Action>> sequence;
       sequence.push_back(
-          mele_action(game.ecs(), whose_turn,
-                      game.decision().attack_target, Path()));
+          mele_action(game, whose_turn, game.decision().attack_target,
+                      Path()));
 
       // TODO: It would be much cleaner to check this withing mele_action().
       if (!whose_turn_actor.on_hit_enemy.empty()) {

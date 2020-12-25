@@ -1,7 +1,8 @@
 #pragma once
 
-#include <vector>
 #include <functional>
+#include <unordered_map>
+#include <vector>
 
 #include "action.h"
 
@@ -24,11 +25,28 @@ struct ScriptResult {
 
 using ScriptFn = std::function<ScriptResult(Game&, ActionManager&)>;
 
-class ScriptEngine {
- public:
-
- private:
+class Script {
   std::vector<ScriptFn> instructions_;
+  std::unordered_map<std::string, unsigned int> labels_;
+
+ public:
+  // Adds one instruction to the instruction list.
+  void push(ScriptFn fn);
+
+  // Put a label at the end of the current instruction set.
+  void push_label(std::string name);
+
+  unsigned int size() const { return instructions_.size(); }
+  bool empty() const { return size() == 0; }
+  ScriptFn& get(unsigned int i) { return instructions_[i]; }
+  const ScriptFn& get(unsigned int i) const { return instructions_[i]; }
+
+  void clear();
+};
+
+class ScriptEngine {
+ private:
+  Script script_;
   unsigned int instruction_pointer_ = 0;
   ScriptResult last_result_ = ScriptResult::EXIT;
 
@@ -40,16 +58,13 @@ class ScriptEngine {
   // Checks if we are currently executing a script.
   bool active();
 
-  void clear() { instruction_pointer_ = 0; instructions_.clear(); }
+  void clear() { instruction_pointer_ = 0; script_.clear(); }
 
-  void reset(std::vector<ScriptFn> script) {
-    instructions_ = std::move(script);
+  void reset(Script script) {
+    script_ = std::move(script);
     instruction_pointer_ = 0;
     last_result_ = ScriptResult::START;
   }
-
-  // Appends an instruction to the script.
-  void add(ScriptFn f);
 
   ScriptResult run(Game& game, ActionManager& manager) {
     last_result_ = run_impl(game, manager);

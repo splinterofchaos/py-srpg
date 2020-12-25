@@ -1,5 +1,9 @@
 #include "action.h"
 
+#include <glm/geometric.hpp>
+
+#include "components.h"
+#include "game.h"
 #include "util.h"
 
 static float path_distance(const Path& path) {
@@ -13,6 +17,12 @@ static float path_distance(const Path& path) {
   }
 
   return dist;
+}
+
+void Action::run(Game& game, std::chrono::milliseconds dt,
+                 ActionManager& manager) {
+  stop_watch_.consume(dt);
+  impl(game, dt, manager);
 }
 
 class SequnceAction : public Action {
@@ -125,7 +135,7 @@ std::unique_ptr<Action> hp_change_action(
   );
 }
 
-std::unique_ptr<Action> mele_action(const Ecs& ecs, EntityId attacker,
+std::unique_ptr<Action> mele_action(const Game& game, EntityId attacker,
                                     EntityId defender, Path path) {
   std::unique_ptr<Action> move_to_position;
   glm::vec2 final_pos;
@@ -133,10 +143,10 @@ std::unique_ptr<Action> mele_action(const Ecs& ecs, EntityId attacker,
     final_pos = path.back();
     move_to_position = move_action(attacker, std::move(path));
   } else {
-    final_pos = ecs.read_or_panic<GridPos>(attacker).pos;
+    final_pos = game.ecs().read_or_panic<GridPos>(attacker).pos;
   }
 
-  glm::vec2 defender_pos = ecs.read_or_panic<GridPos>(defender).pos;
+  glm::vec2 defender_pos = game.ecs().read_or_panic<GridPos>(defender).pos;
   // Where the attacker will thrust towards.
   glm::vec2 thrust_pos = glm::normalize(defender_pos - final_pos) * 0.3f +
                          final_pos;
@@ -144,8 +154,8 @@ std::unique_ptr<Action> mele_action(const Ecs& ecs, EntityId attacker,
   auto thrust = move_action(attacker, {final_pos, thrust_pos});
   auto recoil = move_action(attacker, {thrust_pos, final_pos});
 
-  const Actor& defender_actor = ecs.read_or_panic<Actor>(defender);
-  const Actor& attacker_actor = ecs.read_or_panic<Actor>(attacker);
+  const Actor& defender_actor = game.ecs().read_or_panic<Actor>(defender);
+  const Actor& attacker_actor = game.ecs().read_or_panic<Actor>(attacker);
 
   int damage = std::min(attacker_actor.stats.strength -
                         defender_actor.stats.defense,
