@@ -18,6 +18,7 @@ struct ScriptResult {
   } code;
 
   int goto_line = -1;
+  std::string goto_label;
 
   ScriptResult(Code code) : code(code) { }
   ScriptResult(Code code, int goto_line) : code(code), goto_line(goto_line) { }
@@ -40,6 +41,7 @@ class Script {
   bool empty() const { return size() == 0; }
   ScriptFn& get(unsigned int i) { return instructions_[i]; }
   const ScriptFn& get(unsigned int i) const { return instructions_[i]; }
+  int get_label(const std::string& label);
 
   void clear();
 };
