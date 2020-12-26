@@ -10,8 +10,10 @@ struct ScriptResult {
   enum Code {
     START,     // The default value of a script that hasn't run yet.
     EXIT,      // Exit the script (no more instruction or early exit).
-    WAIT,      // Return early; do not advance.
-    RETRY,     // Run the same line again (might be used by goto instructions).
+    WAIT,      // Return early, don't advance. (Used by some goto
+               // instructions.)
+    WAIT_ADVANCE,  // Return early, advance.
+    RETRY,     // Run the same line again (Used by goto instructions).
     CONTINUE,  // Run the next line.
     ERROR,     // Stop due to errors.
     N_RESULTS
@@ -22,6 +24,8 @@ struct ScriptResult {
 
   ScriptResult(Code code) : code(code) { }
   ScriptResult(Code code, int goto_line) : code(code), goto_line(goto_line) { }
+  ScriptResult(Code code, std::string label)
+    : code(code), goto_label(std::move(label)) { }
 };
 
 using ScriptFn = std::function<ScriptResult(Game&, ActionManager&)>;

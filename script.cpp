@@ -19,7 +19,7 @@ int Script::get_label(const std::string& label) {
 bool ScriptEngine::active() {
   return instruction_pointer_ < script_.size() &&
     (last_result_.code == ScriptResult::START ||
-     last_result_.code == ScriptResult::WAIT);
+     last_result_.code == ScriptResult::WAIT_ADVANCE);
 }
 
 ScriptResult ScriptEngine::run_impl(Game& game, ActionManager& manager) {
@@ -30,14 +30,20 @@ ScriptResult ScriptEngine::run_impl(Game& game, ActionManager& manager) {
       instruction_pointer_ = line;
     }
 
-    if (r.code == ScriptResult::WAIT) return r;
+    if (r.code == ScriptResult::CONTINUE ||
+        r.code == ScriptResult::WAIT_ADVANCE) {
+      instruction_pointer_++;
+    }
+
+    if (r.code == ScriptResult::WAIT_ADVANCE ||
+        r.code == ScriptResult::WAIT) {
+      return r;
+    }
 
     if (r.code == ScriptResult::ERROR) {
       clear();
       return r;
     }
-
-    if (r.code == ScriptResult::CONTINUE) instruction_pointer_++;
 
     if (instruction_pointer_ == script_.size()) {
       r.code = ScriptResult::EXIT;
