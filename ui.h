@@ -47,6 +47,11 @@ class TextBoxPopup {
   bool active_;
 
 public:
+  enum OnClickResponse {
+    DESTROY_ME,
+    KEEP_OPEN
+  };
+
   TextBoxPopup(Game& game);
 
   bool active() const { return active_; }
@@ -60,7 +65,9 @@ public:
   ~TextBoxPopup() { destroy(); }
 
   // Run if the player left clicks anywhere on the screen.
-  virtual void on_left_click(glm::vec2 mouse_pos) { }
+  virtual OnClickResponse on_left_click(glm::vec2 mouse_pos) {
+    return DESTROY_ME;
+  }
 
   template<typename...String>
   void add_text(String...strings) {
@@ -83,13 +90,36 @@ class SelectionBox : public TextBoxPopup {
  public:
   using TextBoxPopup::TextBoxPopup;
 
-  void on_left_click(glm::vec2 mouse_pos) override {
+  OnClickResponse on_left_click(glm::vec2 mouse_pos) override {
     for (const Text& text : text_) {
       if (in_between(mouse_pos, text.upper_left, text.lower_right)) {
         text.on_click();
         break;
       }
     }
+    return DESTROY_ME;
   }
 };
 
+class DialogueBox : public TextBoxPopup {
+ public:
+
+  using TextBoxPopup::TextBoxPopup;
+
+  OnClickResponse on_left_click(glm::vec2 mouse_pos) override {
+    bool has_on_click = false;
+    bool did_on_click = false;
+    for (const Text& text : text_) {
+      has_on_click |= bool(text.on_click);
+      if (in_between(mouse_pos, text.upper_left, text.lower_right)) {
+        if (text.on_click) {
+          text.on_click();
+          did_on_click = true;
+        }
+        break;
+      }
+    }
+
+    return !has_on_click || did_on_click ? DESTROY_ME : KEEP_OPEN;
+  }
+};
