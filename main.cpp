@@ -450,6 +450,80 @@ Decision cpu_decision(const Game& game, const DijkstraGrid& dijkstra,
   return decision;
 }
 
+Script demo_convo(glm::vec2 screen_center) {
+  Script script;
+  std::string* jump_label = new std::string("START");
+  script.push_label("START");
+  script.push([=](Game& game, ActionManager& action_manager) {
+      game.popup_box().reset(new DialogueBox(game));
+      game.popup_box()->add_text(
+          "Maybe we can reach some sort of cooperative arrangement,");
+      game.popup_box()->add_text("but what can you offer me?");
+      game.popup_box()->add_text_with_onclick(
+          "> money", [=] { *jump_label = "MAYBE_MONEY"; });
+      game.popup_box()->add_text_with_onclick(
+          "> freedom", [=] { *jump_label = "ALREADY_FREE"; });
+      game.popup_box()->add_text_with_onclick(
+          "> security", [=] { *jump_label = "AMENABLE"; });
+      game.popup_box()->build_text_box_at(screen_center + glm::vec2(-10, -2),
+                                          screen_center + glm::vec2( 10, -8));
+      return ScriptResult::WAIT_ADVANCE;
+  });
+  script.push([=](Game& game, ActionManager& action_manager) {
+      return ScriptResult(ScriptResult::RETRY, *jump_label);
+  });
+  script.push_label("MAYBE_MONEY");
+  script.push([=](Game& game, ActionManager& action_manager) {
+      game.popup_box().reset(new DialogueBox(game));
+      game.popup_box()->add_text(
+          "Money? I may look poor,");
+      game.popup_box()->add_text(
+          "but I'm just a temporarily embarrassed millionaire.");
+      game.popup_box()->add_text_with_onclick(
+          "> Okay, maybe something else", [=] { *jump_label = "START"; });
+      game.popup_box()->add_text_with_onclick(
+          "> Together, we can take down larger monsters than either "
+          "can apart.",
+          [=] { *jump_label = "DEAL"; });
+      game.popup_box()->build_text_box_at(screen_center + glm::vec2(-10, -2),
+                                          screen_center + glm::vec2( 10, -7));
+      return ScriptResult::WAIT_ADVANCE;
+  });
+  script.push([=](Game& game, ActionManager& action_manager) {
+      return ScriptResult(ScriptResult::RETRY, *jump_label);
+  });
+  script.push_label("ALREADY_FREE");
+  script.push([=](Game& game, ActionManager& action_manager) {
+      game.popup_box().reset(new DialogueBox(game));
+      game.popup_box()->add_text("I'm independent! As free as it gets!");
+      game.popup_box()->add_text("(continue)");
+      game.popup_box()->build_text_box_at(screen_center + glm::vec2(-10, -2),
+                                          screen_center + glm::vec2( 10, -7));
+      return ScriptResult::WAIT_ADVANCE;
+  });
+  script.push([=](Game& game, ActionManager& action_manager) {
+      return ScriptResult(ScriptResult::RETRY, "DEAL");
+  });
+  script.push_label("AMENABLE");
+  script.push([=](Game& game, ActionManager& action_manager) {
+      game.popup_box().reset(new DialogueBox(game));
+      game.popup_box()->add_text("Hmm... I can maybe work with that...");
+      game.popup_box()->build_text_box_at(screen_center + glm::vec2(-10, -2),
+                                          screen_center + glm::vec2( 10, -7));
+      return ScriptResult::WAIT_ADVANCE;
+  });
+  script.push_label("DEAL");
+  script.push([=](Game& game, ActionManager& action_manager) {
+      game.popup_box().reset(new DialogueBox(game));
+      game.popup_box()->add_text("Deal!");
+      game.popup_box()->build_text_box_at(screen_center + glm::vec2(-10, -2),
+                                          screen_center + glm::vec2( 10, -7));
+      delete jump_label;
+      return ScriptResult::CONTINUE;
+  });
+  return script;
+}
+
 Error run() {
   Graphics gfx;
   if (Error e = gfx.init(WINDOW_WIDTH, WINDOW_HEIGHT); !e.ok) return e;
@@ -595,8 +669,9 @@ Error run() {
       // Popup boxes rob input from the player. If they click anywhere, they go
       // away.
       if (input.left_click) {
-        game.popup_box()->on_left_click(input.mouse_pos_f);
-        game.popup_box().reset();
+        TextBoxPopup::OnClickResponse r =
+          game.popup_box()->on_left_click(input.mouse_pos_f);
+        if (r == TextBoxPopup::DESTROY_ME) game.popup_box().reset();
       }
     } else if (action_manager.have_ordered_actions() || active_script.active()) {
       // Any active scripts interrupt processing input.
@@ -630,7 +705,9 @@ Error run() {
                 game.decision().type = Decision::TALK;
                 game.decision().attack_target = id;
               };
-              game.popup_box()->add_text_with_onclick("talk", talk);
+              // TODO: Do we want a generic talk or should it always be
+              // recruit?
+              game.popup_box()->add_text_with_onclick("recruit", talk);
             }
 
             game.popup_box()->build_text_box_next_to(input.mouse_pos);
@@ -705,17 +782,14 @@ Error run() {
       game.decision().type = Decision::WAIT;
     } else if (whose_turn_state == ActorState::DECIDING &&
                game.decision().type == Decision::TALK) {
-      game.popup_box().reset(new TextBoxPopup(game));
-      game.popup_box()->add_text("(they have nothing to say to you)");
-
       // For positioning the text box, take advantage of the camera being
       // centered on the player.
       // TODO: Dialogues should have the camera center on the speaker. We can
       // then place the box relative to the speaker's position.
       glm::vec2 player_pos =
         game.ecs().read_or_panic<Transform>(whose_turn).pos;
-      game.popup_box()->build_text_box_at(player_pos + glm::vec2(-10, -2),
-                                          player_pos + glm::vec2( 10, -6));
+
+      active_script.reset(demo_convo(player_pos));
 
       game.turn().did_action = true;
       game.decision().type = Decision::WAIT;
