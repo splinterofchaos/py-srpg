@@ -1,8 +1,6 @@
 #include "game.h"
 #include "ui.h"
 
-constexpr float MENU_WIDTH = 10.0f;
-
 float text_width(FontMap& font_map, std::string_view text) {
   auto get_width =
     [&font_map](char c) { return font_map.get(c).bottom_right.x; };
@@ -15,7 +13,8 @@ float text_width(FontMap& font_map, std::string_view text) {
   return w;
 }
 
-TextBoxPopup::TextBoxPopup(Game& game) : game(game), active_(false) { }
+TextBoxPopup::TextBoxPopup(Game& game, float width)
+  : game(game), active_(false), width_(width) { }
 
 void TextBoxPopup::clear() {
   text_pool_.deactivate_pool(game.ecs());
@@ -37,21 +36,19 @@ void TextBoxPopup::build_text_box_next_to(glm::vec2 pos) {
 
   glm::vec2 start = pos + glm::vec2(1.f, 0.f);
   if (start.x + MENU_WIDTH > game.bottom_right_screen_tile().x)
-    start.x -= 2.f + MENU_WIDTH;
+    start.x -= 2.f + width_;
   start.y = std::max(start.y + 0.5f, game.bottom_right_screen_tile().y + h);
-
-  glm::vec2 end = start + glm::vec2(MENU_WIDTH, -h);
-  build_text_box_at(start, end);
+  build_text_box_at(start);
 }
 
-void TextBoxPopup::build_text_box_at(glm::vec2 upper_left,
-                                     glm::vec2 lower_right) {
-  glm::vec2 center = (upper_left + lower_right) / 2.f;
+void TextBoxPopup::build_text_box_at(glm::vec2 upper_left) {
+  glm::vec2 center(upper_left.x + width_ / 2.0f,
+                   upper_left.y - text_.size() / 2.f);
 
   window_background_pool_.create_new(
       game.ecs(),
       Transform{center, Transform::WINDOW_BACKGROUND},
-      Marker(glm::vec4(0.f, 0.2f, 0.f, .9f), lower_right - upper_left));
+      Marker(glm::vec4(0.f, 0.2f, 0.f, .9f), {width_, text_.size()}));
 
   for (unsigned int i = 0; i < text_.size(); ++i) {
     text_[i].upper_left = upper_left + glm::vec2(0.0f, -float(i) + 0.5f);
@@ -77,6 +74,7 @@ void TextBoxPopup::build_text_box_at(glm::vec2 upper_left,
     }
 
     text_[i].lower_right = text_[i].upper_left +
-                           glm::vec2(MENU_WIDTH, -1.0f);
+                           glm::vec2(width_, -1.0f);
   }
+
 }

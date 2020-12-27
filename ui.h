@@ -9,6 +9,8 @@
 #include "include/math.h"
 #include "font.h"
 
+inline constexpr float MENU_WIDTH = 10.0f;
+
 class Game;  // Foward declaration as TextBoxPopup references Game.
 
 struct Text {
@@ -46,13 +48,15 @@ class TextBoxPopup {
 
   bool active_;
 
+  float width_;
+
 public:
   enum OnClickResponse {
     DESTROY_ME,
     KEEP_OPEN
   };
 
-  TextBoxPopup(Game& game);
+  TextBoxPopup(Game& game, float width=MENU_WIDTH);
 
   bool active() const { return active_; }
 
@@ -83,7 +87,7 @@ public:
   void build_text_box_next_to(glm::vec2 pos);
 
   // Builds the window background and text given the window's dimensions.
-  void build_text_box_at(glm::vec2 upper_left, glm::vec2 lower_right);
+  void build_text_box_at(glm::vec2 upper_left);
 };
 
 class SelectionBox : public TextBoxPopup {

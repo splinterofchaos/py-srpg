@@ -455,7 +455,7 @@ Script demo_convo(glm::vec2 screen_center) {
   std::string* jump_label = new std::string("START");
   script.push_label("START");
   script.push([=](Game& game, ActionManager& action_manager) {
-      game.popup_box().reset(new DialogueBox(game));
+      game.popup_box().reset(new DialogueBox(game, 20));
       game.popup_box()->add_text(
           "Maybe we can reach some sort of cooperative arrangement,");
       game.popup_box()->add_text("but what can you offer me?");
@@ -465,8 +465,7 @@ Script demo_convo(glm::vec2 screen_center) {
           "> freedom", [=] { *jump_label = "ALREADY_FREE"; });
       game.popup_box()->add_text_with_onclick(
           "> security", [=] { *jump_label = "AMENABLE"; });
-      game.popup_box()->build_text_box_at(screen_center + glm::vec2(-10, -2),
-                                          screen_center + glm::vec2( 10, -8));
+      game.popup_box()->build_text_box_at(screen_center + glm::vec2(-10, -2));
       return ScriptResult::WAIT_ADVANCE;
   });
   script.push([=](Game& game, ActionManager& action_manager) {
@@ -474,7 +473,7 @@ Script demo_convo(glm::vec2 screen_center) {
   });
   script.push_label("MAYBE_MONEY");
   script.push([=](Game& game, ActionManager& action_manager) {
-      game.popup_box().reset(new DialogueBox(game));
+      game.popup_box().reset(new DialogueBox(game, 20));
       game.popup_box()->add_text(
           "Money? I may look poor,");
       game.popup_box()->add_text(
@@ -485,8 +484,7 @@ Script demo_convo(glm::vec2 screen_center) {
           "> Together, we can take down larger monsters than either "
           "can apart.",
           [=] { *jump_label = "DEAL"; });
-      game.popup_box()->build_text_box_at(screen_center + glm::vec2(-10, -2),
-                                          screen_center + glm::vec2( 10, -7));
+      game.popup_box()->build_text_box_at(screen_center + glm::vec2(-10, -2));
       return ScriptResult::WAIT_ADVANCE;
   });
   script.push([=](Game& game, ActionManager& action_manager) {
@@ -494,11 +492,10 @@ Script demo_convo(glm::vec2 screen_center) {
   });
   script.push_label("ALREADY_FREE");
   script.push([=](Game& game, ActionManager& action_manager) {
-      game.popup_box().reset(new DialogueBox(game));
+      game.popup_box().reset(new DialogueBox(game, 20));
       game.popup_box()->add_text("I'm independent! As free as it gets!");
       game.popup_box()->add_text("(continue)");
-      game.popup_box()->build_text_box_at(screen_center + glm::vec2(-10, -2),
-                                          screen_center + glm::vec2( 10, -7));
+      game.popup_box()->build_text_box_at(screen_center + glm::vec2(-10, -2));
       return ScriptResult::WAIT_ADVANCE;
   });
   script.push([=](Game& game, ActionManager& action_manager) {
@@ -506,18 +503,16 @@ Script demo_convo(glm::vec2 screen_center) {
   });
   script.push_label("AMENABLE");
   script.push([=](Game& game, ActionManager& action_manager) {
-      game.popup_box().reset(new DialogueBox(game));
+      game.popup_box().reset(new DialogueBox(game, 20));
       game.popup_box()->add_text("Hmm... I can maybe work with that...");
-      game.popup_box()->build_text_box_at(screen_center + glm::vec2(-10, -2),
-                                          screen_center + glm::vec2( 10, -7));
+      game.popup_box()->build_text_box_at(screen_center + glm::vec2(-10, -2));
       return ScriptResult::WAIT_ADVANCE;
   });
   script.push_label("DEAL");
   script.push([=](Game& game, ActionManager& action_manager) {
-      game.popup_box().reset(new DialogueBox(game));
+      game.popup_box().reset(new DialogueBox(game, 20));
       game.popup_box()->add_text("Deal!");
-      game.popup_box()->build_text_box_at(screen_center + glm::vec2(-10, -2),
-                                          screen_center + glm::vec2( 10, -7));
+      game.popup_box()->build_text_box_at(screen_center + glm::vec2(-10, -2));
       delete jump_label;
       return ScriptResult::CONTINUE;
   });
