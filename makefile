@@ -1,6 +1,6 @@
 
 COMPILER = g++
-EXTRA = 
+EXTRA = -g
 OPS = -Wall -std=c++2a -Iinclude `pkg-config --cflags freetype2` \
 			${EXTRA}
 
