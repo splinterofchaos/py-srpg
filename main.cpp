@@ -453,66 +453,28 @@ Decision cpu_decision(const Game& game, const DijkstraGrid& dijkstra,
 Script demo_convo(glm::vec2 screen_center) {
   Script script;
   std::string* jump_label = new std::string("START");
-  script.push_label("START");
+  push_dialogue_block(
+      script, jump_label, "START",
+      "Maybe we can reach some sort of cooperative arrangement,",
+      {{"> money", "MAYBE_MONEY"},
+       {"> freedom", "ALREADY_FREE"},
+       {"> security", "AMENABLE"}});
+  push_dialogue_block(
+      script, jump_label, "MAYBE_MONEY",
+      "Money? I may look poor, but I'm just a temporarily embarrased "
+      "millionaire.",
+      {{"> Okay, maybe something else.", "START"},
+       {"> Together, we can take down larger monsters than either "
+        "can apart.", "DEAL"}});
+  push_dialogue_block(
+      script, jump_label, "ALREADY_FREE",
+      "I'm independent! As free as it gets! Still...",
+      {{"> (continue)", "DEAL"}});
+  push_dialogue_block(
+      script, jump_label, "AMENABLE", "Hmm... I can work with that....");
+  push_dialogue_block(
+      script, jump_label, "DEAL", "Deal!");
   script.push([=](Game& game, ActionManager& action_manager) {
-      game.popup_box().reset(new DialogueBox(game, 20));
-      game.popup_box()->add_text(
-          "Maybe we can reach some sort of cooperative arrangement,");
-      game.popup_box()->add_text("but what can you offer me?");
-      game.popup_box()->add_text_with_onclick(
-          "> money", [=] { *jump_label = "MAYBE_MONEY"; });
-      game.popup_box()->add_text_with_onclick(
-          "> freedom", [=] { *jump_label = "ALREADY_FREE"; });
-      game.popup_box()->add_text_with_onclick(
-          "> security", [=] { *jump_label = "AMENABLE"; });
-      game.popup_box()->build_text_box_at(screen_center + glm::vec2(-10, -2));
-      return ScriptResult::WAIT_ADVANCE;
-  });
-  script.push([=](Game& game, ActionManager& action_manager) {
-      return ScriptResult(ScriptResult::RETRY, *jump_label);
-  });
-  script.push_label("MAYBE_MONEY");
-  script.push([=](Game& game, ActionManager& action_manager) {
-      game.popup_box().reset(new DialogueBox(game, 20));
-      game.popup_box()->add_text(
-          "Money? I may look poor,");
-      game.popup_box()->add_text(
-          "but I'm just a temporarily embarrassed millionaire.");
-      game.popup_box()->add_text_with_onclick(
-          "> Okay, maybe something else", [=] { *jump_label = "START"; });
-      game.popup_box()->add_text_with_onclick(
-          "> Together, we can take down larger monsters than either "
-          "can apart.",
-          [=] { *jump_label = "DEAL"; });
-      game.popup_box()->build_text_box_at(screen_center + glm::vec2(-10, -2));
-      return ScriptResult::WAIT_ADVANCE;
-  });
-  script.push([=](Game& game, ActionManager& action_manager) {
-      return ScriptResult(ScriptResult::RETRY, *jump_label);
-  });
-  script.push_label("ALREADY_FREE");
-  script.push([=](Game& game, ActionManager& action_manager) {
-      game.popup_box().reset(new DialogueBox(game, 20));
-      game.popup_box()->add_text("I'm independent! As free as it gets!");
-      game.popup_box()->add_text("(continue)");
-      game.popup_box()->build_text_box_at(screen_center + glm::vec2(-10, -2));
-      return ScriptResult::WAIT_ADVANCE;
-  });
-  script.push([=](Game& game, ActionManager& action_manager) {
-      return ScriptResult(ScriptResult::RETRY, "DEAL");
-  });
-  script.push_label("AMENABLE");
-  script.push([=](Game& game, ActionManager& action_manager) {
-      game.popup_box().reset(new DialogueBox(game, 20));
-      game.popup_box()->add_text("Hmm... I can maybe work with that...");
-      game.popup_box()->build_text_box_at(screen_center + glm::vec2(-10, -2));
-      return ScriptResult::WAIT_ADVANCE;
-  });
-  script.push_label("DEAL");
-  script.push([=](Game& game, ActionManager& action_manager) {
-      game.popup_box().reset(new DialogueBox(game, 20));
-      game.popup_box()->add_text("Deal!");
-      game.popup_box()->build_text_box_at(screen_center + glm::vec2(-10, -2));
       delete jump_label;
       return ScriptResult::CONTINUE;
   });

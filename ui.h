@@ -10,6 +10,7 @@
 #include "font.h"
 
 inline constexpr float MENU_WIDTH = 10.0f;
+inline constexpr float DIALOGUE_WIDTH = 20.f;
 
 class Game;  // Foward declaration as TextBoxPopup references Game.
 

@@ -1,10 +1,12 @@
 #pragma once
 
 #include <functional>
+#include <string_view>
 #include <unordered_map>
 #include <vector>
 
 #include "action.h"
+#include "ui.h"
 
 struct ScriptResult {
   enum Code {
@@ -77,3 +79,15 @@ class ScriptEngine {
     return last_result_;
   }
 };
+
+// Dialogue-based scripts follow a typical formula of call and response.
+// This function pushes a very simple call-response command onto the script.
+// Responses then jump to later parts of the script allowing for branching
+// options.
+void push_dialogue_block(
+    Script& script,
+    std::string* jump_label,
+    std::string_view label,
+    std::string_view text,
+    std::vector<std::pair<std::string, std::string>>
+        response_labels = {});

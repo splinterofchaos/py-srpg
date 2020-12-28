@@ -1,5 +1,7 @@
 #include "script.h"
 
+#include "game.h"
+
 void Script::push(ScriptFn fn) { instructions_.push_back(std::move(fn)); }
 
 void Script::push_label(std::string name) {
@@ -54,4 +56,43 @@ ScriptResult ScriptEngine::run_impl(Game& game, ActionManager& manager) {
   }
 
   return ScriptResult::EXIT;
+}
+
+void push_dialogue_block(
+    Script& script,
+    std::string* jump_label,
+    std::string_view label,
+    std::string_view text,
+    std::vector<std::pair<std::string, std::string>>
+        response_labels) {
+  // Later, we're going to push a command to jump to the next part of the
+  // conversation based on the dialogue choice, but we're moving the
+  // response_labels into the first command so we have to check this now:
+  bool jump_on_response = !response_labels.empty();
+
+  script.push_label(std::string(label));
+  script.push(
+      [jump_label, text=std::string(text),
+      response_labels=std::move(response_labels)]
+      (Game& game, ActionManager& action_manager) {
+        game.popup_box().reset(new DialogueBox(game, DIALOGUE_WIDTH));
+        game.popup_box()->add_text(std::move(text));
+        for (auto& [response, label] : response_labels) {
+          game.popup_box()->add_text_with_onclick(
+              std::move(response),
+              [jump_label, label] { *jump_label = label; });
+        }
+
+        game.popup_box()->build_text_box_at(
+            game.camera_offset() / TILE_SIZE +
+            glm::vec2(-DIALOGUE_WIDTH/2, -2));
+
+        return ScriptResult::WAIT_ADVANCE;
+      }
+  );
+  if (jump_on_response) {
+    script.push([jump_label](Game& game, ActionManager& action_manager) {
+                return ScriptResult(ScriptResult::RETRY, *jump_label);
+    });
+  }
 }
