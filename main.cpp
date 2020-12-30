@@ -455,25 +455,63 @@ Script demo_convo(glm::vec2 screen_center) {
   std::string* jump_label = new std::string("START");
   push_dialogue_block(
       script, jump_label, "START",
-      "Maybe we can reach some sort of cooperative arrangement,",
+      "I can cooperate, but what can you offer me?",
       {{"> money", "MAYBE_MONEY"},
-       {"> freedom", "ALREADY_FREE"},
-       {"> security", "AMENABLE"}});
+       {"> freedom", "ALREADY_FREE"}});
   push_dialogue_block(
       script, jump_label, "MAYBE_MONEY",
-      "Money? I may look poor, but I'm just a temporarily embarrased "
+      "Money? I may look poor, but I'm just a temporarily embarrassed "
       "millionaire.",
       {{"> Okay, maybe something else.", "START"},
        {"> Together, we can take down larger monsters than either "
         "can apart.", "DEAL"}});
   push_dialogue_block(
       script, jump_label, "ALREADY_FREE",
-      "I'm independent! As free as it gets! Still...",
-      {{"> (continue)", "DEAL"}});
+      "I'm independent! As free as it gets! It seems to me you are the one "
+      "who is trapped in here, working for either your king or some "
+      "benefactor?",
+      {{"> I was put here by the king, but I have my own goals.",
+        "INDEPENDENT?"},
+       {"> The king is just. The king is good.", "ROYALIST_SCUM"}});
   push_dialogue_block(
-      script, jump_label, "AMENABLE", "Hmm... I can work with that....");
+      script, jump_label, "INDEPENDENT?",
+      "Hah! The power dynamic remains. You were coerced into entering and by "
+      "joining you, that'd give the king leverage over me, too. "
+      "Freedom, my ass.",
+      {{"> I'm working in the system to change it.", "CHANGE"},
+       {"> The king gets nothing without my labor. I'm the one with the power "
+        "in this situation.", "POWER"},
+       {"> A rebel scum like you doesn't deserve to live!", "END"}});
+  push_dialogue_block(
+      script, jump_label, "POWER",
+      "True... and we can make ANY demand we want...");
+  script.push([=](Game& game, ActionManager& action_manager) {
+      return ScriptResult(ScriptResult::RETRY, "DEAL");
+  });
+  push_dialogue_block(
+      script, jump_label, "CHANGE",
+      "Talking out of your ass or just naive? What're you going to do? Raise "
+      "an army to overthrow the throne? Restructure the entire society?",
+      // TODO: Maybe if the player has a certain number of allies on their
+      // team, this could actually be a persuasive argument.
+      {{"> Yes, exactly!", "NAIVE"},
+       {"> ...", "NAIVE"}});
+  push_dialogue_block(
+      script, jump_label, "ROYALIST_SCUM",
+      "The king good? He trapped all of us in this dungeon and throws his own "
+      "citizens in to die. All who support the king must die.");
+  script.push([=](Game& game, ActionManager& action_manager) {
+      return ScriptResult(ScriptResult::RETRY, "END");
+  });
+  push_dialogue_block(
+      script, jump_label, "NAIVE",
+      "There's no use talking to a fool like you.");
+  script.push([=](Game& game, ActionManager& action_manager) {
+      return ScriptResult(ScriptResult::RETRY, "END");
+  });
   push_dialogue_block(
       script, jump_label, "DEAL", "Deal!");
+  script.push_label("END");
   script.push([=](Game& game, ActionManager& action_manager) {
       delete jump_label;
       return ScriptResult::CONTINUE;
