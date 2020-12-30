@@ -485,9 +485,7 @@ Script demo_convo(glm::vec2 screen_center) {
   push_dialogue_block(
       script, jump_label, "POWER",
       "True... and we can make ANY demand we want...");
-  script.push([=](Game& game, ActionManager& action_manager) {
-      return ScriptResult(ScriptResult::RETRY, "DEAL");
-  });
+  push_jump(script, "DEAL");
   push_dialogue_block(
       script, jump_label, "CHANGE",
       "Talking out of your ass or just naive? What're you going to do? Raise "
@@ -500,22 +498,15 @@ Script demo_convo(glm::vec2 screen_center) {
       script, jump_label, "ROYALIST_SCUM",
       "The king good? He trapped all of us in this dungeon and throws his own "
       "citizens in to die. All who support the king must die.");
-  script.push([=](Game& game, ActionManager& action_manager) {
-      return ScriptResult(ScriptResult::RETRY, "END");
-  });
+  push_jump(script, "END");
   push_dialogue_block(
       script, jump_label, "NAIVE",
       "There's no use talking to a fool like you.");
-  script.push([=](Game& game, ActionManager& action_manager) {
-      return ScriptResult(ScriptResult::RETRY, "END");
-  });
+  push_jump(script, "END");
   push_dialogue_block(
       script, jump_label, "DEAL", "Deal!");
   script.push_label("END");
-  script.push([=](Game& game, ActionManager& action_manager) {
-      delete jump_label;
-      return ScriptResult::CONTINUE;
-  });
+  push_delete(script, jump_label);
   return script;
 }
 

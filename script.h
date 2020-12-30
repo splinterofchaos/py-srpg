@@ -80,6 +80,24 @@ class ScriptEngine {
   }
 };
 
+// Pushes an instruction to the script which jumps to a label.
+void push_jump(Script& script, std::string label);
+
+// Scripts may allocate a string on the heap to coordinate where to jump to
+// next in the script between GUI dialogue boxes and the script itself. Adds
+// an instruction that jumps to the value set in the label.
+void push_jump_ptr(Script& script, std::string* label);
+
+// If a script allocated storage, such as for a jump label, put this at the
+// end of the script to clean up the memory.
+template<typename X>
+void push_delete(Script& script, X* x) {
+  script.push([x](Game&, ActionManager&) {
+      delete x;
+      return ScriptResult::CONTINUE;
+  });
+}
+
 // Dialogue-based scripts follow a typical formula of call and response.
 // This function pushes a very simple call-response command onto the script.
 // Responses then jump to later parts of the script allowing for branching

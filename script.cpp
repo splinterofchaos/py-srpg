@@ -58,6 +58,21 @@ ScriptResult ScriptEngine::run_impl(Game& game, ActionManager& manager) {
   return ScriptResult::EXIT;
 }
 
+void push_jump(Script& script, std::string label) {
+  script.push([label=std::move(label)]
+              (Game& game, ActionManager& action_manager) {
+      return ScriptResult(ScriptResult::RETRY, label);
+  });
+}
+
+void push_jump_ptr(Script& script, std::string* label) {
+  script.push([label=label](Game& game, ActionManager& action_manager) {
+      auto r = ScriptResult(ScriptResult::RETRY, *label);
+      label->clear();
+      return r;
+  });
+}
+
 void push_dialogue_block(
     Script& script,
     std::string* jump_label,
@@ -90,9 +105,6 @@ void push_dialogue_block(
         return ScriptResult::WAIT_ADVANCE;
       }
   );
-  if (jump_on_response) {
-    script.push([jump_label](Game& game, ActionManager& action_manager) {
-                return ScriptResult(ScriptResult::RETRY, *jump_label);
-    });
-  }
+
+  if (jump_on_response) push_jump_ptr(script, jump_label);
 }
