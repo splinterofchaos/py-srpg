@@ -52,6 +52,10 @@ std::ostream& operator<<(std::ostream& os, glm::vec2 v) {
   return os << '<' << v.x << ", " << v.y << '>';
 }
 
+// TODO: Just move this to a conversations file instead of forward declaring
+// here.
+Script demo_convo();
+
 const char* const STARTING_GRID = R"(
 ##############
 #............#
@@ -298,23 +302,26 @@ void make_hammer_guy(Game& game, EntityId guy) {
 
   Actor& actor = game.ecs().read_or_panic<Actor>(guy);
 
-  actor.on_hit_enemy.push([guy](Game& game, ActionManager& manager) {
-      glm::ivec2 pos = game.ecs().read_or_panic<GridPos>(guy).pos;
+  Script on_hit;
+  on_hit.push([guy](Game& game, ActionManager& manager) {
+    glm::ivec2 pos = game.ecs().read_or_panic<GridPos>(guy).pos;
 
-      EntityId defender = game.decision().target;
-      glm::ivec2 defender_pos =
-          game.ecs().read_or_panic<GridPos>(defender).pos;
+    EntityId defender = game.decision().target;
+    glm::ivec2 defender_pos =
+        game.ecs().read_or_panic<GridPos>(defender).pos;
 
-      glm::ivec2 target_tile = defender_pos + (defender_pos - pos);
-      
-      auto [tile, exists] = game.grid().get(target_tile);
-      if (exists && tile.walkable) {
-        manager.add_ordered_action(
-            move_action(defender, {defender_pos, target_tile}));
-      }
+    glm::ivec2 target_tile = defender_pos + (defender_pos - pos);
+    
+    auto [tile, exists] = game.grid().get(target_tile);
+    if (exists && tile.walkable) {
+      manager.add_ordered_action(
+          move_action(defender, {defender_pos, target_tile}));
+    }
 
-      return ScriptResult::CONTINUE;
+    return ScriptResult::CONTINUE;
   });
+
+  actor.triggers.set("on_hit_enemy", std::move(on_hit));
       
   game.ecs().write(guy, actor);
 }
@@ -397,6 +404,9 @@ void make_imp(Game& game, EntityId imp) {
   actor.stats.speed += 4;
   actor.stats.max_hp -= 5;
   actor.hp -= 5;
+
+  actor.triggers.set("on_recruit", demo_convo());
+
   game.ecs().write(imp, actor);
 }
 
@@ -480,7 +490,7 @@ Decision cpu_decision(const Game& game, const DijkstraGrid& dijkstra,
   return decision;
 }
 
-Script demo_convo(glm::vec2 screen_center) {
+Script demo_convo() {
   Script script;
   std::string* jump_label = new std::string("START");
   push_dialogue_block(
@@ -537,6 +547,13 @@ Script demo_convo(glm::vec2 screen_center) {
       script, jump_label, "DEAL", "Deal!");
   script.push_label("END");
   push_delete(script, jump_label);
+  return script;
+}
+
+Script will_not_talk_conversation() {
+  Script script;
+  push_dialogue_block(script, nullptr, "START",
+                      "(They don't want to speak with you.)");
   return script;
 }
 
@@ -768,10 +785,10 @@ Error run() {
                       Path()));
 
       // TODO: It would be much cleaner to check this withing mele_action().
-      if (!whose_turn_actor.on_hit_enemy.empty()) {
+      if (const Script* s =
+          whose_turn_actor.triggers.get_or_null("on_hit_enemy")) {
         sequence.push_back(
-          generic_action([&active_script, script=whose_turn_actor.on_hit_enemy]
-                         (const auto&...) {
+          generic_action([&active_script, script=*s](const auto&...) {
               active_script.reset(std::move(script));
         }));
       }
@@ -805,7 +822,11 @@ Error run() {
       glm::vec2 player_pos =
         game.ecs().read_or_panic<Transform>(whose_turn).pos;
 
-      active_script.reset(demo_convo(player_pos));
+      const Actor& other =
+        game.ecs().read_or_panic<Actor>(game.decision().target);
+      const Script* conversation = other.triggers.get_or_null("on_recruit");
+      active_script.reset(conversation ? *conversation :
+                          will_not_talk_conversation());
 
       game.turn().did_action = true;
       game.decision().type = Decision::WAIT;

@@ -70,6 +70,15 @@ struct StatusEffect {
   bool slowed = false;
 };
 
+class Triggers {
+  std::unordered_map<std::string, Script> scripts_;
+
+ public:
+  void set(std::string name, Script script);
+  Script* get_or_null(const std::string& name);
+  const Script* get_or_null(const std::string& name) const;
+};
+
 // Identifies that an entity is an actor.
 struct Actor {
   std::string name;
@@ -81,7 +90,7 @@ struct Actor {
   StatusEffect embue;
   bool lifesteal;
 
-  Script on_hit_enemy;
+  Triggers triggers;
 
   void recalculate_stats() {
     stats.max_hp = base_stats.max_hp;
