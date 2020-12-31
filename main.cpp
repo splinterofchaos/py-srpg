@@ -370,6 +370,36 @@ void make_bat(Game& game, EntityId bat) {
   game.ecs().write(bat, actor);
 }
 
+void make_imp(Game& game, EntityId imp) {
+  // It should look like this: ^O^
+  constexpr glm::vec4 COLOR = glm::vec4(0.f, 0.2f, 0.6f, 1.f);
+
+  std::vector<GlyphRenderConfig> rcs;
+  rcs.emplace_back(game.font_map().get('@'), COLOR);
+  rcs.back().center();
+  rcs.back().offset += glm::vec3(-0.25f, 0.f, 0.f);
+
+  rcs.emplace_back(game.font_map().get('^'), COLOR);
+  rcs.back().center();
+  rcs.back().offset += glm::vec3(-0.50f, 0.3f, 0.f);
+
+  rcs.emplace_back(game.font_map().get('^'), COLOR);
+  rcs.back().center();
+  rcs.back().offset += glm::vec3(-0.00f, 0.3f, 0.f);
+
+  rcs.emplace_back(game.font_map().get('_'), COLOR);
+  rcs.back().center();
+  rcs.back().offset += glm::vec3(0.05f, -0.3f, 0.f);
+
+  game.ecs().write(imp, std::move(rcs), Ecs::CREATE_OR_UPDATE);
+
+  Actor& actor = game.ecs().read_or_panic<Actor>(imp);
+  actor.stats.speed += 4;
+  actor.stats.max_hp -= 5;
+  actor.hp -= 5;
+  game.ecs().write(imp, actor);
+}
+
 bool can_attack(const Game& game, glm::ivec2 from_pos, unsigned int attack_range,
                 EntityId target) {
   return !game.turn().did_action &&
@@ -558,7 +588,7 @@ Error run() {
   make_hammer_guy(game, spawn_agent(game, "Jor", {5, 3}, Team::PLAYER));
 
   make_spider(game, spawn_agent(game, "spider", {12, 12}, Team::CPU));
-  make_spider(game, spawn_agent(game, "spiider", {10, 12}, Team::CPU));
+  make_imp(game, spawn_agent(game, "imp", {10, 12}, Team::CPU));
   make_bat(game, spawn_agent(game, "bat", {10, 10}, Team::CPU));
 
 
