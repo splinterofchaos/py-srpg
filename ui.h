@@ -10,7 +10,7 @@
 #include "font.h"
 
 inline constexpr float MENU_WIDTH = 10.0f;
-inline constexpr float DIALOGUE_WIDTH = 20.f;
+inline constexpr float DIALOGUE_WIDTH = 10.f;
 
 class Game;  // Foward declaration as TextBoxPopup references Game.
 
@@ -49,7 +49,9 @@ class TextBoxPopup {
 
   bool active_;
 
-  float width_;
+  float width_;  // Used while constructing the text.
+
+  glm::vec2 center_;
 
 public:
   enum OnClickResponse {
@@ -60,6 +62,8 @@ public:
   TextBoxPopup(Game& game, float width=MENU_WIDTH);
 
   bool active() const { return active_; }
+
+  glm::vec2 center() const { return center_; }
 
   // Deactivates the entities in this popup.
   void clear();

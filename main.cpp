@@ -506,6 +506,7 @@ Script demo_convo(glm::vec2 screen_center) {
   push_dialogue_block(
       script, jump_label, "DEAL", "Deal!");
   script.push_label("END");
+  push_end_dialogue(script);
   push_delete(script, jump_label);
   return script;
 }
@@ -602,6 +603,12 @@ Error run() {
         !game.popup_box() &&
         (game.turn().over() || !game.ecs().is_active(whose_turn))) {
       whose_turn = advance_until_next_turn(game.ecs());
+      
+      // TODO: We should in general be using this instead of whose_turn, but it
+      // looks like I forgot it existed. This line allows scripts to know whose
+      // turn it currently is.
+      game.turn().actor = whose_turn;
+
       if (whose_turn.id == EntityId::NOT_AN_ID)
         return Error("No one left alive");
 

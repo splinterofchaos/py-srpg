@@ -92,12 +92,12 @@ void TextBoxPopup::build_text_box_at(glm::vec2 upper_left) {
                            glm::vec2(width_, -1.0f);
   }
 
-  glm::vec2 center(upper_left.x + width_ / 2.0f,
-                   upper_left.y - line / 2.f);
+  center_ = glm::vec2(upper_left.x + width_ / 2.0f,
+                      upper_left.y - line / 2.f);
 
   window_background_pool_.create_new(
       game.ecs(),
-      Transform{center, Transform::WINDOW_BACKGROUND},
+      Transform{center_, Transform::WINDOW_BACKGROUND},
       Marker(glm::vec4(0.f, 0.2f, 0.f, .9f), {width_, line}));
 
 }
