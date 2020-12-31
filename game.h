@@ -42,7 +42,8 @@ struct Decision {
 
   union {
     glm::ivec2 move_to;
-    EntityId attack_target;
+    // Attacking, talking, various actions may target an entity.
+    EntityId target;
   };
 
   Decision() : type(WAIT) { }

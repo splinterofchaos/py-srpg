@@ -301,7 +301,7 @@ void make_hammer_guy(Game& game, EntityId guy) {
   actor.on_hit_enemy.push([guy](Game& game, ActionManager& manager) {
       glm::ivec2 pos = game.ecs().read_or_panic<GridPos>(guy).pos;
 
-      EntityId defender = game.decision().attack_target;
+      EntityId defender = game.decision().target;
       glm::ivec2 defender_pos =
           game.ecs().read_or_panic<GridPos>(defender).pos;
 
@@ -393,7 +393,7 @@ Decision player_decision(const Game& game, EntityId id, const UserInput& input) 
     decision.type = Decision::PASS;
   } else if (exists && can_attack(game, pos, actor.stats.range, enemy)) {
     decision.type = Decision::ATTACK_ENTITY;
-    decision.attack_target = enemy;
+    decision.target = enemy;
   } else if (!exists && manh_dist(pos, input.mouse_pos) <= actor.stats.move) {
     decision.type = Decision::MOVE_TO;
     decision.move_to = input.mouse_pos;
@@ -426,7 +426,7 @@ Decision cpu_decision(const Game& game, const DijkstraGrid& dijkstra,
                        actor.stats.range);
     if (enemies.size()) {
       decision.type = Decision::ATTACK_ENTITY;
-      decision.attack_target = enemies.front();
+      decision.target = enemies.front();
     }
   }
 
@@ -672,7 +672,7 @@ Error run() {
           if (exists) {
             auto look_at = [&game, id=id] {
               game.decision().type = Decision::LOOK_AT;
-              game.decision().attack_target = id;
+              game.decision().target = id;
             };
             game.popup_box().reset(new SelectionBox(game));
             game.popup_box()->add_text_with_onclick("look", look_at);
@@ -681,7 +681,7 @@ Error run() {
             if (can_attack(game, pos, whose_turn_actor.stats.range, id)) {
               auto attack = [&game, id=id] {
                 game.decision().type = Decision::ATTACK_ENTITY;
-                game.decision().attack_target = id;
+                game.decision().target = id;
               };
               game.popup_box()->add_text_with_onclick("normal attack", attack);
             }
@@ -689,7 +689,7 @@ Error run() {
             if (can_talk(game, pos, id)) {
               auto talk = [&game, id=id] {
                 game.decision().type = Decision::TALK;
-                game.decision().attack_target = id;
+                game.decision().target = id;
               };
               // TODO: Do we want a generic talk or should it always be
               // recruit?
@@ -726,7 +726,7 @@ Error run() {
                game.decision().type == Decision::ATTACK_ENTITY) {
       // Set the camera at the midpoint between attacker and defender.
       glm::vec2 attack_target_pos =
-        game.ecs().read_or_panic<Transform>(game.decision().attack_target).pos;
+        game.ecs().read_or_panic<Transform>(game.decision().target).pos;
       game.set_camera_target(glm::mix(whose_turn_trans.pos,
                                       attack_target_pos,
                                       0.5f));
@@ -734,7 +734,7 @@ Error run() {
       // Do the mele, but afterwards, reset the camera and continue the turn.
       std::vector<std::unique_ptr<Action>> sequence;
       sequence.push_back(
-          mele_action(game, whose_turn, game.decision().attack_target,
+          mele_action(game, whose_turn, game.decision().target,
                       Path()));
 
       // TODO: It would be much cleaner to check this withing mele_action().
@@ -761,9 +761,9 @@ Error run() {
     } else if (whose_turn_state == ActorState::DECIDING &&
                game.decision().type == Decision::LOOK_AT) {
       game.popup_box().reset(new TextBoxPopup(game));
-      add_entity_desc_text(game, *game.popup_box(), game.decision().attack_target);
+      add_entity_desc_text(game, *game.popup_box(), game.decision().target);
       glm::vec2 pos = game.ecs().read_or_panic<GridPos>(
-          game.decision().attack_target).pos;
+          game.decision().target).pos;
       game.popup_box()->build_text_box_next_to(pos);
       game.decision().type = Decision::WAIT;
     } else if (whose_turn_state == ActorState::DECIDING &&
