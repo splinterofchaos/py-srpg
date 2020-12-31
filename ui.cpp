@@ -89,7 +89,7 @@ void TextBoxPopup::build_text_box_at(glm::vec2 upper_left) {
     line += 1;
 
     text_[i].lower_right = text_[i].upper_left +
-                           glm::vec2(width_, -1.0f);
+                           glm::vec2(width_, -(text_line + 1));
   }
 
   center_ = glm::vec2(upper_left.x + width_ / 2.0f,
