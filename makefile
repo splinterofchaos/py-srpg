@@ -24,6 +24,9 @@ obj/ecs_test : include/ecs.h include/ecs_test.cpp include/test.h include/util.h
 obj/graphics.o : include/graphics.h include/graphics.cpp include/util.h
 	${COMPILER} ${OPS} -c include/graphics.cpp -o obj/graphics.o
 
+obj/decision.o : decision.h decision.cpp include/ecs.h dijkstra.h
+	${COMPILER} ${OPS} -c decision.cpp -o obj/decision.o
+
 obj/shaders.o : shaders.* include/graphics.h include/util.h
 	${COMPILER} ${OPS} -c shaders.cpp -o obj/shaders.o
 
@@ -47,7 +50,7 @@ obj/components.o : components.h components.cpp include/ecs.h font.h script.h \
 	${COMPILER} ${OPS} -c components.cpp -o obj/components.o
 
 obj/game.o : game.h game.cpp components.h font.h grid.h shaders.h ui.h \
-						 constants.h
+						 constants.h decision.h
 	${COMPILER} ${OPS} -c game.cpp -o obj/game.o
 
 obj/action.o : action.h action.cpp components.h game.h include/timer.h \
@@ -65,5 +68,5 @@ obj/main.o : main.cpp include/*.h *.h
 
 obj/run : obj/main.o obj/graphics.o obj/shaders.o obj/font.o obj/math.o \
 					obj/action.o obj/grid.o obj/game.o obj/dijkstra.o obj/ui.o \
-					obj/script.o obj/components.o obj/user_input.o
+					obj/script.o obj/components.o obj/user_input.o obj/decision.o
 	${COMPILER} ${OPS} obj/*.o -lSDL2 -lfreetype -lGL -lGLEW -lGLU -o obj/run

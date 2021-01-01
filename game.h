@@ -6,6 +6,7 @@
 
 #include "constants.h"
 #include "components.h"
+#include "decision.h"
 #include "font.h"
 #include "grid.h"
 #include "shaders.h"
@@ -26,27 +27,6 @@ struct Turn {
   }
 
   bool over() const;
-};
-
-// Decides what actions to take for this turn.
-struct Decision {
-  enum Type {
-    DECIDING,       // No decision made yet.
-    PASS,           // End the turn early.
-    MOVE_TO,        // Walk to `move_to` below.
-    ATTACK_ENTITY,  // Attack `target` below.
-    LOOK_AT,        // Look at `target` below.
-    TALK,           // Talk to `target` below.
-    N_TYPES
-  } type = DECIDING;
-
-  union {
-    glm::ivec2 move_to;
-    // Attacking, talking, various actions may target an entity.
-    EntityId target;
-  };
-
-  Decision() : type(DECIDING) { }
 };
 
 class Game {
