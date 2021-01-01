@@ -183,7 +183,7 @@ EntityId advance_until_next_turn(Ecs& ecs) {
 
   *max_agent->energy -= ENERGY_REQUIRED;
   
-  ecs.write(max_agent->id, ActorState::SETUP, Ecs::CREATE_OR_UPDATE);
+  ecs.write(max_agent->id, ActorState::DECIDING, Ecs::CREATE_OR_UPDATE);
   return max_agent->id;
 }
 
@@ -568,9 +568,26 @@ Error run() {
       game.set_camera_target(
           game.ecs().read_or_panic<Transform>(whose_turn).pos);
 
-      ActorState& whose_turn_state =
-        game.ecs().read_or_panic<ActorState>(whose_turn);
-      whose_turn_state = ActorState::SETUP;
+      // Find this entity's walkable tiles.
+      const GridPos& grid_pos = game.ecs().read_or_panic<GridPos>(whose_turn);
+      dijkstra.generate(game, grid_pos.pos);
+
+      auto move_range =
+        game.ecs().read_or_panic<Actor>(whose_turn).stats.move;
+
+      movement_indicators.deactivate_pool(game.ecs());
+      // Add markers that show to where this entity can move.
+      for (const auto& [pos, node] : dijkstra) {
+        if (!node.dist || node.dist > move_range) continue;
+
+        Marker marker(node.dist ? glm::vec4(0.1f, 0.2f, 0.4f, 0.5f)
+                                : glm::vec4(1.0f, 1.0f, 1.0f, 0.3f));
+        movement_indicators.create_new(game.ecs(),
+                                       Transform{pos, Transform::OVERLAY},
+                                       marker);
+      }
+
+      game.ecs().write(whose_turn, ActorState::DECIDING);
     }
 
     ActorState& whose_turn_state =
@@ -581,27 +598,6 @@ Error run() {
       game.ecs().read_or_panic<Agent>(whose_turn);
     const Transform& whose_turn_trans =
       game.ecs().read_or_panic<Transform>(whose_turn);
-
-    if (whose_turn_state == ActorState::SETUP) {
-      const GridPos& grid_pos = game.ecs().read_or_panic<GridPos>(whose_turn);
-      std::cout << "Generating new dijkstra" << std::endl;
-      dijkstra.generate(game, grid_pos.pos);
-      std::cout << "generated" << std::endl;
-
-      movement_indicators.deactivate_pool(game.ecs());
-      // Add markers that show to where this entity can move.
-      for (const auto& [pos, node] : dijkstra) {
-        if (!node.dist || node.dist > whose_turn_actor.stats.move) continue;
-
-        Marker marker(node.dist ? glm::vec4(0.1f, 0.2f, 0.4f, 0.5f)
-                                : glm::vec4(1.0f, 1.0f, 1.0f, 0.3f));
-        movement_indicators.create_new(game.ecs(),
-                                       Transform{pos, Transform::OVERLAY},
-                                       marker);
-      }
-
-      whose_turn_state = ActorState::DECIDING;
-    }
 
     if (game.turn().did_move && !game.turn().waiting) {
       movement_indicators.deactivate_pool(game.ecs());

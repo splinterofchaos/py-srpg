@@ -59,7 +59,7 @@ class ActionManager;
 class Game;
 
 enum ActorState {
-  SETUP, DECIDING, TAKING_TURN, WAITING,
+  DECIDING, TAKING_TURN, WAITING,
   N_ACTOR_STATES
 };
 
