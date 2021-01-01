@@ -53,6 +53,7 @@ void TextBoxPopup::build_text_box_next_to(glm::vec2 pos) {
 
 void TextBoxPopup::build_text_box_at(glm::vec2 upper_left) {
   // Keep this int signed! Allows us to use terse (-line + 0.5f) syntax.
+  std::cout << "upper_left = <" << upper_left.x << ", " << upper_left.y << ">\n";
   int line = 0;
   for (unsigned int i = 0; i < text_.size(); ++i) {
     text_[i].upper_left = upper_left +
@@ -62,6 +63,8 @@ void TextBoxPopup::build_text_box_at(glm::vec2 upper_left) {
     auto end = std::end(text_[i].text);
     // Print each space-separated word one by one, breaking for new lines.
     int text_line = 0;
+    // How far down from the upper left of this text box to print.
+    float offset_y = 0.f;
     for (auto it = std::begin(text_[i].text); it < end; ++it) {
       auto space = std::find(it, end, ' ');
 
@@ -77,11 +80,12 @@ void TextBoxPopup::build_text_box_at(glm::vec2 upper_left) {
         ++text_line;
       }
 
+      offset_y = -(text_line + 1.f + TEXT_SCALE) * LINE_SPACING;
+
       for (; it != space; ++it) {
         glm::vec2 pos =
           text_[i].upper_left +
-          glm::vec2(cursor + TEXT_SCALE/2,
-                    -(text_line + 1.f + TEXT_SCALE) * LINE_SPACING);
+          glm::vec2(cursor + TEXT_SCALE/2, offset_y);
         const Glyph& glyph = game.text_font_map().get(*it);
         GlyphRenderConfig rc(glyph, glm::vec4(1.f));
         rc.offset_scale = TEXT_SCALE;
@@ -99,8 +103,7 @@ void TextBoxPopup::build_text_box_at(glm::vec2 upper_left) {
 
     line += 1;
 
-    text_[i].lower_right = text_[i].upper_left +
-                           glm::vec2(width_, -(text_line * LINE_SPACING + 1.f));
+    text_[i].lower_right = text_[i].upper_left + glm::vec2(width_, offset_y);
   }
 
   center_ = glm::vec2(upper_left.x + width_ / 2.0f,
