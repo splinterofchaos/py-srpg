@@ -5,6 +5,9 @@
 
 #include <glm/vec2.hpp>
 
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/hash.hpp>
+
 #include "game.h"
 
 struct DijkstraNode {

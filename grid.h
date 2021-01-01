@@ -7,13 +7,8 @@
 #include <glm/vec2.hpp>
 #include <glm/vec4.hpp>
 
-namespace std {
-  template<> struct hash<glm::ivec2> {
-    std::size_t operator()(const glm::ivec2& v) const noexcept {
-      return hash<int>{}(v.x) ^ (hash<int>{}(v.y) << 1);
-    }
-  };
-}
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/hash.hpp>
 
 struct Tile {
   bool walkable = false;
