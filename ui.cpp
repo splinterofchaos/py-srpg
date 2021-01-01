@@ -53,8 +53,13 @@ void TextBoxPopup::build_text_box_next_to(glm::vec2 pos) {
 
 void TextBoxPopup::build_text_box_at(glm::vec2 upper_left) {
   // Keep this int signed! Allows us to use terse (-line + 0.5f) syntax.
-  std::cout << "upper_left = <" << upper_left.x << ", " << upper_left.y << ">\n";
   int line = 0;
+
+  // TODO: In testing, if the upper_left argument is <-6, 3.5>, the actual
+  // upper-left corner will be rendered at around <-5.4, 3.95>, based on the
+  // text scale at the time of this writing. The math in this function appears
+  // consistent, but consistently off.
+
   for (unsigned int i = 0; i < text_.size(); ++i) {
     text_[i].upper_left = upper_left +
                           glm::vec2(0.0f, -line * LINE_SPACING + 0.8f);
