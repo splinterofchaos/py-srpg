@@ -1,5 +1,6 @@
 #include "ui.h"
 
+#include <cctype>
 #include <numeric>
 
 #include "game.h"
@@ -10,6 +11,10 @@ constexpr float LINE_SPACING = TEXT_SCALE;
 // Amount of space between letters.
 constexpr float LETTER_SPACING = TEXT_SCALE * 0.1f;
 constexpr float SPACE_SIZE = LETTER_SPACING * 4.f;
+
+constexpr std::chrono::milliseconds TYPING_DELAY(50);
+constexpr std::chrono::milliseconds TYPING_COMMA_DELAY(100);
+constexpr std::chrono::milliseconds TYPING_PERIOD_DELAY(250);
 
 float text_width(FontMap& font_map, std::string_view text) {
   auto get_width =
@@ -118,4 +123,44 @@ void TextBoxPopup::build_text_box_at(glm::vec2 upper_left) {
       Transform{center_, Transform::WINDOW_BACKGROUND},
       Marker(glm::vec4(0.f, 0.2f, 0.f, .9f), {width_, line * LINE_SPACING}));
 
+  after_build_box();
+}
+
+void DialogueBox::after_build_box() {
+  for (Text& txt : text_) {
+    for (Text::Char ch : txt.char_entities) {
+      game.ecs().deactivate(ch.id);
+    }
+  }
+
+  typing_watch_.set_duration(std::chrono::milliseconds(60));
+  typing_watch_.start();
+}
+
+void DialogueBox::update(std::chrono::milliseconds dt) {
+  if (text_activated_ >= text_.size()) return;
+
+  typing_watch_.consume(dt);
+  if (!typing_watch_.finished()) return;
+
+  typing_watch_.reset();
+  typing_watch_.start();
+
+  Text::Char ch{' ', EntityId()};
+  while (ch.c == ' ') {
+    ch = text_[text_activated_].char_entities[entities_activated_++];
+  }
+  game.ecs().activate(ch.id);
+
+  std::chrono::milliseconds delay = TYPING_DELAY;
+  if (ch.c == ',')
+    delay = TYPING_COMMA_DELAY;
+  else if (ch.c == '.' || ch.c == ';' || ch.c == '!' || ch.c == '?')
+    delay = TYPING_PERIOD_DELAY;
+  typing_watch_.set_duration(delay);
+
+  if (entities_activated_ == text_[text_activated_].char_entities.size()) {
+    ++text_activated_;
+    entities_activated_ = 0;
+  }
 }

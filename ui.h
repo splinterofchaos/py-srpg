@@ -7,6 +7,7 @@
 #include "constants.h"
 #include "include/ecs.h"
 #include "include/math.h"
+#include "include/timer.h"
 #include "font.h"
 
 inline constexpr float MENU_WIDTH = 10.0f;
@@ -61,6 +62,9 @@ class TextBoxPopup {
 
   glm::vec2 center_;
 
+  // Used by DialogueBox to deactivate all text after the build process.
+  virtual void after_build_box() { }
+
 public:
   enum OnClickResponse {
     DESTROY_ME,
@@ -80,6 +84,8 @@ public:
   void destroy();
 
   ~TextBoxPopup() { destroy(); }
+
+  virtual void update(std::chrono::milliseconds dt) { }
 
   // Run if the player left clicks anywhere on the screen.
   virtual OnClickResponse on_left_click(glm::vec2 mouse_pos) {
@@ -119,8 +125,17 @@ class SelectionBox : public TextBoxPopup {
 };
 
 class DialogueBox : public TextBoxPopup {
- public:
+  // Instead of printing each character at once, the dialogue box types them
+  // out. This watch manages the delay between printing characters.
+  StopWatch typing_watch_;
 
+  // The number of Text objects where all their entities are active.
+  unsigned int text_activated_ = 0;
+  // The number of entities in the current Text object we're activating already
+  // done.
+  unsigned int entities_activated_ = 0;
+
+ public:
   using TextBoxPopup::TextBoxPopup;
 
   OnClickResponse on_left_click(glm::vec2 mouse_pos) override {
@@ -139,4 +154,8 @@ class DialogueBox : public TextBoxPopup {
 
     return !has_on_click || did_on_click ? DESTROY_ME : KEEP_OPEN;
   }
+
+  void after_build_box() override;
+
+  void update(std::chrono::milliseconds dt) override;
 };

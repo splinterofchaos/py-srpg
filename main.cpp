@@ -663,6 +663,8 @@ Error run() {
     }
 
     if (game.popup_box()) {
+      game.popup_box()->update(dt);
+
       // Popup boxes rob input from the player. If they click anywhere, they go
       // away.
       if (input.left_click) {
