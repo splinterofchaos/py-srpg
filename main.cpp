@@ -33,9 +33,7 @@
 #include "shaders.h"
 #include "timer.h"
 #include "ui.h"
-
-constexpr int WINDOW_HEIGHT = 800;
-constexpr int WINDOW_WIDTH = 800;
+#include "user_input.h"
 
 using Time = std::chrono::high_resolution_clock::time_point;
 using Milliseconds = std::chrono::milliseconds;
@@ -246,36 +244,6 @@ EntityId advance_until_next_turn(Ecs& ecs) {
   ecs.write(max_agent->id, ActorState::SETUP, Ecs::CREATE_OR_UPDATE);
   return max_agent->id;
 }
-
-struct UserInput {
-  glm::vec2 mouse_pos_f;
-  glm::ivec2 mouse_pos;
-  bool left_click;
-  bool right_click;
-  // Inclusion in this set means that a key is pressed.
-  std::unordered_set<char> keys_pressed;
-
-  bool pressed(char c) { return keys_pressed.contains(c); }
-  void press(char c) { keys_pressed.insert(c); }
-
-  void reset(const Game& game) {
-    // The selector graphically represents what tile the mouse is hovering
-    // over. This might be a bit round-a-bout, but find where to place the
-    // selector on screen by finding its position on the grid. Later, we
-    // convert it to a grid-a-fied screen position.
-    int mouse_x, mouse_y;
-    SDL_GetMouseState(&mouse_x, &mouse_y);
-    glm::vec2 mouse_screen_pos(float(mouse_x * 2) / WINDOW_WIDTH - 1,
-                               float(-mouse_y * 2) / WINDOW_HEIGHT + 1);
-    mouse_pos_f = (mouse_screen_pos + TILE_SIZE/2) / TILE_SIZE +
-                  game.camera_offset() / TILE_SIZE;
-    mouse_pos = glm::floor(mouse_pos_f);
-
-    left_click = false;
-    right_click = false;
-    keys_pressed.clear();
-  }
-};
 
 EntityId spawn_agent(Game& game, std::string name, glm::ivec2 pos, Team team) {
   return game.ecs().write_new_entity(Transform{glm::vec2(pos), Transform::ACTORS},
