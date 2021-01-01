@@ -66,64 +66,6 @@ const char* const STARTING_GRID = R"(
 #...............#
 #################)";
 
-std::vector<Path> expand_walkable(const Game& game,
-                                  glm::ivec2 start, unsigned int max_dist) {
-  std::unordered_set<glm::ivec2> taken_spaces;
-  for (const auto [unused_id, pos, unused_actor] :
-       game.ecs().read_all<GridPos, Actor>())
-    taken_spaces.insert(pos.pos);
-  
-  std::deque<Path> edges = {{start}};
-  std::unordered_set<glm::ivec2> visited;
-  std::vector<Path> paths;
-  while (!edges.empty()) {
-    Path path = std::move(edges.front());
-    edges.pop_front();
-
-    if (!visited.insert(path.back()).second) continue;
-    if (glm::ivec2(path.back()) != start) paths.push_back(path);
-
-    if (path.size() + 1 >= max_dist) continue;
-    for (glm::ivec2 step : adjacent_steps()) {
-      glm::vec2 next_pos = glm::vec2(step) + path.back();
-      auto [tile, in_grid] = game.grid().get(next_pos);
-      if (!in_grid || !tile.walkable || taken_spaces.contains(next_pos))
-        continue;
-
-      Path new_path = path;
-      new_path.push_back(next_pos);
-      edges.push_back(new_path);
-    }
-  }
-
-  return paths;
-}
-
-struct PossibleAttack {
-  Path path;
-  EntityId defender;
-  glm::ivec2 defender_pos;
-};
-
-std::vector<PossibleAttack> expand_attacks(const Ecs& ecs,
-                                           glm::ivec2 start,
-                                           const std::vector<Path>& paths) {
-  std::vector<PossibleAttack> possible_attacks;
-  for (glm::ivec2 step : adjacent_steps()) {
-    glm::ivec2 pos = step + start;
-    auto [id, is_there] = actor_at(ecs, pos);
-    if (is_there) possible_attacks.push_back({{}, id, pos});
-  }
-  for (const Path& path : paths) {
-    for (glm::ivec2 step : adjacent_steps()) {
-      glm::ivec2 pos = step + glm::ivec2(path.back());
-      auto [id, is_there] = actor_at(ecs, pos);
-      if (is_there) possible_attacks.push_back({path, id, pos});
-    }
-  }
-  return possible_attacks;
-}
-
 // Adds entity description text to an info box.
 void add_entity_desc_text(const Game& game, TextBoxPopup& info_box,
                           EntityId id) {
