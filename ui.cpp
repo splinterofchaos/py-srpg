@@ -4,6 +4,13 @@
 
 #include "game.h"
 
+// How much space to put between lines in a text block as a ratio of the tile
+// size.
+constexpr float LINE_SPACING = TEXT_SCALE;
+// Amount of space between letters.
+constexpr float LETTER_SPACING = TEXT_SCALE * 0.1f;
+constexpr float SPACE_SIZE = LETTER_SPACING * 4.f;
+
 float text_width(FontMap& font_map, std::string_view text) {
   auto get_width =
     [&font_map](char c) { return font_map.get(c).bottom_right.x; };
@@ -12,7 +19,7 @@ float text_width(FontMap& font_map, std::string_view text) {
   // end.
   if (text.size()) w += font_map.get(text[0]).top_left.x;
   // Add spacing between the letters.
-  w += text.size() * TILE_SIZE * 0.1f;
+  w += text.size() * TEXT_SCALE * 0.1f;
   return w;
 }
 
@@ -48,7 +55,8 @@ void TextBoxPopup::build_text_box_at(glm::vec2 upper_left) {
   // Keep this int signed! Allows us to use terse (-line + 0.5f) syntax.
   int line = 0;
   for (unsigned int i = 0; i < text_.size(); ++i) {
-    text_[i].upper_left = upper_left + glm::vec2(0.0f, -line + 0.5f);
+    text_[i].upper_left = upper_left +
+                          glm::vec2(0.0f, -line * LINE_SPACING + 0.8f);
 
     float cursor = 0.0f;
     auto end = std::end(text_[i].text);
@@ -62,7 +70,7 @@ void TextBoxPopup::build_text_box_at(glm::vec2 upper_left) {
           it, space, 0.0f,
           [&](float x, char c) {
             return x + game.text_font_map().get(c).bottom_right.x;
-          });
+          }) * TEXT_SCALE + LETTER_SPACING * std::distance(it, space);
       if (cursor + estimated_width > width_) {
         cursor = 0;
         ++line;
@@ -70,34 +78,37 @@ void TextBoxPopup::build_text_box_at(glm::vec2 upper_left) {
       }
 
       for (; it != space; ++it) {
-        glm::vec2 pos = text_[i].upper_left +
-                        glm::vec2(cursor + 0.5f, -text_line - 1.f);
+        glm::vec2 pos =
+          text_[i].upper_left +
+          glm::vec2(cursor + TEXT_SCALE/2,
+                    -(text_line + 1.f + TEXT_SCALE) * LINE_SPACING);
         const Glyph& glyph = game.text_font_map().get(*it);
         GlyphRenderConfig rc(glyph, glm::vec4(1.f));
+        rc.offset_scale = TEXT_SCALE;
         EntityId id = text_pool_.create_new(
             game.ecs(), Transform{pos, Transform::WINDOW_TEXT},
             std::vector<GlyphRenderConfig>{rc});
 
         text_[i].text_entities.push_back(id);
 
-        cursor += glyph.bottom_right.x + TILE_SIZE * 0.1f;
+        cursor += glyph.bottom_right.x * TEXT_SCALE + LETTER_SPACING;
       }
 
-      cursor += 0.5f;
+      cursor += SPACE_SIZE;
     }
 
     line += 1;
 
     text_[i].lower_right = text_[i].upper_left +
-                           glm::vec2(width_, -(text_line + 1));
+                           glm::vec2(width_, -(text_line * LINE_SPACING + 1.f));
   }
 
   center_ = glm::vec2(upper_left.x + width_ / 2.0f,
-                      upper_left.y - line / 2.f);
+                      upper_left.y - line * LINE_SPACING / 2.f);
 
   window_background_pool_.create_new(
       game.ecs(),
       Transform{center_, Transform::WINDOW_BACKGROUND},
-      Marker(glm::vec4(0.f, 0.2f, 0.f, .9f), {width_, line}));
+      Marker(glm::vec4(0.f, 0.2f, 0.f, .9f), {width_, line * LINE_SPACING}));
 
 }

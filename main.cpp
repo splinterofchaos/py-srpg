@@ -593,6 +593,10 @@ Error run() {
       }
     }
 
+    if (input.left_click) {
+      std::cout << "click: " << input.mouse_pos_f << std::endl;
+    }
+
     Time new_time = now();
     Milliseconds dt =
       std::chrono::duration_cast<std::chrono::milliseconds>(new_time - t);
