@@ -7,29 +7,38 @@
 #include "constants.h"
 #include "include/ecs.h"
 #include "include/math.h"
+#include "include/timer.h"
 #include "font.h"
 
 inline constexpr float MENU_WIDTH = 10.0f;
-inline constexpr float DIALOGUE_WIDTH = 20.f;
+inline constexpr float DIALOGUE_WIDTH = 10.f;
 
 class Game;  // Foward declaration as TextBoxPopup references Game.
 
 struct Text {
+  // Each char in this text will be tied to an entity, though spaces will keep
+  // the default, NOT_AN_ID value in that field.
+  struct Char { char c; EntityId id; };
+
   glm::vec2 upper_left;
   glm::vec2 lower_right;
-  std::string text;
-  std::vector<EntityId> text_entities;
+  std::vector<Char> char_entities;
 
   std::function<void()> on_click;
 
   // Often when constructing text, we won't know where the text is
   // positioned yet and will construct the characters later.
   template<typename...String>
-  explicit Text(String... strings)
-      : text(concat_strings(std::move(strings)...)) { }
+  explicit Text(String... strings) {
+    for (char c : concat_strings(std::move(strings)...)) {
+      char_entities.push_back({c, EntityId()});
+    }
+  }
 
-  Text(std::string text, std::function<void()> on_click)
-    : text(std::move(text)), on_click(std::move(on_click)) { }
+  Text(std::string text, std::function<void()> _on_click)
+    : Text(std::move(text)) {
+    on_click = std::move(_on_click);
+  }
 };
 
 float text_width(FontMap& font_map, std::string_view text);
@@ -49,7 +58,12 @@ class TextBoxPopup {
 
   bool active_;
 
-  float width_;
+  float width_;  // Used while constructing the text.
+
+  glm::vec2 center_;
+
+  // Used by DialogueBox to deactivate all text after the build process.
+  virtual void after_build_box() { }
 
 public:
   enum OnClickResponse {
@@ -61,6 +75,8 @@ public:
 
   bool active() const { return active_; }
 
+  glm::vec2 center() const { return center_; }
+
   // Deactivates the entities in this popup.
   void clear();
 
@@ -68,6 +84,8 @@ public:
   void destroy();
 
   ~TextBoxPopup() { destroy(); }
+
+  virtual void update(std::chrono::milliseconds dt) { }
 
   // Run if the player left clicks anywhere on the screen.
   virtual OnClickResponse on_left_click(glm::vec2 mouse_pos) {
@@ -107,8 +125,17 @@ class SelectionBox : public TextBoxPopup {
 };
 
 class DialogueBox : public TextBoxPopup {
- public:
+  // Instead of printing each character at once, the dialogue box types them
+  // out. This watch manages the delay between printing characters.
+  StopWatch typing_watch_;
 
+  // The number of Text objects where all their entities are active.
+  unsigned int text_activated_ = 0;
+  // The number of entities in the current Text object we're activating already
+  // done.
+  unsigned int entities_activated_ = 0;
+
+ public:
   using TextBoxPopup::TextBoxPopup;
 
   OnClickResponse on_left_click(glm::vec2 mouse_pos) override {
@@ -127,4 +154,8 @@ class DialogueBox : public TextBoxPopup {
 
     return !has_on_click || did_on_click ? DESTROY_ME : KEEP_OPEN;
   }
+
+  void after_build_box() override;
+
+  void update(std::chrono::milliseconds dt) override;
 };

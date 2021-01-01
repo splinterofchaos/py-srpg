@@ -109,3 +109,5 @@ void push_dialogue_block(
     std::string_view text,
     std::vector<std::pair<std::string, std::string>>
         response_labels = {});
+
+void push_end_dialogue(Script& script);

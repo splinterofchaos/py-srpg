@@ -98,13 +98,32 @@ void push_dialogue_block(
               [jump_label, label] { *jump_label = label; });
         }
 
-        game.popup_box()->build_text_box_at(
-            game.camera_offset() / TILE_SIZE +
-            glm::vec2(-DIALOGUE_WIDTH/2, -2));
+        // We might want a slightly more intelligent way of determining this...
+        EntityId speaker = game.decision().target;
+        const glm::vec2& speaker_pos =
+            game.ecs().read_or_panic<Transform>(speaker).pos;
+
+        game.popup_box()->build_text_box_at(speaker_pos +
+                                            glm::vec2(2.f, 2.5f));
+        
+        // Set the camera such that the speaker and far edge of the dialogue
+        // window should be on screen and the dialogue box is centered on the
+        // speaker.
+        game.set_camera_target(
+            glm::vec2((speaker_pos.x + DIALOGUE_WIDTH) / 1.8f,
+                      game.popup_box()->center().y));
 
         return ScriptResult::WAIT_ADVANCE;
       }
   );
 
   if (jump_on_response) push_jump_ptr(script, jump_label);
+}
+
+void push_end_dialogue(Script& script) {
+  script.push([](Game& game, ActionManager& action_manager) {
+      game.set_camera_target(
+          game.ecs().read_or_panic<Transform>(game.turn().actor).pos);
+      return ScriptResult::CONTINUE;
+  });
 }
