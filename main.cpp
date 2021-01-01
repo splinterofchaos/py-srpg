@@ -182,8 +182,7 @@ EntityId advance_until_next_turn(Ecs& ecs) {
   if (!max_agent) return EntityId();
 
   *max_agent->energy -= ENERGY_REQUIRED;
-  
-  ecs.write(max_agent->id, ActorState::DECIDING, Ecs::CREATE_OR_UPDATE);
+
   return max_agent->id;
 }
 
@@ -380,7 +379,7 @@ Decision cpu_decision(const Game& game, const DijkstraGrid& dijkstra,
     }
   }
 
-  if (decision.type == Decision::WAIT && !game.turn().did_action &&
+  if (decision.type == Decision::DECIDING && !game.turn().did_action &&
       !game.turn().did_move) {
     auto [enemy_loc, enemy_pos] = nearest_enemy_location(game, dijkstra, id,
                                                          agent.team);
@@ -395,7 +394,7 @@ Decision cpu_decision(const Game& game, const DijkstraGrid& dijkstra,
     }
   }
 
-  if (decision.type == Decision::WAIT) decision.type = Decision::PASS;
+  if (decision.type == Decision::DECIDING) decision.type = Decision::PASS;
 
   return decision;
 }
@@ -556,14 +555,15 @@ Error run() {
       // TODO: We should in general be using this instead of whose_turn, but it
       // looks like I forgot it existed. This line allows scripts to know whose
       // turn it currently is.
+      game.turn().reset();
       game.turn().actor = whose_turn;
+      game.decision().type = Decision::DECIDING;
 
       if (whose_turn.id == EntityId::NOT_AN_ID)
         return Error("No one left alive");
 
-      std::cout << "it is now the turn of " << game.ecs().read_or_panic<Actor>(whose_turn).name << std::endl;
-
-      game.turn().reset();
+      std::cout << "it is now the turn of "
+        << game.ecs().read_or_panic<Actor>(whose_turn).name << std::endl;
 
       game.set_camera_target(
           game.ecs().read_or_panic<Transform>(whose_turn).pos);
@@ -586,12 +586,8 @@ Error run() {
                                        Transform{pos, Transform::OVERLAY},
                                        marker);
       }
-
-      game.ecs().write(whose_turn, ActorState::DECIDING);
     }
 
-    ActorState& whose_turn_state =
-      game.ecs().read_or_panic<ActorState>(whose_turn);
     const Actor& whose_turn_actor =
       game.ecs().read_or_panic<Actor>(whose_turn);
     const Agent& whose_turn_agent =
@@ -615,7 +611,8 @@ Error run() {
       }
     } else if (action_manager.have_ordered_actions() || active_script.active()) {
       // Any active scripts interrupt processing input.
-    } else if (whose_turn_state == ActorState::DECIDING) {
+    } else if (game.decision().type == Decision::DECIDING &&
+               !game.turn().waiting) {
       if (whose_turn_agent.team == Team::CPU) {
         game.decision() = cpu_decision(game, dijkstra, whose_turn);
       } else if (whose_turn_agent.team == Team::PLAYER) {
@@ -659,14 +656,9 @@ Error run() {
 
     if (action_manager.have_ordered_actions() || active_script.active()) {
       // We're already acting on the previous decision or script.
-    } else if (whose_turn_state == ActorState::DECIDING &&
-        game.decision().type == Decision::PASS) {
+    } else if (game.decision().type == Decision::PASS) {
       game.turn().did_pass = true;
-    } else if (whose_turn_state == ActorState::DECIDING &&
-               game.decision().type == Decision::WAIT) {
-      // noop
-    } else if (whose_turn_state == ActorState::DECIDING &&
-               game.decision().type == Decision::MOVE_TO) {
+    } else if (game.decision().type == Decision::MOVE_TO) {
       game.set_camera_target(game.decision().move_to);
 
       action_manager.add_ordered_sequence(
@@ -675,9 +667,8 @@ Error run() {
                          { waiting = false; }));
       game.turn().did_move = true;
       game.turn().waiting = true;
-      whose_turn_state = ActorState::DECIDING;
-    } else if (whose_turn_state == ActorState::DECIDING &&
-               game.decision().type == Decision::ATTACK_ENTITY) {
+      game.decision().type = Decision::DECIDING;
+    } else if (game.decision().type == Decision::ATTACK_ENTITY) {
       // Set the camera at the midpoint between attacker and defender.
       glm::vec2 attack_target_pos =
         game.ecs().read_or_panic<Transform>(game.decision().target).pos;
@@ -711,17 +702,15 @@ Error run() {
 
       game.turn().did_action = true;
       game.turn().waiting = true;
-      whose_turn_state = ActorState::DECIDING;
-    } else if (whose_turn_state == ActorState::DECIDING &&
-               game.decision().type == Decision::LOOK_AT) {
+      game.decision().type = Decision::DECIDING;
+    } else if (game.decision().type == Decision::LOOK_AT) {
       game.popup_box().reset(new TextBoxPopup(game));
       add_entity_desc_text(game, *game.popup_box(), game.decision().target);
       glm::vec2 pos = game.ecs().read_or_panic<GridPos>(
           game.decision().target).pos;
       game.popup_box()->build_text_box_next_to(pos);
-      game.decision().type = Decision::WAIT;
-    } else if (whose_turn_state == ActorState::DECIDING &&
-               game.decision().type == Decision::TALK) {
+      game.decision().type = Decision::DECIDING;
+    } else if (game.decision().type == Decision::TALK) {
       // For positioning the text box, take advantage of the camera being
       // centered on the player.
       // TODO: Dialogues should have the camera center on the speaker. We can
@@ -736,7 +725,7 @@ Error run() {
                           will_not_talk_conversation());
 
       game.turn().did_action = true;
-      game.decision().type = Decision::WAIT;
+      game.decision().type = Decision::DECIDING;
     }
 
     if (action_manager.have_ordered_actions()) {

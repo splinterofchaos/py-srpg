@@ -31,14 +31,14 @@ struct Turn {
 // Decides what actions to take for this turn.
 struct Decision {
   enum Type {
-    WAIT,
-    PASS,
-    MOVE_TO,
-    ATTACK_ENTITY,
-    LOOK_AT,
-    TALK,
+    DECIDING,       // No decision made yet.
+    PASS,           // End the turn early.
+    MOVE_TO,        // Walk to `move_to` below.
+    ATTACK_ENTITY,  // Attack `target` below.
+    LOOK_AT,        // Look at `target` below.
+    TALK,           // Talk to `target` below.
     N_TYPES
-  } type = WAIT;
+  } type = DECIDING;
 
   union {
     glm::ivec2 move_to;
@@ -46,7 +46,7 @@ struct Decision {
     EntityId target;
   };
 
-  Decision() : type(WAIT) { }
+  Decision() : type(DECIDING) { }
 };
 
 class Game {
@@ -96,6 +96,9 @@ public:
     return popup_box_;
   }
 
+  bool ready_to_decide() {
+    return decision().type == Decision::DECIDING && !turn().waiting;
+  }
 
   glm::vec2& camera_offset() { return camera_offset_; }
   const glm::vec2& camera_offset() const { return camera_offset_; }

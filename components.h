@@ -58,11 +58,6 @@ class ActionManager;
 
 class Game;
 
-enum ActorState {
-  DECIDING, TAKING_TURN, WAITING,
-  N_ACTOR_STATES
-};
-
 struct StatusEffect {
   // The number of game ticks for this effect to be around. If in Actor::embue,
   // this relates to how many ticks it will take to expire.
@@ -159,6 +154,5 @@ using Ecs = EntityComponentSystem<
   Marker,
   Actor,
   ActionPtr,
-  ActorState,
   Agent>;
 
