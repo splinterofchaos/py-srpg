@@ -15,21 +15,29 @@ inline constexpr float DIALOGUE_WIDTH = 10.f;
 class Game;  // Foward declaration as TextBoxPopup references Game.
 
 struct Text {
+  // Each char in this text will be tied to an entity, though spaces will keep
+  // the default, NOT_AN_ID value in that field.
+  struct Char { char c; EntityId id; };
+
   glm::vec2 upper_left;
   glm::vec2 lower_right;
-  std::string text;
-  std::vector<EntityId> text_entities;
+  std::vector<Char> char_entities;
 
   std::function<void()> on_click;
 
   // Often when constructing text, we won't know where the text is
   // positioned yet and will construct the characters later.
   template<typename...String>
-  explicit Text(String... strings)
-      : text(concat_strings(std::move(strings)...)) { }
+  explicit Text(String... strings) {
+    for (char c : concat_strings(std::move(strings)...)) {
+      char_entities.push_back({c, EntityId()});
+    }
+  }
 
-  Text(std::string text, std::function<void()> on_click)
-    : text(std::move(text)), on_click(std::move(on_click)) { }
+  Text(std::string text, std::function<void()> _on_click)
+    : Text(std::move(text)) {
+    on_click = std::move(_on_click);
+  }
 };
 
 float text_width(FontMap& font_map, std::string_view text);

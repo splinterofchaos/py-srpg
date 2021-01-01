@@ -65,19 +65,20 @@ void TextBoxPopup::build_text_box_at(glm::vec2 upper_left) {
                           glm::vec2(0.0f, -line * LINE_SPACING + 0.8f);
 
     float cursor = 0.0f;
-    auto end = std::end(text_[i].text);
+    auto end = std::end(text_[i].char_entities);
     // Print each space-separated word one by one, breaking for new lines.
     int text_line = 0;
     // How far down from the upper left of this text box to print.
     float offset_y = 0.f;
-    for (auto it = std::begin(text_[i].text); it < end; ++it) {
-      auto space = std::find(it, end, ' ');
+    for (auto it = std::begin(text_[i].char_entities); it < end; ++it) {
+      auto space = std::find_if(
+          it, end, [](const Text::Char& ch) { return ch.c == ' '; });
 
       // Check if we need to break now.
       float estimated_width = std::accumulate(
           it, space, 0.0f,
-          [&](float x, char c) {
-            return x + game.text_font_map().get(c).bottom_right.x;
+          [&](float x, Text::Char ch) {
+            return x + game.text_font_map().get(ch.c).bottom_right.x;
           }) * TEXT_SCALE + LETTER_SPACING * std::distance(it, space);
       if (cursor + estimated_width > width_) {
         cursor = 0;
@@ -91,14 +92,12 @@ void TextBoxPopup::build_text_box_at(glm::vec2 upper_left) {
         glm::vec2 pos =
           text_[i].upper_left +
           glm::vec2(cursor + TEXT_SCALE/2, offset_y);
-        const Glyph& glyph = game.text_font_map().get(*it);
+        const Glyph& glyph = game.text_font_map().get(it->c);
         GlyphRenderConfig rc(glyph, glm::vec4(1.f));
         rc.offset_scale = TEXT_SCALE;
-        EntityId id = text_pool_.create_new(
+        it->id = text_pool_.create_new(
             game.ecs(), Transform{pos, Transform::WINDOW_TEXT},
             std::vector<GlyphRenderConfig>{rc});
-
-        text_[i].text_entities.push_back(id);
 
         cursor += glyph.bottom_right.x * TEXT_SCALE + LETTER_SPACING;
       }
