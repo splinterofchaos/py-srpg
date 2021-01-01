@@ -13,9 +13,10 @@ struct UserInput {
   // Inclusion in this set means that a key is pressed.
   std::unordered_set<char> keys_pressed;
 
-  bool pressed(char c) { return keys_pressed.contains(c); }
-  void press(char c) { keys_pressed.insert(c); }
+  bool quit_requested;
 
-  void reset(const Game& game);
+  bool pressed(char c) { return keys_pressed.contains(c); }
+
+  void poll(const Game& game);
 };
 

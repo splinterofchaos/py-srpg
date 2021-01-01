@@ -534,21 +534,9 @@ Error run() {
   SDL_Event e;
   Time t = now();
   while (keep_going && !input.pressed('q')) {
-    input.reset(game);
+    input.poll(game);
 
-    while (SDL_PollEvent(&e) != 0) {
-      switch (e.type) {
-        case SDL_QUIT: keep_going = false; break;
-        case SDL_KEYDOWN: input.press(e.key.keysym.sym); break;
-        case SDL_MOUSEBUTTONDOWN: {
-          if (e.button.button == SDL_BUTTON_LEFT)
-            input.left_click = true;
-          if (e.button.button == SDL_BUTTON_RIGHT)
-            input.right_click = true;
-          break;
-        }
-      }
-    }
+    if (input.quit_requested) break;
 
     if (input.left_click) {
       std::cout << "click: " << input.mouse_pos_f << std::endl;
