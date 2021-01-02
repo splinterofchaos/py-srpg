@@ -516,7 +516,7 @@ Error run() {
     const Transform& whose_turn_trans =
       game.ecs().read_or_panic<Transform>(whose_turn);
 
-    if (game.turn().did_move && !game.turn().waiting) {
+    if (game.turn().did_move) {
       movement_indicators.deactivate_pool(game.ecs());
     }
 
@@ -533,8 +533,7 @@ Error run() {
       }
     } else if (action_manager.have_ordered_actions() || active_script.active()) {
       // Any active scripts interrupt processing input.
-    } else if (game.decision().type == Decision::DECIDING &&
-               !game.turn().waiting) {
+    } else if (game.decision().type == Decision::DECIDING) {
       if (whose_turn_agent.team == Team::CPU) {
         cpu_decision(game, dijkstra, whose_turn);
       } else if (whose_turn_agent.team == Team::PLAYER) {
@@ -549,12 +548,9 @@ Error run() {
     } else if (game.decision().type == Decision::MOVE_TO) {
       game.set_camera_target(game.decision().move_to);
 
-      action_manager.add_ordered_sequence(
-          move_action(whose_turn, path_to(dijkstra, game.decision().move_to)),
-          generic_action([&waiting = game.turn().waiting] (const auto&...)
-                         { waiting = false; }));
+      action_manager.add_ordered_action(
+          move_action(whose_turn, path_to(dijkstra, game.decision().move_to)));
       game.turn().did_move = true;
-      game.turn().waiting = true;
       game.decision().type = Decision::DECIDING;
     } else if (game.decision().type == Decision::ATTACK_ENTITY) {
       // Set the camera at the midpoint between attacker and defender.
@@ -583,13 +579,11 @@ Error run() {
           generic_action([&game, whose_turn] (const auto&...) {
             game.set_camera_target(
                 game.ecs().read_or_panic<Transform>(whose_turn).pos);
-            game.turn().waiting = false;
           }));
 
       action_manager.move_ordered_sequence(std::move(sequence));
 
       game.turn().did_action = true;
-      game.turn().waiting = true;
       game.decision().type = Decision::DECIDING;
     } else if (game.decision().type == Decision::LOOK_AT) {
       game.popup_box().reset(new TextBoxPopup(game));

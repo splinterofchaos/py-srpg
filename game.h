@@ -19,11 +19,8 @@ struct Turn {
   bool did_pass = false;
   EntityId actor;
 
-  // True if we're waiting for some action to complete.
-  bool waiting = false;
-
   void reset() {
-    waiting = did_pass = did_action = did_move = false;
+    did_pass = did_action = did_move = false;
   }
 
   bool over() const;
@@ -77,7 +74,7 @@ public:
   }
 
   bool ready_to_decide() {
-    return decision().type == Decision::DECIDING && !turn().waiting;
+    return decision().type == Decision::DECIDING;
   }
 
   glm::vec2& camera_offset() { return camera_offset_; }

@@ -1,7 +1,7 @@
 #include "game.h"
 
 bool Turn::over() const {
-  return !waiting && (did_pass || (did_move && did_action));
+  return did_pass || (did_move && did_action);
 }
 
 Error Game::init() {
