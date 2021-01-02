@@ -520,6 +520,7 @@ Error run() {
       movement_indicators.deactivate_pool(game.ecs());
     }
 
+    // Decide on an action to take.
     if (game.popup_box()) {
       game.popup_box()->update(dt);
 
@@ -535,43 +536,9 @@ Error run() {
     } else if (game.decision().type == Decision::DECIDING &&
                !game.turn().waiting) {
       if (whose_turn_agent.team == Team::CPU) {
-        game.decision() = cpu_decision(game, dijkstra, whose_turn);
+        cpu_decision(game, dijkstra, whose_turn);
       } else if (whose_turn_agent.team == Team::PLAYER) {
-
-        if (input.right_click) {
-          // Bring up a selection menu if something is there.
-          auto [id, exists] = actor_at(game.ecs(), input.mouse_pos);
-          if (exists) {
-            auto look_at = [&game, id=id] {
-              game.decision().type = Decision::LOOK_AT;
-              game.decision().target = id;
-            };
-            game.popup_box().reset(new SelectionBox(game));
-            game.popup_box()->add_text_with_onclick("look", look_at);
-
-            glm::vec2 pos = game.ecs().read_or_panic<GridPos>(whose_turn).pos;
-            if (can_attack(game, pos, whose_turn_actor.stats.range, id)) {
-              auto attack = [&game, id=id] {
-                game.decision().type = Decision::ATTACK_ENTITY;
-                game.decision().target = id;
-              };
-              game.popup_box()->add_text_with_onclick("normal attack", attack);
-            }
-
-            if (can_talk(game, pos, id)) {
-              auto talk = [&game, id=id] {
-                game.decision().type = Decision::TALK;
-                game.decision().target = id;
-              };
-              // TODO: Do we want a generic talk or should it always be
-              // recruit?
-              game.popup_box()->add_text_with_onclick("recruit", talk);
-            }
-
-            game.popup_box()->build_text_box_next_to(input.mouse_pos);
-          }
-        }
-        game.decision() = player_decision(game, whose_turn, input);
+        player_decision(game, whose_turn, input);
       }
     }
 

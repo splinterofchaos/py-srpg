@@ -24,8 +24,7 @@ bool can_talk(const Game& game, glm::ivec2 from_pos, EntityId target) {
   return can_attack(game, from_pos, 3, target);
 }
 
-Decision cpu_decision(const Game& game, const DijkstraGrid& dijkstra,
-                      EntityId id) {
+void cpu_decision(Game& game, const DijkstraGrid& dijkstra, EntityId id) {
   Decision decision;
 
   const Agent& agent = game.ecs().read_or_panic<Agent>(id);
@@ -37,18 +36,18 @@ Decision cpu_decision(const Game& game, const DijkstraGrid& dijkstra,
                        game.ecs().read_or_panic<GridPos>(id).pos,
                        actor.stats.range);
     if (enemies.size()) {
-      decision.type = Decision::ATTACK_ENTITY;
-      decision.target = enemies.front();
+      game.decision().type = Decision::ATTACK_ENTITY;
+      game.decision().target = enemies.front();
     }
   }
 
-  if (decision.type == Decision::DECIDING && !game.turn().did_action &&
+  if (game.decision().type == Decision::DECIDING && !game.turn().did_action &&
       !game.turn().did_move) {
     auto [enemy_loc, enemy_pos] = nearest_enemy_location(game, dijkstra, id,
                                                          agent.team);
     if (enemy_loc) {
-      decision.type = Decision::MOVE_TO;
-      decision.move_to = rewind_until(
+      game.decision().type = Decision::MOVE_TO;
+      game.decision().move_to = rewind_until(
           dijkstra, enemy_pos,
           [&](glm::ivec2 pos, const DijkstraNode& node) {
           return pos != enemy_pos &&
@@ -57,29 +56,68 @@ Decision cpu_decision(const Game& game, const DijkstraGrid& dijkstra,
     }
   }
 
-  if (decision.type == Decision::DECIDING) decision.type = Decision::PASS;
-
-  return decision;
+  if (game.decision().type == Decision::DECIDING) {
+    game.decision().type = Decision::PASS;
+  }
 }
 
-Decision player_decision(const Game& game, EntityId id, const UserInput& input) {
-  Decision decision;
-  if (!input.left_click) return decision;
+// Used by player_decision(); handles the creation of the menu where the player
+// selects from a list of actions when they right click on a tile in the world.
+static void spawn_selection_box(Game& game, glm::ivec2 pos, EntityId player_id) {
+  auto [id, exists] = actor_at(game.ecs(), pos);
+  if (!exists) return;
+
+  game.popup_box().reset(new SelectionBox(game));
+
+  auto look_at = [&game, id=id] {
+    game.decision().type = Decision::LOOK_AT;
+    game.decision().target = id;
+  };
+  game.popup_box()->add_text_with_onclick("look", look_at);
+
+  glm::ivec2 player_pos = game.ecs().read_or_panic<GridPos>(player_id).pos;
+  const unsigned int range =
+    game.ecs().read_or_panic<Actor>(player_id).stats.range;
+  if (can_attack(game, player_pos, range, id)) {
+    auto attack = [&game, id=id] {
+      game.decision().type = Decision::ATTACK_ENTITY;
+      game.decision().target = id;
+    };
+    game.popup_box()->add_text_with_onclick("normal attack", attack);
+  }
+
+  if (can_talk(game, player_pos, id)) {
+    auto attack = [&game, id=id] {
+      game.decision().type = Decision::TALK;
+      game.decision().target = id;
+    };
+    // TODO: Do we want a generic talk or should it always be recruit?
+    game.popup_box()->add_text_with_onclick("recruit", attack);
+  }
+
+  game.popup_box()->build_text_box_next_to(player_pos);
+}
+
+void player_decision(Game& game, EntityId id, const UserInput& input) {
+  if (input.right_click) {
+    spawn_selection_box(game, input.mouse_pos, id);
+    return;
+  }
+
+  if (!input.left_click) return;
 
   glm::ivec2 pos = game.ecs().read_or_panic<GridPos>(id).pos;
   auto [enemy, exists] = actor_at(game.ecs(), input.mouse_pos);
 
   const Actor& actor = game.ecs().read_or_panic<Actor>(id);
   if (pos == input.mouse_pos) {
-    decision.type = Decision::PASS;
+    game.decision().type = Decision::PASS;
   } else if (exists && can_attack(game, pos, actor.stats.range, enemy)) {
-    decision.type = Decision::ATTACK_ENTITY;
-    decision.target = enemy;
+    game.decision().type = Decision::ATTACK_ENTITY;
+    game.decision().target = enemy;
   } else if (!exists && manh_dist(pos, input.mouse_pos) <= actor.stats.move) {
-    decision.type = Decision::MOVE_TO;
-    decision.move_to = input.mouse_pos;
+    game.decision().type = Decision::MOVE_TO;
+    game.decision().move_to = input.mouse_pos;
   }
-
-  return decision;
 }
 

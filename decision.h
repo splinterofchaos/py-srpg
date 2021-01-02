@@ -39,8 +39,5 @@ bool can_attack(const Game& game, glm::ivec2 from_pos,
 
 bool can_talk(const Game& game, glm::ivec2 from_pos, EntityId target);
 
-Decision cpu_decision(const Game& game, const DijkstraGrid& dijkstra,
-                      EntityId id);
-
-Decision player_decision(const Game& game, EntityId id,
-                         const UserInput& input);
+void cpu_decision(Game& game, const DijkstraGrid& dijkstra, EntityId id);
+void player_decision(Game& game, EntityId id, const UserInput& input);
