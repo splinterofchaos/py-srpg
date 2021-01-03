@@ -88,6 +88,10 @@ public:
   }
 
   std::chrono::milliseconds dt() const { return dt_; }
+  template<typename Duration>
+  void set_dt(Duration d) {
+    dt_ = std::chrono::duration_cast<std::chrono::milliseconds>(d);
+  }
 
   void add_independent_script(Script script);
   void add_ordered_script(Script script);

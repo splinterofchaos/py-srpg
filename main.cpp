@@ -465,6 +465,7 @@ Error run() {
     Time new_time = now();
     Milliseconds dt =
       std::chrono::duration_cast<std::chrono::milliseconds>(new_time - t);
+    game.set_dt(new_time - t);
 
     // Check if we need to end the current turn, but wait until all scripts and
     // actions have completed first.
