@@ -55,8 +55,15 @@ public:
     target_duration_ = cast(target);
   }
 
+  std::chrono::milliseconds duration() const { return target_duration_; }
+  std::chrono::milliseconds duration_waited() const {
+    return duration_waited_;
+  }
+
   void start() { started_ = true; }
   void stop() { started_ = false; }
+  bool started() const { return started_; }
+
   void reset() {
     duration_waited_ = std::chrono::milliseconds(0);
     stop();
