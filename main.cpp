@@ -19,7 +19,6 @@
 #include <ft2build.h>
 #include FT_FREETYPE_H
 
-#include "action.h"
 #include "ecs.h"
 #include "components.h"
 #include "decision.h"
@@ -213,7 +212,7 @@ void make_hammer_guy(Game& game, EntityId guy) {
   Actor& actor = game.ecs().read_or_panic<Actor>(guy);
 
   Script on_hit;
-  on_hit.push([guy](Game& game, ActionManager& manager) {
+  on_hit.push([guy](Game& game) {
     glm::ivec2 pos = game.ecs().read_or_panic<GridPos>(guy).pos;
 
     EntityId defender = game.decision().target;
@@ -448,7 +447,6 @@ Error run() {
 
   UserInput input;
 
-  ActionManager action_manager;
   ScriptEngine active_script;
 
   bool keep_going = true;
@@ -470,7 +468,7 @@ Error run() {
 
     // Check if we need to end the current turn, but wait until all scripts and
     // actions have completed first.
-    if (!active_script.active() && !action_manager.have_ordered_actions() &&
+    if (!active_script.active() &&
         !game.have_ordered_scripts() &&
         !game.popup_box() &&
         (game.turn().over() || !game.ecs().is_active(whose_turn))) {
@@ -534,8 +532,7 @@ Error run() {
           game.popup_box()->on_left_click(input.mouse_pos_f);
         if (r == TextBoxPopup::DESTROY_ME) game.popup_box().reset();
       }
-    } else if (action_manager.have_ordered_actions() ||
-               game.have_ordered_scripts() || active_script.active()) {
+    } else if (game.have_ordered_scripts() || active_script.active()) {
       // Any active scripts interrupt processing input.
     } else if (game.decision().type == Decision::DECIDING) {
       if (whose_turn_agent.team == Team::CPU) {
@@ -545,8 +542,7 @@ Error run() {
       }
     }
 
-    if (action_manager.have_ordered_actions() || game.have_ordered_scripts() ||
-        active_script.active()) {
+    if (game.have_ordered_scripts() || active_script.active()) {
       // We're already acting on the previous decision or script.
     } else if (game.decision().type == Decision::PASS) {
       game.turn().did_pass = true;
@@ -578,7 +574,7 @@ Error run() {
         game.add_ordered_script(*s);
       }
 
-      attack_script.push([whose_turn](Game& game, ActionManager&) {
+      attack_script.push([whose_turn](Game& game) {
           game.set_camera_target(
               game.ecs().read_or_panic<Transform>(whose_turn).pos);
           return ScriptResult::CONTINUE;
@@ -613,16 +609,13 @@ Error run() {
       game.decision().type = Decision::DECIDING;
     }
 
-    if (action_manager.have_ordered_actions()) {
-      action_manager.process_ordered_actions(game, dt);
-    } else if (game.have_ordered_scripts()) {
-      game.execute_ordered_scripts(action_manager);
+    if (game.have_ordered_scripts()) {
+      game.execute_ordered_scripts();
     } else if (!game.popup_box() && active_script.active())  {
-      active_script.run(game, action_manager);
+      active_script.run(game);
     }
 
-    action_manager.process_independent_actions(game, dt);
-    game.execute_independent_scripts(action_manager);
+    game.execute_independent_scripts();
 
     for (const auto& [id, actor] : game.ecs().read_all<Actor>())
       if (actor.hp == 0) game.ecs().mark_to_delete(id);

@@ -34,9 +34,9 @@ void ScriptEngine::reset(Script script) {
   last_result_ = ScriptResult::START;
 }
 
-ScriptResult ScriptEngine::run_impl(Game& game, ActionManager& manager) {
+ScriptResult ScriptEngine::run_impl(Game& game) {
   while (instruction_pointer_ < script_.size()) {
-    ScriptResult r = script_.get(instruction_pointer_)(game, manager);
+    ScriptResult r = script_.get(instruction_pointer_)(game);
     if (r.goto_line != -1) instruction_pointer_ = r.goto_line;
     if (int line = script_.get_label(r.goto_label); line != -1) {
       instruction_pointer_ = line;
@@ -69,14 +69,13 @@ ScriptResult ScriptEngine::run_impl(Game& game, ActionManager& manager) {
 }
 
 void push_jump(Script& script, std::string label) {
-  script.push([label=std::move(label)]
-              (Game& game, ActionManager& action_manager) {
+  script.push([label=std::move(label)](Game& game) {
       return ScriptResult(ScriptResult::RETRY, label);
   });
 }
 
 void push_jump_ptr(Script& script, std::string* label) {
-  script.push([label=label](Game& game, ActionManager& action_manager) {
+  script.push([label=label](Game& game) {
       auto r = ScriptResult(ScriptResult::RETRY, *label);
       label->clear();
       return r;
@@ -98,8 +97,8 @@ void push_dialogue_block(
   script.push_label(std::string(label));
   script.push(
       [jump_label, text=std::string(text),
-      response_labels=std::move(response_labels)]
-      (Game& game, ActionManager& action_manager) {
+       response_labels=std::move(response_labels)]
+      (Game& game) {
         game.popup_box().reset(new DialogueBox(game, DIALOGUE_WIDTH));
         game.popup_box()->add_text(std::move(text));
         for (auto& [response, label] : response_labels) {
@@ -131,7 +130,7 @@ void push_dialogue_block(
 }
 
 void push_end_dialogue(Script& script) {
-  script.push([](Game& game, ActionManager& action_manager) {
+  script.push([](Game& game) {
       game.set_camera_target(
           game.ecs().read_or_panic<Transform>(game.turn().actor).pos);
       return ScriptResult::CONTINUE;
@@ -158,7 +157,7 @@ void push_move_along_path(Script& script, EntityId id, Path _path,
           path_distance(*path) / tiles_per_second));
   watch->start();
 
-  script.push([=](Game& game, ActionManager&) {
+  script.push([=](Game& game) {
       Transform* transform = nullptr;
       if (game.ecs().read(id, &transform) != EcsError::OK) {
         std::cerr << "Move script interrupted: entity stopped existing."
@@ -190,7 +189,7 @@ void push_move_along_path(Script& script, EntityId id, Path _path,
 
 void push_hp_change(Script& script, EntityId id, int change,
                     StatusEffect effect) {
-  script.push([=](Game& game, ActionManager&) {
+  script.push([=](Game& game) {
       Actor* actor;
       GridPos* pos;
       if (game.ecs().read(id, &actor, &pos) != EcsError::OK) {
@@ -217,7 +216,7 @@ void push_hp_change(Script& script, EntityId id, int change,
       Script move_up_and_delete;
       push_move_along_path(move_up_and_delete, damage_text,
                            {x_pos.pos, x_pos.pos + glm::ivec2(0, 1)});
-      move_up_and_delete.push([=](Game& game, ActionManager&) {
+      move_up_and_delete.push([=](Game& game) {
           game.ecs().mark_to_delete(damage_text);
           return ScriptResult::CONTINUE;
       });

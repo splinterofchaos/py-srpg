@@ -5,8 +5,14 @@
 #include <unordered_map>
 #include <vector>
 
-#include "action.h"
 #include "ui.h"
+
+// Forward decl because of mutual references between Script and Game.
+class Game;
+
+// For movement scripts from point A to B with any number of intermediate
+// points.
+using Path = std::vector<glm::vec2>;
 
 struct ScriptResult {
   enum Code {
@@ -30,7 +36,7 @@ struct ScriptResult {
     : code(code), goto_label(std::move(label)) { }
 };
 
-using ScriptFn = std::function<ScriptResult(Game&, ActionManager&)>;
+using ScriptFn = std::function<ScriptResult(Game&)>;
 
 class Script {
   std::vector<ScriptFn> instructions_;
@@ -58,7 +64,7 @@ class ScriptEngine {
   unsigned int instruction_pointer_ = 0;
   ScriptResult last_result_ = ScriptResult::EXIT;
 
-  ScriptResult run_impl(Game& game, ActionManager& manager);
+  ScriptResult run_impl(Game& game);
 
  public:
   ScriptEngine() { }
@@ -70,8 +76,8 @@ class ScriptEngine {
   void clear() { instruction_pointer_ = 0; script_.clear(); }
   void reset(Script script);
 
-  ScriptResult run(Game& game, ActionManager& manager) {
-    last_result_ = run_impl(game, manager);
+  ScriptResult run(Game& game) {
+    last_result_ = run_impl(game);
     return last_result_;
   }
 };
@@ -88,7 +94,7 @@ void push_jump_ptr(Script& script, std::string* label);
 // end of the script to clean up the memory.
 template<typename X>
 void push_delete(Script& script, X* x) {
-  script.push([x](Game&, ActionManager&) {
+  script.push([x](Game&) {
       delete x;
       return ScriptResult::CONTINUE;
   });

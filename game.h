@@ -1,6 +1,7 @@
 #pragma once
 
 #include <chrono>
+#include <list>
 
 #include <glm/vec2.hpp>
 
@@ -98,8 +99,8 @@ public:
 
   bool have_ordered_scripts() const { return !ordered_scripts_.empty(); }
 
-  void execute_independent_scripts(ActionManager& am);
-  void execute_ordered_scripts(ActionManager& am);
+  void execute_independent_scripts();
+  void execute_ordered_scripts();
 
   glm::vec2& camera_offset() { return camera_offset_; }
   const glm::vec2& camera_offset() const { return camera_offset_; }

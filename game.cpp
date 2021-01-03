@@ -29,14 +29,14 @@ void Game::add_ordered_script(Script script) {
   ordered_scripts_.emplace_back(std::move(script));
 }
 
-void Game::execute_independent_scripts(ActionManager& am) {
-  for (ScriptEngine& engine : independent_scripts_) engine.run(*this, am);
+void Game::execute_independent_scripts() {
+  for (ScriptEngine& engine : independent_scripts_) engine.run(*this);
   std::erase_if(independent_scripts_, std::mem_fn(&ScriptEngine::finished));
 }
     
-void Game::execute_ordered_scripts(ActionManager& am) {
+void Game::execute_ordered_scripts() {
   while (!ordered_scripts_.empty()) {
-    ScriptResult r = ordered_scripts_.back().run(*this, am);
+    ScriptResult r = ordered_scripts_.back().run(*this);
     if (r.code != ScriptResult::EXIT) break;
     ordered_scripts_.pop_back();
   }

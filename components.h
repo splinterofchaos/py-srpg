@@ -48,13 +48,7 @@ struct Stats {
   unsigned int speed = 5;
 };
 
-// Actions depend on the ECS so forward declare it so it can be a component.
-class Action;
-using ActionPtr = std::unique_ptr<Action>;
-
-// Defined along side Action.
 struct ScriptResult;
-class ActionManager;
 
 class Game;
 
@@ -153,6 +147,5 @@ using Ecs = EntityComponentSystem<
   std::vector<GlyphRenderConfig>,
   Marker,
   Actor,
-  ActionPtr,
   Agent>;
 
