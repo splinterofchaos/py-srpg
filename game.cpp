@@ -36,9 +36,10 @@ void Game::execute_independent_scripts() {
     
 void Game::execute_ordered_scripts() {
   while (!ordered_scripts_.empty()) {
-    ScriptResult r = ordered_scripts_.back().run(*this);
+    auto script = std::prev(ordered_scripts_.end());
+    ScriptResult r = script->run(*this);
     if (r.code != ScriptResult::EXIT) break;
-    ordered_scripts_.pop_back();
+    ordered_scripts_.erase(script);
   }
 }
 
