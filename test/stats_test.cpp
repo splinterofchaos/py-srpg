@@ -1,4 +1,4 @@
-#include "stats.h"
+#include "../stats.h"
 #include "test.h"
 
 int main() {

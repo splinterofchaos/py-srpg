@@ -1,4 +1,6 @@
 *.pyc
 tasks.txt
-obj/*
 tags
+*.d
+*.o
+a.out

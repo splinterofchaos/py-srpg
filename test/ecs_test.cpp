@@ -1,4 +1,4 @@
-#include "ecs.h"
+#include "../include/ecs.h"
 
 #include "test.h"
 

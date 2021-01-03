@@ -1,7 +1,7 @@
 #include <iostream>
 #include <cstdlib>
 
-#include "vec.h"
+#include "../vec.h"
 #include "test.h"
 
 template<typename T, size_t N>
