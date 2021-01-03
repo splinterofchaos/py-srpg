@@ -18,10 +18,20 @@ int Script::get_label(const std::string& label) {
   return it == std::end(labels_) ? -1 : it->second;
 }
 
+ScriptEngine::ScriptEngine(Script s) {
+  reset(std::move(s));
+}
+
 bool ScriptEngine::active() {
   return instruction_pointer_ < script_.size() &&
     (last_result_.code == ScriptResult::START ||
      last_result_.code == ScriptResult::WAIT_ADVANCE);
+}
+
+void ScriptEngine::reset(Script script) {
+  script_ = std::move(script);
+  instruction_pointer_ = 0;
+  last_result_ = ScriptResult::START;
 }
 
 ScriptResult ScriptEngine::run_impl(Game& game, ActionManager& manager) {

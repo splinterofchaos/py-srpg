@@ -13,6 +13,10 @@
 #include "timer.h"
 #include "ui.h"
 
+// Forward decl because Script relies on Game.
+class Script;
+class ScriptEngine;
+
 struct Turn {
   bool did_move = false;
   bool did_action = false;
@@ -42,7 +46,13 @@ class Game {
   glm::vec2 camera_target_ = glm::vec2(0.f, 0.f);
   StopWatch camera_center_watch_ = std::chrono::milliseconds(1000);
 
+  // The time passed in this frame.
+  std::chrono::milliseconds dt_;
+
   std::unique_ptr<TextBoxPopup> popup_box_;
+
+  std::vector<ScriptEngine> independent_scripts_;
+  std::list<ScriptEngine> ordered_scripts_;
 
 public:
   Error init();
@@ -76,6 +86,16 @@ public:
   bool ready_to_decide() {
     return decision().type == Decision::DECIDING;
   }
+
+  std::chrono::milliseconds dt() const { return dt_; }
+
+  void add_independent_script(Script script);
+  void add_ordered_script(Script script);
+
+  bool have_ordered_scripts() const { return !ordered_scripts_.empty(); }
+
+  void execute_independent_scripts(ActionManager& am);
+  void execute_ordered_scripts(ActionManager& am);
 
   glm::vec2& camera_offset() { return camera_offset_; }
   const glm::vec2& camera_offset() const { return camera_offset_; }

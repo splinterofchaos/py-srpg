@@ -21,6 +21,27 @@ void Game::set_grid(Grid grid) {
   grid_ = std::move(grid);
 }
 
+void Game::add_independent_script(Script script) {
+  independent_scripts_.emplace_back(std::move(script));
+}
+
+void Game::add_ordered_script(Script script) {
+  ordered_scripts_.emplace_back(std::move(script));
+}
+
+void Game::execute_independent_scripts(ActionManager& am) {
+  for (ScriptEngine& engine : independent_scripts_) engine.run(*this, am);
+  std::erase_if(independent_scripts_, std::mem_fn(&ScriptEngine::finished));
+}
+    
+void Game::execute_ordered_scripts(ActionManager& am) {
+  while (!ordered_scripts_.empty()) {
+    ScriptResult r = ordered_scripts_.back().run(*this, am);
+    if (r.code != ScriptResult::EXIT) break;
+    ordered_scripts_.pop_back();
+  }
+}
+
 void Game::lerp_camera_toward(glm::ivec2 pos, float rate_per_ms,
                               std::chrono::milliseconds ms) {
   glm::vec2 real_pos = glm::vec2(pos.x * TILE_SIZE, pos.y * TILE_SIZE);

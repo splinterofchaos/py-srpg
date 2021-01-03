@@ -469,6 +469,7 @@ Error run() {
     // Check if we need to end the current turn, but wait until all scripts and
     // actions have completed first.
     if (!active_script.active() && !action_manager.have_ordered_actions() &&
+        !game.have_ordered_scripts() &&
         !game.popup_box() &&
         (game.turn().over() || !game.ecs().is_active(whose_turn))) {
       whose_turn = advance_until_next_turn(game.ecs());
@@ -531,7 +532,8 @@ Error run() {
           game.popup_box()->on_left_click(input.mouse_pos_f);
         if (r == TextBoxPopup::DESTROY_ME) game.popup_box().reset();
       }
-    } else if (action_manager.have_ordered_actions() || active_script.active()) {
+    } else if (action_manager.have_ordered_actions() ||
+               game.have_ordered_scripts() || active_script.active()) {
       // Any active scripts interrupt processing input.
     } else if (game.decision().type == Decision::DECIDING) {
       if (whose_turn_agent.team == Team::CPU) {
@@ -541,7 +543,8 @@ Error run() {
       }
     }
 
-    if (action_manager.have_ordered_actions() || active_script.active()) {
+    if (action_manager.have_ordered_actions() || game.have_ordered_scripts() ||
+        active_script.active()) {
       // We're already acting on the previous decision or script.
     } else if (game.decision().type == Decision::PASS) {
       game.turn().did_pass = true;
@@ -612,11 +615,14 @@ Error run() {
 
     if (action_manager.have_ordered_actions()) {
       action_manager.process_ordered_actions(game, dt);
+    } else if (game.have_ordered_scripts()) {
+      game.execute_ordered_scripts(action_manager);
     } else if (!game.popup_box() && active_script.active())  {
       active_script.run(game, action_manager);
     }
 
     action_manager.process_independent_actions(game, dt);
+    game.execute_independent_scripts(action_manager);
 
     for (const auto& [id, actor] : game.ecs().read_all<Actor>())
       if (actor.hp == 0) game.ecs().mark_to_delete(id);

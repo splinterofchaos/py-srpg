@@ -62,17 +62,13 @@ class ScriptEngine {
 
  public:
   ScriptEngine() { }
+  explicit ScriptEngine(Script s);
 
-  // Checks if we are currently executing a script.
-  bool active();
+  bool finished() const { return last_result_.code == ScriptResult::EXIT; }
 
+  bool active(); // Checks if we are currently executing a script.
   void clear() { instruction_pointer_ = 0; script_.clear(); }
-
-  void reset(Script script) {
-    script_ = std::move(script);
-    instruction_pointer_ = 0;
-    last_result_ = ScriptResult::START;
-  }
+  void reset(Script script);
 
   ScriptResult run(Game& game, ActionManager& manager) {
     last_result_ = run_impl(game, manager);
