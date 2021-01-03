@@ -107,3 +107,6 @@ void push_dialogue_block(
         response_labels = {});
 
 void push_end_dialogue(Script& script);
+
+void push_move_along_path(Script& script, EntityId id, Path path,
+                          float tiles_per_second = 0.2f);

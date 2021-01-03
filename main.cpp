@@ -224,8 +224,9 @@ void make_hammer_guy(Game& game, EntityId guy) {
     
     auto [tile, exists] = game.grid().get(target_tile);
     if (exists && tile.walkable) {
-      manager.add_ordered_action(
-          move_action(defender, {defender_pos, target_tile}));
+      Script script;
+      push_move_along_path(script, defender, {defender_pos, target_tile});
+      game.add_ordered_script(std::move(script));
     }
 
     return ScriptResult::CONTINUE;
@@ -552,8 +553,10 @@ Error run() {
     } else if (game.decision().type == Decision::MOVE_TO) {
       game.set_camera_target(game.decision().move_to);
 
-      action_manager.add_ordered_action(
-          move_action(whose_turn, path_to(dijkstra, game.decision().move_to)));
+      Script script;
+      push_move_along_path(script, whose_turn,
+                           path_to(dijkstra, game.decision().move_to));
+      game.add_ordered_script(std::move(script));
       game.turn().did_move = true;
       game.decision().type = Decision::DECIDING;
     } else if (game.decision().type == Decision::ATTACK_ENTITY) {
