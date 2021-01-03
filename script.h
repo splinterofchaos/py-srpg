@@ -109,4 +109,13 @@ void push_dialogue_block(
 void push_end_dialogue(Script& script);
 
 void push_move_along_path(Script& script, EntityId id, Path path,
-                          float tiles_per_second = 0.2f);
+                          float tiles_per_second = 5.0f);
+
+// Changes an entities health, making a nice "-X" appear on the screen to
+// inform the player.
+struct StatusEffect;
+void push_hp_change(Script& script, EntityId id, int change,
+                    StatusEffect effect);
+
+void push_attack(Script& script, const Game& game, EntityId attacker,
+                 EntityId defender);

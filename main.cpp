@@ -568,27 +568,23 @@ Error run() {
                                       0.5f));
 
       // Do the mele, but afterwards, reset the camera and continue the turn.
-      std::vector<std::unique_ptr<Action>> sequence;
-      sequence.push_back(
-          mele_action(game, whose_turn, game.decision().target,
-                      Path()));
+      Script attack_script;
+      push_attack(attack_script, game, whose_turn, game.decision().target);
 
-      // TODO: It would be much cleaner to check this withing mele_action().
+      // TODO: It would be much cleaner to check this within push_attack() and
+      // that would make it happen at the expected time.
       if (const Script* s =
           whose_turn_actor.triggers.get_or_null("on_hit_enemy")) {
-        sequence.push_back(
-          generic_action([&active_script, script=*s](const auto&...) {
-              active_script.reset(std::move(script));
-        }));
+        game.add_ordered_script(*s);
       }
 
-      sequence.push_back(
-          generic_action([&game, whose_turn] (const auto&...) {
-            game.set_camera_target(
-                game.ecs().read_or_panic<Transform>(whose_turn).pos);
-          }));
+      attack_script.push([whose_turn](Game& game, ActionManager&) {
+          game.set_camera_target(
+              game.ecs().read_or_panic<Transform>(whose_turn).pos);
+          return ScriptResult::CONTINUE;
+      });
 
-      action_manager.move_ordered_sequence(std::move(sequence));
+      game.add_ordered_script(std::move(attack_script));
 
       game.turn().did_action = true;
       game.decision().type = Decision::DECIDING;

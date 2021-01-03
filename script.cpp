@@ -138,14 +138,24 @@ void push_end_dialogue(Script& script) {
   });
 }
 
+static float path_distance(const Path& path) {
+  if (path.size() < 2) return 0.0f;
+
+  float dist = 0.f;
+  for (std::size_t i = 0; i + 1 < path.size(); ++i)
+    dist += glm::length(path[i + 1] - path[i]);
+  return dist;
+}
+
 void push_move_along_path(Script& script, EntityId id, Path _path,
                           float tiles_per_second) {
   using std::chrono::duration;
   using std::chrono::seconds;
 
   Path* path = new Path(std::move(_path));
-  StopWatch* watch = new StopWatch(
-      duration<float, seconds::period>(tiles_per_second * path->size()));
+  // TODO: This math is wrong. FIXME
+  StopWatch* watch = new StopWatch(duration<float, seconds::period>(
+          path_distance(*path) / tiles_per_second));
   watch->start();
 
   script.push([=](Game& game, ActionManager&) {
@@ -176,4 +186,67 @@ void push_move_along_path(Script& script, EntityId id, Path _path,
 
       return ScriptResult::WAIT;
   });
+}
+
+void push_hp_change(Script& script, EntityId id, int change,
+                    StatusEffect effect) {
+  script.push([=](Game& game, ActionManager&) {
+      Actor* actor;
+      GridPos* pos;
+      if (game.ecs().read(id, &actor, &pos) != EcsError::OK) {
+        std::cerr << "Could not read entity's stats or position!" << std::endl;
+        return ScriptResult::CONTINUE;
+      }
+
+      actor->add_status(effect);
+
+      int change_ = std::min(change, int(actor->hp));
+      actor->hp -= change_;
+      actor->hp = std::min(actor->hp, actor->stats.max_hp);
+
+      // Spawn a "-X" to appear over the entity.
+      GridPos x_pos{pos->pos + glm::ivec2(0, 1)};
+      Transform x_transform{x_pos.pos, Transform::POPUP_TEXT};
+      glm::vec4 color = change > 0 ? glm::vec4(0.8f, 0.0f, 0.0f, 1.f)
+                                   : glm::vec4(0.0f, 0.8f, 0.1f, 1.f);
+      GlyphRenderConfig rc(game.font_map().get('0' + change), color);
+      rc.center();
+      EntityId damage_text = game.ecs().write_new_entity(x_pos, x_transform,
+                                                         std::vector{rc});
+
+      Script move_up_and_delete;
+      push_move_along_path(move_up_and_delete, damage_text,
+                           {x_pos.pos, x_pos.pos + glm::ivec2(0, 1)});
+      move_up_and_delete.push([=](Game& game, ActionManager&) {
+          game.ecs().mark_to_delete(damage_text);
+          return ScriptResult::CONTINUE;
+      });
+      game.add_independent_script(std::move(move_up_and_delete));
+
+      return ScriptResult::CONTINUE;
+  });
+}
+
+void push_attack(Script& script, const Game& game, EntityId attacker,
+                 EntityId defender) {
+  glm::vec2 attacker_pos = game.ecs().read_or_panic<GridPos>(attacker).pos;
+  glm::vec2 defender_pos = game.ecs().read_or_panic<GridPos>(defender).pos;
+  // Where the attacker will thrust towards.
+  glm::vec2 thrust_pos = glm::normalize(defender_pos - attacker_pos) * 0.3f +
+                         attacker_pos;
+
+  // Calculate damage.
+  const Actor& defender_actor = game.ecs().read_or_panic<Actor>(defender);
+  const Actor& attacker_actor = game.ecs().read_or_panic<Actor>(attacker);
+  int damage = std::min(attacker_actor.stats.strength -
+                        defender_actor.stats.defense,
+                        defender_actor.hp);
+  damage = std::max(damage, 1);
+
+  push_move_along_path(script, attacker, {attacker_pos, thrust_pos}, 5.f);
+  push_hp_change(script, defender, damage, attacker_actor.embue);
+  if (attacker_actor.lifesteal) {
+    push_hp_change(script, attacker, -damage, StatusEffect());
+  }
+  push_move_along_path(script, attacker, {thrust_pos, attacker_pos}, 5.f);
 }
