@@ -447,8 +447,6 @@ Error run() {
 
   UserInput input;
 
-  ScriptEngine active_script;
-
   bool keep_going = true;
   SDL_Event e;
   Time t = now();
@@ -468,8 +466,7 @@ Error run() {
 
     // Check if we need to end the current turn, but wait until all scripts and
     // actions have completed first.
-    if (!active_script.active() &&
-        !game.have_ordered_scripts() &&
+    if (!game.have_ordered_scripts() &&
         !game.popup_box() &&
         (game.turn().over() || !game.ecs().is_active(whose_turn))) {
       whose_turn = advance_until_next_turn(game.ecs());
@@ -532,7 +529,7 @@ Error run() {
           game.popup_box()->on_left_click(input.mouse_pos_f);
         if (r == TextBoxPopup::DESTROY_ME) game.popup_box().reset();
       }
-    } else if (game.have_ordered_scripts() || active_script.active()) {
+    } else if (game.have_ordered_scripts()) {
       // Any active scripts interrupt processing input.
     } else if (game.decision().type == Decision::DECIDING) {
       if (whose_turn_agent.team == Team::CPU) {
@@ -542,7 +539,7 @@ Error run() {
       }
     }
 
-    if (game.have_ordered_scripts() || active_script.active()) {
+    if (game.have_ordered_scripts()) {
       // We're already acting on the previous decision or script.
     } else if (game.decision().type == Decision::PASS) {
       game.turn().did_pass = true;
@@ -602,19 +599,16 @@ Error run() {
       const Actor& other =
         game.ecs().read_or_panic<Actor>(game.decision().target);
       const Script* conversation = other.triggers.get_or_null("on_recruit");
-      active_script.reset(conversation ? *conversation :
-                          will_not_talk_conversation());
+      game.add_ordered_script(conversation ? *conversation :
+                              will_not_talk_conversation());
 
       game.turn().did_action = true;
       game.decision().type = Decision::DECIDING;
     }
 
-    if (game.have_ordered_scripts()) {
+    if (!game.popup_box()) {
       game.execute_ordered_scripts();
-    } else if (!game.popup_box() && active_script.active())  {
-      active_script.run(game);
     }
-
     game.execute_independent_scripts();
 
     for (const auto& [id, actor] : game.ecs().read_all<Actor>())
