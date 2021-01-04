@@ -114,6 +114,8 @@ void push_dialogue_block(
 
 void push_end_dialogue(Script& script);
 
+void push_set_camera_target(Script& script, glm::vec2 pos);
+
 void push_move_along_path(Script& script, EntityId id, Path path,
                           float tiles_per_second = 5.0f);
 

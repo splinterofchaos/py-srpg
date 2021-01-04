@@ -146,6 +146,14 @@ static float path_distance(const Path& path) {
   return dist;
 }
 
+void push_set_camera_target(Script& script, glm::vec2 pos) {
+  script.push([pos](Game& game) {
+      game.set_camera_target(pos);
+      return ScriptResult::CONTINUE;
+  });
+}
+
+
 void push_move_along_path(Script& script, EntityId id, Path _path,
                           float tiles_per_second) {
   using std::chrono::duration;
@@ -233,6 +241,8 @@ void push_attack(Script& script, const Game& game, EntityId attacker,
   // Where the attacker will thrust towards.
   glm::vec2 thrust_pos = glm::normalize(defender_pos - attacker_pos) * 0.3f +
                          attacker_pos;
+  // Where to center the camera
+  glm::vec2 cam_focus = glm::mix(attacker_pos, defender_pos, 0.5f);
 
   // Calculate damage.
   const Actor& defender_actor = game.ecs().read_or_panic<Actor>(defender);
@@ -242,6 +252,7 @@ void push_attack(Script& script, const Game& game, EntityId attacker,
                         defender_actor.hp);
   damage = std::max(damage, 1);
 
+  push_set_camera_target(script, cam_focus);
   push_move_along_path(script, attacker, {attacker_pos, thrust_pos}, 5.f);
   push_hp_change(script, defender, damage, attacker_actor.embue);
 
@@ -257,4 +268,5 @@ void push_attack(Script& script, const Game& game, EntityId attacker,
   }
 
   push_move_along_path(script, attacker, {thrust_pos, attacker_pos}, 5.f);
+  push_set_camera_target(script, attacker_pos);
 }

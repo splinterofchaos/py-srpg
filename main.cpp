@@ -553,23 +553,8 @@ Error run() {
       game.turn().did_move = true;
       game.decision().type = Decision::DECIDING;
     } else if (game.decision().type == Decision::ATTACK_ENTITY) {
-      // Set the camera at the midpoint between attacker and defender.
-      glm::vec2 attack_target_pos =
-        game.ecs().read_or_panic<Transform>(game.decision().target).pos;
-      game.set_camera_target(glm::mix(whose_turn_trans.pos,
-                                      attack_target_pos,
-                                      0.5f));
-
-      // Do the mele, but afterwards, reset the camera and continue the turn.
       Script attack_script;
       push_attack(attack_script, game, whose_turn, game.decision().target);
-
-      attack_script.push([whose_turn](Game& game) {
-          game.set_camera_target(
-              game.ecs().read_or_panic<Transform>(whose_turn).pos);
-          return ScriptResult::CONTINUE;
-      });
-
       game.add_ordered_script(std::move(attack_script));
 
       game.turn().did_action = true;
