@@ -244,8 +244,17 @@ void push_attack(Script& script, const Game& game, EntityId attacker,
 
   push_move_along_path(script, attacker, {attacker_pos, thrust_pos}, 5.f);
   push_hp_change(script, defender, damage, attacker_actor.embue);
+
+  if (const Script* s = attacker_actor.triggers.get_or_null("on_hit_enemy")) {
+    script.push([s](Game& game) {
+        game.add_ordered_script(*s);
+        return ScriptResult::CONTINUE;
+    });
+  }
+
   if (attacker_actor.lifesteal) {
     push_hp_change(script, attacker, -damage, StatusEffect());
   }
+
   push_move_along_path(script, attacker, {thrust_pos, attacker_pos}, 5.f);
 }

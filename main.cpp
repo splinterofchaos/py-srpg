@@ -564,13 +564,6 @@ Error run() {
       Script attack_script;
       push_attack(attack_script, game, whose_turn, game.decision().target);
 
-      // TODO: It would be much cleaner to check this within push_attack() and
-      // that would make it happen at the expected time.
-      if (const Script* s =
-          whose_turn_actor.triggers.get_or_null("on_hit_enemy")) {
-        game.add_ordered_script(*s);
-      }
-
       attack_script.push([whose_turn](Game& game) {
           game.set_camera_target(
               game.ecs().read_or_panic<Transform>(whose_turn).pos);
