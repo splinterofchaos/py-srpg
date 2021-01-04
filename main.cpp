@@ -448,7 +448,6 @@ Error run() {
   UserInput input;
 
   bool keep_going = true;
-  SDL_Event e;
   Time t = now();
   while (keep_going && !input.pressed('q')) {
     input.poll(game);
@@ -507,13 +506,6 @@ Error run() {
       }
     }
 
-    const Actor& whose_turn_actor =
-      game.ecs().read_or_panic<Actor>(whose_turn);
-    const Agent& whose_turn_agent =
-      game.ecs().read_or_panic<Agent>(whose_turn);
-    const Transform& whose_turn_trans =
-      game.ecs().read_or_panic<Transform>(whose_turn);
-
     if (game.turn().did_move) {
       movement_indicators.deactivate_pool(game.ecs());
     }
@@ -532,6 +524,9 @@ Error run() {
     } else if (game.have_ordered_scripts()) {
       // Any active scripts interrupt processing input.
     } else if (game.decision().type == Decision::DECIDING) {
+      const Agent& whose_turn_agent =
+        game.ecs().read_or_panic<Agent>(whose_turn);
+
       if (whose_turn_agent.team == Team::CPU) {
         cpu_decision(game, dijkstra, whose_turn);
       } else if (whose_turn_agent.team == Team::PLAYER) {
@@ -571,9 +566,6 @@ Error run() {
       // centered on the player.
       // TODO: Dialogues should have the camera center on the speaker. We can
       // then place the box relative to the speaker's position.
-      glm::vec2 player_pos =
-        game.ecs().read_or_panic<Transform>(whose_turn).pos;
-
       const Actor& other =
         game.ecs().read_or_panic<Actor>(game.decision().target);
       const Script* conversation = other.triggers.get_or_null("on_recruit");

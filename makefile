@@ -11,7 +11,7 @@ DEPS := $(OBJS:.o=.d)
 
 INC_FLAGS := -Iinclude
 
-CPPFLAGS ?= $(INC_FLAGS) -g -std=c++2a -MP -MMD \
+CPPFLAGS ?= $(INC_FLAGS) -g -std=c++2a -Wall -MP -MMD \
 						`pkg-config --cflags freetype2`
 
 LDFLAGS := -lSDL2 -lfreetype -lGL -lGLEW -lGLU
