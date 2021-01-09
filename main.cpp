@@ -53,6 +53,7 @@ std::ostream& operator<<(std::ostream& os, glm::vec2 v) {
 // TODO: Just move this to a conversations file instead of forward declaring
 // here.
 Script demo_convo();
+Script demo_royalist_convo();
 
 const char* const STARTING_GRID = R"(
 ##############
@@ -320,6 +321,91 @@ void make_imp(Game& game, EntityId imp) {
   game.ecs().write(imp, actor);
 }
 
+void make_king(Game& game, EntityId king) {
+  // We're going for...
+  // M
+  // O
+  constexpr glm::vec4 COLOR = glm::vec4(0.f, 0.2f, 0.6f, 1.f);
+
+  std::vector<GlyphRenderConfig> rcs;
+  rcs.emplace_back(game.font_map().get('M'), COLOR);
+  rcs.back().center();
+  rcs.back().offset += glm::vec3(0.0f, 0.23f, 0.f);
+
+  rcs.emplace_back(game.font_map().get('O'), COLOR);
+  rcs.back().center();
+  rcs.back().offset += glm::vec3(-0.0f, -0.1f, 0.f);
+
+  game.ecs().write(king, std::move(rcs), Ecs::CREATE_OR_UPDATE);
+
+  Actor& actor = game.ecs().read_or_panic<Actor>(king);
+  actor.stats.speed -= 3;
+  actor.stats.max_hp += 5;
+  actor.hp += 5;
+
+  actor.triggers.set("on_recruit", demo_royalist_convo());
+}
+
+Script demo_royalist_convo() {
+  Script script;
+  std::string* jump_label = new std::string("START");
+
+  push_dialogue_block(
+      script, jump_label, "START",
+      "Me? Work with a peasant? I think not, but perhaps you could pledge your "
+      "loyalty to me, instead.",
+      {{"> I've already pledged to one king, I can't pledge to another.",
+        "TWO_KINGS"},
+       {"> I will work under no king!", "NO_KING"},
+       {"> Apologies, my liege, I meant no offense.", "MY_LEIGE"}});
+  push_dialogue_block(
+      script, jump_label, "TWO_KINGS",
+      "No, certainly you cannot. So you shall pledge to me instead.",
+      {{"> Yes, my liege.", "MY_LEIGE"},
+       {"> I shall not! I don't even want one king.", "NO_KING"},
+       {"> No, you shall pledge to mine.", "KING_PLEDGE_KING"}});
+  push_dialogue_block(
+      script, jump_label, "NO_KING",
+      "By the grace of God and divine right, It is my duty to enact God’s "
+      "will and should be your honor to serve under me.",
+      {{"> Which god?", "WHICH_GOD"},
+       {"> I hang out with god all the time and he never mentioned you. "
+        "(joke)", "BLASPHEMER"},
+       {"> I never heard of this god fellow. Who is he? (sarcasm)",
+        "BLASPHEMER"},
+       {"> God told my king the same thing.", "BLASPHEMER"}});
+  push_dialogue_block(
+      script, jump_label, "KING_PLEDGE_KING",
+      "Well obviously that can’t happen. Decide.",
+      {{"> Fine, you.", "UNENTHUSIASTIC"},
+       {"> ... you, m'lord.", "MY_LEIGE"},
+       {"> I like my king, thank you very much.", "BLASPHEMER"}});
+  push_dialogue_block(
+      script, jump_label, "WHICH_GOD",
+      "Oh, uh… I just changed last month due to the divorce laws of my last "
+      "god, god of the sun, I believe.",
+      {{"> All praise His mighty rays.", "MY_LEIGE"},
+       {"> Not my god", "END"}});
+  push_dialogue_block(
+      script, jump_label, "BLASPHEMER",
+      "An insult to god is an insult to the crown and vice versa. You shall "
+      "rue this day.");
+  push_jump(script, "END");
+  push_dialogue_block(
+      script, jump_label, "UNENTHUSIASTIC",
+      "You must say this with meaning!",
+      {{"> I pledge my self to you, m’lord.", "MY_LEIGE"},
+       {"> Screw you.", "END"}});
+  push_dialogue_block(script, jump_label, "MY_LEIGE", "Very well.");
+  push_convert_to_team(script, Team::PLAYER);
+  push_jump(script, "END");
+  push_dialogue_block(script, jump_label, "STAY_WITH_KING",
+                      "I cannot allow this.");
+  script.push_label("END");
+  push_delete(script, jump_label);
+  return script;
+}
+
 Script demo_convo() {
   Script script;
   std::string* jump_label = new std::string("START");
@@ -433,12 +519,12 @@ Error run() {
   game.set_grid(arena_grid({24, 24}, wall, floor));
 
   make_human(game, spawn_agent(game, "Joe", {3, 3}, Team::PLAYER));
-  make_human(game, spawn_agent(game, "Joa", {4, 3}, Team::PLAYER));
   make_hammer_guy(game, spawn_agent(game, "Jor", {5, 3}, Team::PLAYER));
 
   make_spider(game, spawn_agent(game, "spider", {12, 12}, Team::CPU));
   make_imp(game, spawn_agent(game, "imp", {10, 12}, Team::CPU));
   make_bat(game, spawn_agent(game, "bat", {10, 10}, Team::CPU));
+  make_king(game, spawn_agent(game, "Joa", {4, 3}, Team::CPU));
 
 
   EntityId whose_turn;
