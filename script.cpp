@@ -18,7 +18,8 @@ int Script::get_label(const std::string& label) {
   return it == std::end(labels_) ? -1 : it->second;
 }
 
-ScriptEngine::ScriptEngine(Script s) {
+ScriptEngine::ScriptEngine(unsigned int id, Script s) {
+  script_id_ = id;
   reset(std::move(s));
 }
 

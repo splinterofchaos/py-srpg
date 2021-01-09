@@ -58,8 +58,15 @@ class Script {
   void clear();
 };
 
+struct Vars {
+  std::unordered_map<std::string, int> int_vars;
+  std::unordered_map<std::string, std::string> string_vars;
+  std::unordered_map<std::string, EntityId> entity_id_vars;
+};
+
 class ScriptEngine {
  private:
+  unsigned int script_id_ = 0;
   Script script_;
   unsigned int instruction_pointer_ = 0;
   ScriptResult last_result_ = ScriptResult::EXIT;
@@ -67,8 +74,10 @@ class ScriptEngine {
   ScriptResult run_impl(Game& game);
 
  public:
-  ScriptEngine() { }
-  explicit ScriptEngine(Script s);
+  ScriptEngine(unsigned int id) : script_id_(id) { }
+  explicit ScriptEngine(unsigned int id, Script s);
+
+  unsigned int id() const { return script_id_; }
 
   bool finished() const { return last_result_.code == ScriptResult::EXIT; }
 

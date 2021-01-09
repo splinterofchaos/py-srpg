@@ -2,6 +2,7 @@
 
 #include <chrono>
 #include <list>
+#include <set>
 
 #include <glm/vec2.hpp>
 
@@ -55,6 +56,10 @@ class Game {
   std::vector<ScriptEngine> independent_scripts_;
   std::list<ScriptEngine> ordered_scripts_;
 
+  std::unordered_map<unsigned int, Vars> script_vars_;
+  unsigned int current_script_id_ = 0;
+  unsigned int gen_script_vars_and_id();
+
 public:
   Error init();
   const Grid& grid() const { return grid_; }
@@ -101,6 +106,8 @@ public:
 
   void execute_independent_scripts();
   void execute_ordered_scripts();
+
+  Vars* get_vars();
 
   glm::vec2& camera_offset() { return camera_offset_; }
   const glm::vec2& camera_offset() const { return camera_offset_; }
