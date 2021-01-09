@@ -137,15 +137,11 @@ void DialogueBox::after_build_box() {
   typing_watch_.start();
 }
 
-void DialogueBox::update(std::chrono::milliseconds dt) {
-  if (text_activated_ >= text_.size()) return;
+bool DialogueBox::finished_activating() const {
+  return text_activated_ >= text_.size();
+}
 
-  typing_watch_.consume(dt);
-  if (!typing_watch_.finished()) return;
-
-  typing_watch_.reset();
-  typing_watch_.start();
-
+void DialogueBox::activate_next() {
   Text::Char ch{' ', EntityId()};
   while (ch.c == ' ') {
     ch = text_[text_activated_].char_entities[entities_activated_++];
@@ -163,4 +159,39 @@ void DialogueBox::update(std::chrono::milliseconds dt) {
     ++text_activated_;
     entities_activated_ = 0;
   }
+}
+
+TextBoxPopup::OnClickResponse DialogueBox::on_left_click(glm::vec2 mouse_pos) {
+  // Make sure all the text is printed before checking specific dialogue boxes.
+  if (!finished_activating()) {
+    do activate_next(); while (!finished_activating());
+    return KEEP_OPEN;
+  }
+
+  bool has_on_click = false;
+  bool did_on_click = false;
+  for (const Text& text : text_) {
+    has_on_click |= bool(text.on_click);
+    if (in_between(mouse_pos, text.upper_left, text.lower_right)) {
+      if (text.on_click) {
+        text.on_click();
+        did_on_click = true;
+      }
+      break;
+    }
+  }
+
+  return !has_on_click || did_on_click ? DESTROY_ME : KEEP_OPEN;
+}
+
+void DialogueBox::update(std::chrono::milliseconds dt) {
+  if (finished_activating()) return;
+
+  typing_watch_.consume(dt);
+  if (!typing_watch_.finished()) return;
+
+  typing_watch_.reset();
+  typing_watch_.start();
+
+  activate_next();
 }

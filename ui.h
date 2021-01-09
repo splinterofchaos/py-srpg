@@ -124,9 +124,10 @@ class SelectionBox : public TextBoxPopup {
   }
 };
 
+// The dialogue box differs a little from the others in that it prints each
+// character one-by-one instead of putting them all on screen at once.
 class DialogueBox : public TextBoxPopup {
-  // Instead of printing each character at once, the dialogue box types them
-  // out. This watch manages the delay between printing characters.
+  // This watch manages the delay between printing characters.
   StopWatch typing_watch_;
 
   // The number of Text objects where all their entities are active.
@@ -135,25 +136,13 @@ class DialogueBox : public TextBoxPopup {
   // done.
   unsigned int entities_activated_ = 0;
 
+  void activate_next();
+  bool finished_activating() const;
+
  public:
   using TextBoxPopup::TextBoxPopup;
 
-  OnClickResponse on_left_click(glm::vec2 mouse_pos) override {
-    bool has_on_click = false;
-    bool did_on_click = false;
-    for (const Text& text : text_) {
-      has_on_click |= bool(text.on_click);
-      if (in_between(mouse_pos, text.upper_left, text.lower_right)) {
-        if (text.on_click) {
-          text.on_click();
-          did_on_click = true;
-        }
-        break;
-      }
-    }
-
-    return !has_on_click || did_on_click ? DESTROY_ME : KEEP_OPEN;
-  }
+  OnClickResponse on_left_click(glm::vec2 mouse_pos) override;
 
   void after_build_box() override;
 
