@@ -111,6 +111,7 @@ struct Actor {
 
   Actor(std::string name, Stats stats)
       : name(std::move(name)), base_stats(stats), lifesteal(false) {
+    hp = stats.max_hp;
     recalculate_stats();
   }
 };
