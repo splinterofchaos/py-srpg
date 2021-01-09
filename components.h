@@ -126,6 +126,9 @@ struct Marker {
 
 enum class Team { PLAYER, CPU };
 
+constexpr glm::vec4 PLAYER_COLOR = glm::vec4(.9f, .6f, .1f, 1.f);
+constexpr glm::vec4 CPU_COLOR = glm::vec4(0.f, 0.2f, 0.6f, 1.f);
+
 // The agent controls when an actor gets to take its turn and how.
 struct Agent {
   // TODO: When an agent is attacked, it should lose energy, but it should also

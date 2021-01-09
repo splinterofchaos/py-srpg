@@ -270,3 +270,22 @@ void push_attack(Script& script, const Game& game, EntityId attacker,
   push_move_along_path(script, attacker, {thrust_pos, attacker_pos}, 5.f);
   push_set_camera_target(script, attacker_pos);
 }
+
+void push_convert_to_team(Script& script, Team team) {
+  script.push([team](Game& game) {
+      std::vector<GlyphRenderConfig>* rcs;
+      Agent* agent;
+      if (game.ecs().read(game.decision().target, &rcs, &agent) !=
+          EcsError::OK) {
+        std::cout << "Can't convert an entity that doesn't exist."
+                  << std::endl;
+        return ScriptResult::CONTINUE;
+      }
+
+    agent->team = team;
+    for (GlyphRenderConfig& rc : *rcs) {
+      rc.fg_color = team == Team::PLAYER ? PLAYER_COLOR : CPU_COLOR;
+    }
+    return ScriptResult::CONTINUE;
+  });
+}

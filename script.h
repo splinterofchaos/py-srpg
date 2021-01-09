@@ -127,3 +127,6 @@ void push_hp_change(Script& script, EntityId id, int change,
 
 void push_attack(Script& script, const Game& game, EntityId attacker,
                  EntityId defender);
+
+enum class Team;
+void push_convert_to_team(Script& script, Team team);

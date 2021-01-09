@@ -375,6 +375,7 @@ Script demo_convo() {
   push_jump(script, "END");
   push_dialogue_block(
       script, jump_label, "DEAL", "Deal!");
+  push_convert_to_team(script, Team::PLAYER);
   script.push_label("END");
   push_end_dialogue(script);
   push_delete(script, jump_label);
