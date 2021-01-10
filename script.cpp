@@ -75,17 +75,20 @@ void push_jump(Script& script, std::string label) {
   });
 }
 
-void push_jump_ptr(Script& script, std::string* label) {
-  script.push([label=label](Game& game) {
-      auto r = ScriptResult(ScriptResult::RETRY, *label);
-      label->clear();
-      return r;
+void push_jump(Script& script) {
+  script.push([](Game& game) -> ScriptResult {
+      Vars* vars = game.get_vars();
+      if (!vars) return ScriptResult::EXIT;
+      auto it = vars->string_vars.find("jump");
+      if (it == vars->string_vars.end()) return ScriptResult::EXIT;
+      std::string label = std::move(it->second);
+      vars->string_vars.erase(it);
+      return ScriptResult(ScriptResult::RETRY, label);
   });
 }
 
 void push_dialogue_block(
     Script& script,
-    std::string* jump_label,
     std::string_view label,
     std::string_view text,
     std::vector<std::pair<std::string, std::string>>
@@ -97,7 +100,7 @@ void push_dialogue_block(
 
   script.push_label(std::string(label));
   script.push(
-      [jump_label, text=std::string(text),
+      [text=std::string(text),
        response_labels=std::move(response_labels)]
       (Game& game) {
         game.popup_box().reset(new DialogueBox(game, DIALOGUE_WIDTH));
@@ -105,7 +108,9 @@ void push_dialogue_block(
         for (auto& [response, label] : response_labels) {
           game.popup_box()->add_text_with_onclick(
               std::move(response),
-              [jump_label, label] { *jump_label = label; });
+              [&game, label] {
+                  game.get_vars()->string_vars["jump"] = label;
+              });
         }
 
         // We might want a slightly more intelligent way of determining this...
@@ -127,7 +132,7 @@ void push_dialogue_block(
       }
   );
 
-  if (jump_on_response) push_jump_ptr(script, jump_label);
+  if (jump_on_response) push_jump(script);
 }
 
 void push_end_dialogue(Script& script) {

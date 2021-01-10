@@ -348,10 +348,9 @@ void make_king(Game& game, EntityId king) {
 
 Script demo_royalist_convo() {
   Script script;
-  std::string* jump_label = new std::string("START");
 
   push_dialogue_block(
-      script, jump_label, "START",
+      script, "START",
       "Me? Work with a peasant? I think not, but perhaps you could pledge your "
       "loyalty to me, instead.",
       {{"> I've already pledged to one king, I can't pledge to another.",
@@ -359,13 +358,13 @@ Script demo_royalist_convo() {
        {"> I will work under no king!", "NO_KING"},
        {"> Apologies, my liege, I meant no offense.", "MY_LEIGE"}});
   push_dialogue_block(
-      script, jump_label, "TWO_KINGS",
+      script, "TWO_KINGS",
       "No, certainly you cannot. So you shall pledge to me instead.",
       {{"> Yes, my liege.", "MY_LEIGE"},
        {"> I shall not! I don't even want one king.", "NO_KING"},
        {"> No, you shall pledge to mine.", "KING_PLEDGE_KING"}});
   push_dialogue_block(
-      script, jump_label, "NO_KING",
+      script, "NO_KING",
       "By the grace of God and divine right, It is my duty to enact God’s "
       "will and should be your honor to serve under me.",
       {{"> Which god?", "WHICH_GOD"},
@@ -375,54 +374,52 @@ Script demo_royalist_convo() {
         "BLASPHEMER"},
        {"> God told my king the same thing.", "BLASPHEMER"}});
   push_dialogue_block(
-      script, jump_label, "KING_PLEDGE_KING",
+      script, "KING_PLEDGE_KING",
       "Well obviously that can’t happen. Decide.",
       {{"> Fine, you.", "UNENTHUSIASTIC"},
        {"> ... you, m'lord.", "MY_LEIGE"},
        {"> I like my king, thank you very much.", "BLASPHEMER"}});
   push_dialogue_block(
-      script, jump_label, "WHICH_GOD",
+      script, "WHICH_GOD",
       "Oh, uh… I just changed last month due to the divorce laws of my last "
       "god, god of the sun, I believe.",
       {{"> All praise His mighty rays.", "MY_LEIGE"},
        {"> Not my god", "END"}});
   push_dialogue_block(
-      script, jump_label, "BLASPHEMER",
+      script, "BLASPHEMER",
       "An insult to god is an insult to the crown and vice versa. You shall "
       "rue this day.");
   push_jump(script, "END");
   push_dialogue_block(
-      script, jump_label, "UNENTHUSIASTIC",
+      script, "UNENTHUSIASTIC",
       "You must say this with meaning!",
       {{"> I pledge my self to you, m’lord.", "MY_LEIGE"},
        {"> Screw you.", "END"}});
-  push_dialogue_block(script, jump_label, "MY_LEIGE", "Very well.");
+  push_dialogue_block(script, "MY_LEIGE", "Very well.");
   push_convert_to_team(script, Team::PLAYER);
   push_jump(script, "END");
-  push_dialogue_block(script, jump_label, "STAY_WITH_KING",
+  push_dialogue_block(script, "STAY_WITH_KING",
                       "I cannot allow this.");
   script.push_label("END");
-  push_delete(script, jump_label);
   return script;
 }
 
 Script demo_convo() {
   Script script;
-  std::string* jump_label = new std::string("START");
   push_dialogue_block(
-      script, jump_label, "START",
+      script, "START",
       "I can cooperate, but what can you offer me?",
       {{"> money", "MAYBE_MONEY"},
        {"> freedom", "ALREADY_FREE"}});
   push_dialogue_block(
-      script, jump_label, "MAYBE_MONEY",
+      script, "MAYBE_MONEY",
       "Money? I may look poor, but I'm just a temporarily embarrassed "
       "millionaire.",
       {{"> Okay, maybe something else.", "START"},
        {"> Together, we can take down larger monsters than either "
         "can apart.", "DEAL"}});
   push_dialogue_block(
-      script, jump_label, "ALREADY_FREE",
+      script, "ALREADY_FREE",
       "I'm independent! As free as it gets! It seems to me you are the one "
       "who is trapped in here, working for either your king or some "
       "benefactor?",
@@ -430,7 +427,7 @@ Script demo_convo() {
         "INDEPENDENT?"},
        {"> The king is just. The king is good.", "ROYALIST_SCUM"}});
   push_dialogue_block(
-      script, jump_label, "INDEPENDENT?",
+      script, "INDEPENDENT?",
       "Hah! The power dynamic remains. You were coerced into entering and by "
       "joining you, that'd give the king leverage over me, too. "
       "Freedom, my ass.",
@@ -439,11 +436,11 @@ Script demo_convo() {
         "in this situation.", "POWER"},
        {"> A rebel scum like you doesn't deserve to live!", "END"}});
   push_dialogue_block(
-      script, jump_label, "POWER",
+      script, "POWER",
       "True... and we can make ANY demand we want...");
   push_jump(script, "DEAL");
   push_dialogue_block(
-      script, jump_label, "CHANGE",
+      script, "CHANGE",
       "Talking out of your ass or just naive? What're you going to do? Raise "
       "an army to overthrow the throne? Restructure the entire society?",
       // TODO: Maybe if the player has a certain number of allies on their
@@ -451,27 +448,25 @@ Script demo_convo() {
       {{"> Yes, exactly!", "NAIVE"},
        {"> ...", "NAIVE"}});
   push_dialogue_block(
-      script, jump_label, "ROYALIST_SCUM",
+      script, "ROYALIST_SCUM",
       "The king good? He trapped all of us in this dungeon and throws his own "
       "citizens in to die. All who support the king must die.");
   push_jump(script, "END");
   push_dialogue_block(
-      script, jump_label, "NAIVE",
+      script, "NAIVE",
       "There's no use talking to a fool like you.");
   push_jump(script, "END");
   push_dialogue_block(
-      script, jump_label, "DEAL", "Deal!");
+      script, "DEAL", "Deal!");
   push_convert_to_team(script, Team::PLAYER);
   script.push_label("END");
   push_end_dialogue(script);
-  push_delete(script, jump_label);
   return script;
 }
 
 Script will_not_talk_conversation() {
   Script script;
-  push_dialogue_block(script, nullptr, "START",
-                      "(They don't want to speak with you.)");
+  push_dialogue_block(script, "START", "(They don't want to speak with you.)");
   return script;
 }
 

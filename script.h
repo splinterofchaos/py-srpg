@@ -94,10 +94,8 @@ class ScriptEngine {
 // Pushes an instruction to the script which jumps to a label.
 void push_jump(Script& script, std::string label);
 
-// Scripts may allocate a string on the heap to coordinate where to jump to
-// next in the script between GUI dialogue boxes and the script itself. Adds
-// an instruction that jumps to the value set in the label.
-void push_jump_ptr(Script& script, std::string* label);
+// Jump based on the "jump" script string var.
+void push_jump(Script& script);
 
 // If a script allocated storage, such as for a jump label, put this at the
 // end of the script to clean up the memory.
@@ -115,7 +113,6 @@ void push_delete(Script& script, X* x) {
 // options.
 void push_dialogue_block(
     Script& script,
-    std::string* jump_label,
     std::string_view label,
     std::string_view text,
     std::vector<std::pair<std::string, std::string>>
