@@ -2,7 +2,7 @@
 
 #include <chrono>
 #include <list>
-#include <set>
+#include <map>
 
 #include <glm/vec2.hpp>
 
@@ -56,7 +56,7 @@ class Game {
   std::vector<ScriptEngine> independent_scripts_;
   std::list<ScriptEngine> ordered_scripts_;
 
-  std::unordered_map<unsigned int, Vars> script_vars_;
+  std::map<unsigned int, Vars> script_vars_;
   unsigned int current_script_id_ = 0;
   unsigned int gen_script_vars_and_id();
 
