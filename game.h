@@ -99,8 +99,8 @@ public:
     dt_ = std::chrono::duration_cast<std::chrono::milliseconds>(d);
   }
 
-  void add_independent_script(Script script);
-  void add_ordered_script(Script script);
+  unsigned int add_independent_script(Script script);
+  unsigned int add_ordered_script(Script script);
 
   bool have_ordered_scripts() const { return !ordered_scripts_.empty(); }
 
@@ -108,6 +108,7 @@ public:
   void execute_ordered_scripts();
 
   Vars* get_vars();
+  Vars* get_vars(unsigned int script_id);
 
   glm::vec2& camera_offset() { return camera_offset_; }
   const glm::vec2& camera_offset() const { return camera_offset_; }

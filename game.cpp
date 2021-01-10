@@ -29,12 +29,16 @@ unsigned int Game::gen_script_vars_and_id() {
   return id;
 }
 
-void Game::add_independent_script(Script script) {
-  independent_scripts_.emplace_back(gen_script_vars_and_id(), std::move(script));
+unsigned int Game::add_independent_script(Script script) {
+  unsigned int id = gen_script_vars_and_id();
+  independent_scripts_.emplace_back(id, std::move(script));
+  return id;
 }
 
-void Game::add_ordered_script(Script script) {
-  ordered_scripts_.emplace_back(gen_script_vars_and_id(), std::move(script));
+unsigned int Game::add_ordered_script(Script script) {
+  unsigned int id = gen_script_vars_and_id();
+  ordered_scripts_.emplace_back(id, std::move(script));
+  return id;
 }
 
 void Game::execute_independent_scripts() {
@@ -58,7 +62,11 @@ void Game::execute_ordered_scripts() {
 }
 
 Vars* Game::get_vars() {
-  auto it = script_vars_.find(current_script_id_);
+  return get_vars(current_script_id_);
+}
+
+Vars* Game::get_vars(unsigned int script_id) {
+  auto it = script_vars_.find(script_id);
   if (it == script_vars_.end()) return nullptr;
   return &it->second;
 }

@@ -396,11 +396,12 @@ Script demo_royalist_convo() {
       {{"> I pledge my self to you, m’lord.", "MY_LEIGE"},
        {"> Screw you.", "END"}});
   push_dialogue_block(script, "MY_LEIGE", "Very well.");
-  push_convert_to_team(script, Team::PLAYER);
+  push_convert_speaker_to_team(script, Team::PLAYER);
   push_jump(script, "END");
   push_dialogue_block(script, "STAY_WITH_KING",
                       "I cannot allow this.");
   script.push_label("END");
+  push_end_dialogue(script);
   return script;
 }
 
@@ -458,7 +459,7 @@ Script demo_convo() {
   push_jump(script, "END");
   push_dialogue_block(
       script, "DEAL", "Deal!");
-  push_convert_to_team(script, Team::PLAYER);
+  push_convert_speaker_to_team(script, Team::PLAYER);
   script.push_label("END");
   push_end_dialogue(script);
   return script;
@@ -651,8 +652,12 @@ Error run() {
       const Actor& other =
         game.ecs().read_or_panic<Actor>(game.decision().target);
       const Script* conversation = other.triggers.get_or_null("on_recruit");
-      game.add_ordered_script(conversation ? *conversation :
-                              will_not_talk_conversation());
+      unsigned int script_id =
+        game.add_ordered_script(conversation ? *conversation :
+                                will_not_talk_conversation());
+      game.get_vars(script_id)->entity_id_vars["speaker"] =
+        game.decision().target;
+
 
       game.turn().did_action = true;
       game.decision().type = Decision::DECIDING;

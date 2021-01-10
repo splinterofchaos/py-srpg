@@ -114,7 +114,7 @@ void push_dialogue_block(
         }
 
         // We might want a slightly more intelligent way of determining this...
-        EntityId speaker = game.decision().target;
+        EntityId speaker = game.get_vars()->entity_id_vars["speaker"];
         const glm::vec2& speaker_pos =
             game.ecs().read_or_panic<Transform>(speaker).pos;
 
@@ -158,7 +158,6 @@ void push_set_camera_target(Script& script, glm::vec2 pos) {
       return ScriptResult::CONTINUE;
   });
 }
-
 
 void push_move_along_path(Script& script, EntityId id, Path _path,
                           float tiles_per_second) {
@@ -277,12 +276,12 @@ void push_attack(Script& script, const Game& game, EntityId attacker,
   push_set_camera_target(script, attacker_pos);
 }
 
-void push_convert_to_team(Script& script, Team team) {
+void push_convert_speaker_to_team(Script& script, Team team) {
   script.push([team](Game& game) {
       std::vector<GlyphRenderConfig>* rcs;
       Agent* agent;
-      if (game.ecs().read(game.decision().target, &rcs, &agent) !=
-          EcsError::OK) {
+      if (game.ecs().read(game.get_vars()->entity_id_vars["speaker"],
+                          &rcs, &agent) != EcsError::OK) {
         std::cout << "Can't convert an entity that doesn't exist."
                   << std::endl;
         return ScriptResult::CONTINUE;

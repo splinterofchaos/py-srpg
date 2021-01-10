@@ -135,4 +135,4 @@ void push_attack(Script& script, const Game& game, EntityId attacker,
                  EntityId defender);
 
 enum class Team;
-void push_convert_to_team(Script& script, Team team);
+void push_convert_speaker_to_team(Script& script, Team team);
