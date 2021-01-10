@@ -164,13 +164,12 @@ void push_move_along_path(Script& script, EntityId id, Path _path,
   using std::chrono::duration;
   using std::chrono::seconds;
 
-  Path* path = new Path(std::move(_path));
   // TODO: This math is wrong. FIXME
-  StopWatch* watch = new StopWatch(duration<float, seconds::period>(
-          path_distance(*path) / tiles_per_second));
-  watch->start();
+  StopWatch watch(duration<float, seconds::period>(
+          path_distance(_path) / tiles_per_second));
+  watch.start();
 
-  script.push([=](Game& game) {
+  script.push([path=std::move(_path), watch, id](Game& game) mutable {
       Transform* transform = nullptr;
       if (game.ecs().read(id, &transform) != EcsError::OK) {
         std::cerr << "Move script interrupted: entity stopped existing."
@@ -178,21 +177,19 @@ void push_move_along_path(Script& script, EntityId id, Path _path,
         return ScriptResult::CONTINUE;
       }
 
-      watch->consume(game.dt());
+      watch.consume(game.dt());
 
       auto to_float = [](glm::vec2 v) { return v; };
-      transform->pos = mix_vector_by_ratio(*path, watch->ratio_consumed(),
+      transform->pos = mix_vector_by_ratio(path, watch.ratio_consumed(),
                                            to_float);
 
       // Clean up if finished.
-      if (!path->empty() && watch->finished()) {
+      if (!path.empty() && watch.finished()) {
         GridPos* gpos = nullptr;
         if (game.ecs().read(id, &gpos) == EcsError::OK) {
-          gpos->pos = glm::round(path->back());
+          gpos->pos = glm::round(path.back());
         }
 
-        delete watch;
-        delete path;
         return ScriptResult::CONTINUE;
       }
 
